@@ -12,7 +12,7 @@ export default function Certifications() {
 
   return (
     <section id="certifications" className="bg-white text-black py-16">
-      <div className="max-w-4xl mx-auto px-4 md:px-8">
+      <div className="max-w-5xl mx-auto px-8">
         <h2 className="text-4xl font-bold text-center mb-8">Certifications</h2>
         <div
           ref={ref}

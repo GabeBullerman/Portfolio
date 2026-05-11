@@ -17,7 +17,7 @@ export default function Header() {
             <li key={href} className="flex">
               <a
                 href={href}
-                className="flex-1 flex items-center justify-center font-bold text-lg text-white no-underline border-4 border-transparent hover:bg-white hover:text-black hover:border-black transition-colors duration-300"
+                className="flex-1 flex items-center justify-center font-bold text-lg text-white no-underline border-4 border-black hover:bg-white hover:text-black transition-colors duration-300"
               >
                 {label}
               </a>

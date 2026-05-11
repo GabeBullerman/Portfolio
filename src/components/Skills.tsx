@@ -32,7 +32,7 @@ function SkillCategoryBlock({ category, isLast }: { category: SkillCategory; isL
 export default function Skills() {
   return (
     <section id="skills" className="bg-white text-black py-16">
-      <div className="max-w-4xl mx-auto px-4 md:px-8">
+      <div className="max-w-5xl mx-auto px-8">
         <h2 className="text-4xl font-bold text-center mb-8">Technical Skills</h2>
         <div className="border-2 border-black rounded-2xl p-6 md:p-10 flex flex-col gap-8">
           {skillsData.map((category, i) => (

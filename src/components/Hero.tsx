@@ -19,10 +19,28 @@ export default function Hero() {
             <span>{displayText}</span>
             <span className="animate-blink font-thin">|</span>
           </h2>
-          <p className="text-lg md:text-xl leading-relaxed">
+          <p className="text-lg md:text-xl leading-relaxed mb-6">
             Undergraduate Computer Science major at Iowa State University. Interested in full-stack
             development, mobile apps, and webapps.
           </p>
+          <div className="flex gap-4 justify-center md:justify-start flex-wrap">
+            <a
+              href="https://github.com/GabeBullerman"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-2 bg-black text-white border-2 border-black rounded-full font-bold hover:bg-white hover:text-black transition-colors duration-300 text-sm"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://www.linkedin.com/in/gabe-bullerman/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-2 bg-white text-black border-2 border-black rounded-full font-bold hover:bg-black hover:text-white transition-colors duration-300 text-sm"
+            >
+              LinkedIn
+            </a>
+          </div>
         </div>
       </div>
     </section>
