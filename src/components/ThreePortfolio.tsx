@@ -40,8 +40,8 @@ void main() {
   float n = noise2(position.xy * 0.07) * 0.45 + noise2(position.xy * 0.22) * 0.18;
   vElev = n;
   vec3 pos = position; pos.z += n;
-  vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-  gl_Position = projectionMatrix * mvPos;
+  vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }
 `
@@ -73,8 +73,201 @@ void main() {
 }
 `
 
+// ─── Types & section data ───────────────────────────────────────────────────
+type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
+
+interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
+
+const SECTIONS: SectionCfg[] = [
+  { id: 'about',          label: 'About Me',       wx:  0, wz:   2 },
+  { id: 'experience',     label: 'Experience',     wx:  5, wz: -12 },
+  { id: 'skills',         label: 'Skills',         wx: -5, wz: -24 },
+  { id: 'projects',       label: 'Projects',       wx:  5, wz: -36 },
+  { id: 'certifications', label: 'Certs',          wx: -5, wz: -48 },
+  { id: 'moreonme',       label: 'More on Me',     wx:  5, wz: -60 },
+  { id: 'contact',        label: 'Contact',        wx:  0, wz: -70 },
+]
+
+const PROX = 6.0
+
+// ─── Canvas helpers ─────────────────────────────────────────────────────────
+function rrect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  c.beginPath()
+  c.moveTo(x + r, y)
+  c.lineTo(x + w - r, y)
+  c.quadraticCurveTo(x + w, y, x + w, y + r)
+  c.lineTo(x + w, y + h - r)
+  c.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  c.lineTo(x + r, y + h)
+  c.quadraticCurveTo(x, y + h, x, y + h - r)
+  c.lineTo(x, y + r)
+  c.quadraticCurveTo(x, y, x + r, y)
+  c.closePath()
+}
+
+function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, H: number) {
+  const top = 196, avail = H - top - 44
+  c.save()
+  c.textAlign = 'center'
+  c.textBaseline = 'middle'
+  c.shadowColor = 'transparent'
+
+  switch (id) {
+    case 'skills': {
+      const badges = [
+        { text: 'JS',   bg: '#f7df1e', fg: '#1a1a1a' },
+        { text: 'TS',   bg: '#3178c6', fg: '#ffffff' },
+        { text: '⚛',   bg: '#20232a', fg: '#61dafb' },
+        { text: 'Java', bg: '#e76f00', fg: '#ffffff' },
+      ]
+      const bw = 148, bh = 132, gap = 26
+      const tw = badges.length * bw + (badges.length - 1) * gap
+      let x = (W - tw) / 2
+      const y = top + (avail - bh) / 2
+      badges.forEach(b => {
+        c.fillStyle = b.bg
+        rrect(c, x, y, bw, bh, 14); c.fill()
+        c.fillStyle = b.fg
+        c.font = `bold ${b.text.length > 2 ? 34 : 50}px monospace`
+        c.fillText(b.text, x + bw / 2, y + bh / 2)
+        x += bw + gap
+      })
+      break
+    }
+    case 'projects': {
+      const titles = projectsData.slice(0, 3).map(p => p.title)
+      const cardW = 700, cardH = 66, cardGap = 18
+      const totalH = titles.length * cardH + (titles.length - 1) * cardGap
+      let y = top + (avail - totalH) / 2
+      titles.forEach(title => {
+        c.fillStyle = 'rgba(255,245,224,0.11)'
+        rrect(c, (W - cardW) / 2, y, cardW, cardH, 10); c.fill()
+        c.strokeStyle = 'rgba(255,245,224,0.28)'; c.lineWidth = 2
+        rrect(c, (W - cardW) / 2, y, cardW, cardH, 10); c.stroke()
+        c.fillStyle = '#fff5e0'
+        c.font = 'bold 28px Georgia, serif'
+        c.fillText(title, W / 2, y + cardH / 2)
+        y += cardH + cardGap
+      })
+      break
+    }
+    case 'experience': {
+      const entries = experienceData.slice(0, 3)
+      const rowH = 76, gap = 14
+      const totalH = entries.length * rowH + (entries.length - 1) * gap
+      let y = top + (avail - totalH) / 2
+      entries.forEach((e, i) => {
+        c.fillStyle = '#f5d070'
+        c.beginPath(); c.arc(110, y + 32, 11, 0, Math.PI * 2); c.fill()
+        if (i < entries.length - 1) {
+          c.strokeStyle = 'rgba(245,208,112,0.35)'; c.lineWidth = 2
+          c.beginPath(); c.moveTo(110, y + 43); c.lineTo(110, y + rowH + gap - 10); c.stroke()
+        }
+        c.textAlign = 'left'
+        c.fillStyle = '#fff5e0'; c.font = 'bold 28px Georgia, serif'
+        c.fillText(e.title, 142, y + 22)
+        c.fillStyle = 'rgba(255,245,224,0.60)'; c.font = '22px Georgia, serif'
+        c.fillText(e.company, 142, y + 54)
+        c.textAlign = 'center'
+        y += rowH + gap
+      })
+      break
+    }
+    case 'certifications': {
+      const certs = [
+        { name: 'Cloud\nPractitioner', color: '#d97706' },
+        { name: 'AI\nPractitioner',   color: '#7c3aed' },
+        { name: 'Developer',          color: '#16a34a' },
+        { name: 'DevOps\nEngineer',   color: '#0369a1' },
+      ]
+      const sw = 162, sh = 172, gap = 26
+      const tw = certs.length * sw + (certs.length - 1) * gap
+      let x = (W - tw) / 2
+      const y = top + (avail - sh) / 2
+      certs.forEach(cert => {
+        const cx = x + sw / 2, cy = y + sh / 2
+        c.fillStyle = cert.color
+        c.beginPath()
+        c.moveTo(cx, cy - sh * 0.46)
+        c.lineTo(cx + sw * 0.46, cy - sh * 0.20)
+        c.lineTo(cx + sw * 0.46, cy + sh * 0.14)
+        c.lineTo(cx, cy + sh * 0.46)
+        c.lineTo(cx - sw * 0.46, cy + sh * 0.14)
+        c.lineTo(cx - sw * 0.46, cy - sh * 0.20)
+        c.closePath(); c.fill()
+        c.fillStyle = '#fff'; c.font = 'bold 18px sans-serif'
+        c.fillText('AWS', cx, cy - 28)
+        c.font = '15px sans-serif'
+        cert.name.split('\n').forEach((line, i) => c.fillText(line, cx, cy + i * 19 + 4))
+        x += sw + gap
+      })
+      break
+    }
+    case 'about': {
+      const cx = W / 2, cy = top + avail / 2
+      c.strokeStyle = 'rgba(245,208,112,0.55)'; c.lineWidth = 4
+      c.beginPath(); c.arc(cx, cy - 38, 74, 0, Math.PI * 2); c.stroke()
+      c.fillStyle = 'rgba(255,245,224,0.14)'
+      c.beginPath(); c.arc(cx, cy - 38, 70, 0, Math.PI * 2); c.fill()
+      c.fillStyle = 'rgba(255,245,224,0.38)'
+      c.beginPath(); c.arc(cx, cy - 60, 27, 0, Math.PI * 2); c.fill()
+      c.beginPath(); c.arc(cx, cy - 10, 46, Math.PI, 0); c.fill()
+      c.fillStyle = '#fff5e0'; c.font = 'bold 30px Georgia, serif'
+      c.fillText('Gabriel Bullerman', cx, cy + 58)
+      c.fillStyle = 'rgba(255,245,224,0.58)'; c.font = '21px Georgia, serif'
+      c.fillText('CS · Iowa State University', cx, cy + 94)
+      break
+    }
+    case 'moreonme': {
+      const cats = [
+        { icon: '🎹', label: 'Hobbies'  },
+        { icon: '✈',  label: 'Journeys' },
+        { icon: '💻', label: 'Industry' },
+      ]
+      const bw = 220, bh = 178, gap = 46
+      const tw = cats.length * bw + (cats.length - 1) * gap
+      let x = (W - tw) / 2
+      const y = top + (avail - bh) / 2
+      cats.forEach(cat => {
+        c.fillStyle = 'rgba(255,245,224,0.10)'
+        rrect(c, x, y, bw, bh, 16); c.fill()
+        c.strokeStyle = 'rgba(255,245,224,0.22)'; c.lineWidth = 2
+        rrect(c, x, y, bw, bh, 16); c.stroke()
+        c.font = '54px serif'; c.fillStyle = '#fff5e0'
+        c.fillText(cat.icon, x + bw / 2, y + 74)
+        c.font = 'bold 24px Georgia, serif'
+        c.fillText(cat.label, x + bw / 2, y + 142)
+        x += bw + gap
+      })
+      break
+    }
+    case 'contact': {
+      const items = [
+        { icon: '✉', label: 'Email',    bg: '#b91c1c' },
+        { icon: '◉', label: 'GitHub',   bg: '#1f2937' },
+        { icon: '🔗', label: 'LinkedIn', bg: '#0369a1' },
+      ]
+      const bw = 204, bh = 178, gap = 58
+      const tw = items.length * bw + (items.length - 1) * gap
+      let x = (W - tw) / 2
+      const y = top + (avail - bh) / 2
+      items.forEach(item => {
+        c.fillStyle = item.bg
+        rrect(c, x, y, bw, bh, 16); c.fill()
+        c.font = '58px serif'; c.fillStyle = '#fff'
+        c.fillText(item.icon, x + bw / 2, y + 82)
+        c.font = 'bold 24px Georgia, serif'
+        c.fillText(item.label, x + bw / 2, y + 146)
+        x += bw + gap
+      })
+      break
+    }
+  }
+  c.restore()
+}
+
 // ─── Canvas sign texture ────────────────────────────────────────────────────
-function makeSignTexture(label: string): THREE.CanvasTexture {
+function makeSignTexture(label: string, id: SectionId): THREE.CanvasTexture {
   const W = 1024, H = 512
   const cv = document.createElement('canvas')
   cv.width = W; cv.height = H
@@ -88,14 +281,17 @@ function makeSignTexture(label: string): THREE.CanvasTexture {
     c.fillStyle = '#5a2e10'; c.fillRect(0, (i + 1) * ph - 5, W, 10)
   })
 
-  // Grain lines
+  // Grain lines (deterministic per sign)
+  const grainRng = mulberry32(label.charCodeAt(0) * 97 + id.length * 31 + 7)
   for (let i = 0; i < 28; i++) {
-    const x = Math.random() * W, y = Math.random() * H
-    c.strokeStyle = `rgba(0,0,0,${0.02 + Math.random() * 0.04})`
-    c.lineWidth = 0.5 + Math.random() * 1.5
+    const x = grainRng() * W, y = grainRng() * H
+    c.strokeStyle = `rgba(0,0,0,${0.02 + grainRng() * 0.04})`
+    c.lineWidth = 0.5 + grainRng() * 1.5
     c.beginPath(); c.moveTo(x, y)
-    c.quadraticCurveTo(x + (Math.random() - 0.5) * 50, y + (Math.random() - 0.5) * 30,
-                       x + (Math.random() - 0.5) * 30, y + Math.random() * 100)
+    c.quadraticCurveTo(
+      x + (grainRng() - 0.5) * 50, y + (grainRng() - 0.5) * 30,
+      x + (grainRng() - 0.5) * 30, y + grainRng() * 100,
+    )
     c.stroke()
   }
 
@@ -133,59 +329,81 @@ function makeSignTexture(label: string): THREE.CanvasTexture {
     c.restore()
   })
 
-  // Interact hint
-  c.fillStyle = 'rgba(255,240,200,0.70)'
-  c.font = '34px Georgia, serif'
-  c.textAlign = 'center'; c.textBaseline = 'middle'
-  c.fillText('[ E ]  Inspect', W / 2, 385)
-  c.strokeStyle = 'rgba(200,155,70,0.35)'; c.lineWidth = 1
-  c.beginPath(); c.moveTo(W / 2 - 110, 414); c.lineTo(W / 2 + 110, 414); c.stroke()
+  // Section-specific preview content
+  drawSignPreview(c, id, W, H)
 
   return new THREE.CanvasTexture(cv)
 }
-
-// ─── Types & section data ───────────────────────────────────────────────────
-type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
-
-interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
-
-const SECTIONS: SectionCfg[] = [
-  { id: 'about',          label: 'About Me',       wx:  0, wz:   2 },
-  { id: 'experience',     label: 'Experience',     wx:  5, wz: -12 },
-  { id: 'skills',         label: 'Skills',         wx: -5, wz: -24 },
-  { id: 'projects',       label: 'Projects',       wx:  5, wz: -36 },
-  { id: 'certifications', label: 'Certs',          wx: -5, wz: -48 },
-  { id: 'moreonme',       label: 'More on Me',     wx:  5, wz: -60 },
-  { id: 'contact',        label: 'Contact',        wx:  0, wz: -70 },
-]
-
-const PROX = 6.0
 
 // ─── Overlay content ────────────────────────────────────────────────────────
 function SectionOverlay({ id, onClose }: { id: SectionId; onClose: () => void }) {
   const label = SECTIONS.find(s => s.id === id)?.label ?? ''
   return (
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 w-80 max-h-[78vh] bg-white text-black rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-3 flex justify-between items-center z-10">
-        <h2 className="font-bold text-base">{label}</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-black text-xl leading-none">&times;</button>
-      </div>
-      <div className="px-5 py-4 overflow-y-auto">
-        <Content id={id} />
+    <div className="absolute inset-0 flex items-center justify-center z-20">
+      <div className="absolute inset-0 bg-black/25" onClick={onClose} />
+      <div
+        className="relative z-10 flex flex-col overflow-hidden"
+        style={{
+          width: 'min(680px, 88vw)',
+          maxHeight: '74vh',
+          background: 'linear-gradient(180deg,#c89060 0%,#b87c4e 25%,#cc9668 50%,#b27248 75%,#c89060 100%)',
+          border: '14px solid #5a2e10',
+          outline: '3px solid #8a4c24',
+          boxShadow: '0 28px 72px rgba(0,0,0,0.72)',
+          borderRadius: '3px',
+        }}
+      >
+        {/* Header band */}
+        <div
+          className="flex justify-between items-center px-6 py-3 flex-shrink-0"
+          style={{ background: 'rgba(50,22,6,0.55)' }}
+        >
+          <h2 className="font-bold text-lg font-serif" style={{ color: '#fff5e0' }}>{label}</h2>
+          <button
+            onClick={onClose}
+            className="text-2xl leading-none hover:opacity-100 transition-opacity"
+            style={{ color: 'rgba(255,245,224,0.60)' }}
+          >×</button>
+        </div>
+
+        {/* Divider */}
+        <div className="flex-shrink-0 mx-5" style={{ height: '2px', background: '#7a4024' }} />
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 px-6 py-5">
+          <Content id={id} />
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex-shrink-0 text-center py-2 text-xs font-serif"
+          style={{ color: 'rgba(255,245,224,0.40)', background: 'rgba(50,22,6,0.25)' }}
+        >
+          Press <kbd>ESC</kbd> or click outside to close
+        </div>
       </div>
     </div>
   )
 }
 
+const W_TEXT  = '#fff5e0'
+const W_MUTED = 'rgba(255,245,224,0.65)'
+const W_DIM   = 'rgba(255,245,224,0.45)'
+
 function Content({ id }: { id: SectionId }) {
   if (id === 'about') return (
     <div>
-      <p className="font-bold text-sm mb-1">Gabriel John Bullerman</p>
-      <p className="text-xs text-gray-500 mb-3">CS · Iowa State University</p>
-      <p className="text-xs text-gray-700 leading-relaxed">Undergraduate CS major interested in full-stack development, mobile apps, and webapps.</p>
+      <p className="font-bold text-sm mb-1" style={{ color: W_TEXT }}>Gabriel John Bullerman</p>
+      <p className="text-xs mb-3" style={{ color: W_MUTED }}>CS · Iowa State University</p>
+      <p className="text-xs leading-relaxed" style={{ color: W_MUTED }}>
+        Undergraduate CS major interested in full-stack development, mobile apps, and webapps.
+      </p>
       <div className="flex gap-2 mt-4 flex-wrap">
         {[['GitHub','https://github.com/GabeBullerman'],['LinkedIn','https://www.linkedin.com/in/gabe-bullerman/']].map(([l,h])=>(
-          <a key={l} href={h} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1 border-2 border-black rounded-full font-bold hover:bg-black hover:text-white transition-colors">{l}</a>
+          <a key={l} href={h} target="_blank" rel="noopener noreferrer"
+            className="text-xs px-3 py-1 rounded-full font-bold transition-colors hover:opacity-80"
+            style={{ border: '2px solid rgba(255,245,224,0.45)', color: W_TEXT }}
+          >{l}</a>
         ))}
       </div>
     </div>
@@ -194,10 +412,10 @@ function Content({ id }: { id: SectionId }) {
     <div className="space-y-4">
       {experienceData.map(e => (
         <div key={e.company}>
-          <p className="font-bold text-xs">{e.title}</p>
-          <p className="text-xs text-gray-500 mb-1">{e.company} · {e.period}</p>
-          <ul className="text-xs list-disc pl-4 space-y-1 text-gray-700 leading-relaxed">
-            {e.bullets.map((b,i)=><li key={i}>{b}</li>)}
+          <p className="font-bold text-xs" style={{ color: W_TEXT }}>{e.title}</p>
+          <p className="text-xs mb-1" style={{ color: W_DIM }}>{e.company} · {e.period}</p>
+          <ul className="text-xs list-disc pl-4 space-y-1 leading-relaxed" style={{ color: W_MUTED }}>
+            {e.bullets.map((b, i) => <li key={i}>{b}</li>)}
           </ul>
         </div>
       ))}
@@ -205,23 +423,31 @@ function Content({ id }: { id: SectionId }) {
   )
   if (id === 'skills') return (
     <div className="space-y-3">
-      {skillsData.map(cat=>(
+      {skillsData.map(cat => (
         <div key={cat.category}>
-          <p className="font-bold text-xs mb-1">{cat.category}</p>
-          <p className="text-xs text-gray-600 leading-relaxed">{cat.skills.map(s=>s.name).join(', ')}</p>
+          <p className="font-bold text-xs mb-1" style={{ color: W_TEXT }}>{cat.category}</p>
+          <p className="text-xs leading-relaxed" style={{ color: W_MUTED }}>
+            {cat.skills.map(s => s.name).join(', ')}
+          </p>
         </div>
       ))}
     </div>
   )
   if (id === 'projects') return (
     <div className="space-y-4">
-      {projectsData.map(p=>(
-        <div key={p.title} className="pb-3 border-b border-gray-100 last:border-none last:pb-0">
-          <a href={p.link} target="_blank" rel="noopener noreferrer" className="font-bold text-xs hover:underline block">{p.title}</a>
-          <p className="text-xs text-gray-500 mb-1">{p.subtitle}</p>
-          <p className="text-xs text-gray-700 leading-relaxed">{p.description}</p>
+      {projectsData.map(p => (
+        <div key={p.title} className="pb-3 last:pb-0" style={{ borderBottom: '1px solid rgba(255,245,224,0.15)' }}>
+          <a href={p.link} target="_blank" rel="noopener noreferrer"
+            className="font-bold text-xs hover:underline block" style={{ color: W_TEXT }}
+          >{p.title}</a>
+          <p className="text-xs mb-1" style={{ color: W_DIM }}>{p.subtitle}</p>
+          <p className="text-xs leading-relaxed" style={{ color: W_MUTED }}>{p.description}</p>
           <div className="flex flex-wrap gap-1 mt-1">
-            {p.tags.map(t=><span key={t} className="text-xs border border-gray-300 rounded-full px-2 py-0.5 text-gray-500">{t}</span>)}
+            {p.tags.map(t => (
+              <span key={t} className="text-xs rounded-full px-2 py-0.5"
+                style={{ border: '1px solid rgba(255,245,224,0.28)', color: W_DIM }}
+              >{t}</span>
+            ))}
           </div>
         </div>
       ))}
@@ -229,12 +455,17 @@ function Content({ id }: { id: SectionId }) {
   )
   if (id === 'certifications') return (
     <div className="text-center">
-      <p className="text-xs text-gray-500 mb-3">AWS Certification Path</p>
+      <p className="text-xs mb-3" style={{ color: W_DIM }}>AWS Certification Path</p>
       <div className="grid grid-cols-2 gap-3">
-        {[['cloudPractitionerAWS','Cloud Practitioner'],['aiPractitionerAWS','AI Practitioner'],['developerAWS','Developer'],['devopsEngineerAWS','DevOps Engineer']].map(([f,l])=>(
+        {[
+          ['cloudPractitionerAWS','Cloud Practitioner'],
+          ['aiPractitionerAWS','AI Practitioner'],
+          ['developerAWS','Developer'],
+          ['devopsEngineerAWS','DevOps Engineer'],
+        ].map(([f, l]) => (
           <div key={l} className="flex flex-col items-center">
-            <img src={`/images/${f}.png`} alt={l} className="w-16 h-16 object-contain" />
-            <p className="text-xs text-gray-600 mt-1">{l}</p>
+            <img src={`/images/${f}.png`} alt={l} className="w-14 h-14 object-contain" />
+            <p className="text-xs mt-1" style={{ color: W_MUTED }}>{l}</p>
           </div>
         ))}
       </div>
@@ -242,19 +473,35 @@ function Content({ id }: { id: SectionId }) {
   )
   if (id === 'moreonme') return (
     <div className="space-y-4">
-      {[['Hobbies','Piano, Kawasaki sports bike restoration, film (IMDB top 250 — Interstellar #1).'],['Journeys',"49/50 US states. Greece, Italy, Japan — chasing contrasts in culture and landscape."],['Industry',"Built 40+ computers since age 8. A high school question flipped the switch from hardware to software."]].map(([t,p])=>(
-        <div key={t}><p className="font-bold text-xs uppercase tracking-wide mb-1">{t}</p><p className="text-xs text-gray-700 leading-relaxed">{p}</p></div>
+      {[
+        ['Hobbies',  'Piano, Kawasaki sports bike restoration, film (IMDB top 250 — Interstellar #1).'],
+        ['Journeys', '49/50 US states. Greece, Italy, Japan — chasing contrasts in culture and landscape.'],
+        ['Industry', 'Built 40+ computers since age 8. A high-school question flipped the switch from hardware to software.'],
+      ].map(([t, p]) => (
+        <div key={t}>
+          <p className="font-bold text-xs uppercase tracking-wide mb-1" style={{ color: W_TEXT }}>{t}</p>
+          <p className="text-xs leading-relaxed" style={{ color: W_MUTED }}>{p}</p>
+        </div>
       ))}
     </div>
   )
+  // contact
   return (
     <div className="space-y-3">
-      {[['fa-brands fa-linkedin','LinkedIn','https://www.linkedin.com/in/gabe-bullerman/'],['fa-solid fa-envelope','gabebullerman1@gmail.com','mailto:gabebullerman1@gmail.com']].map(([icon,label,href])=>(
-        <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-xs hover:underline">
-          <i className={icon} />{label}
+      {[
+        ['fa-brands fa-github', 'GitHub', 'https://github.com/GabeBullerman'],
+        ['fa-brands fa-linkedin','LinkedIn','https://www.linkedin.com/in/gabe-bullerman/'],
+        ['fa-solid fa-envelope', 'gabebullerman1@gmail.com','mailto:gabebullerman1@gmail.com'],
+      ].map(([icon, label, href]) => (
+        <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-3 text-xs hover:underline" style={{ color: W_MUTED }}
+        >
+          <i className={icon} style={{ color: W_TEXT }} />{label}
         </a>
       ))}
-      <div className="flex items-center gap-3 text-xs"><i className="fa-solid fa-phone" />319-230-0474</div>
+      <div className="flex items-center gap-3 text-xs" style={{ color: W_MUTED }}>
+        <i className="fa-solid fa-phone" style={{ color: W_TEXT }} />319-230-0474
+      </div>
     </div>
   )
 }
@@ -265,13 +512,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign] = useState(false)
 
-  // Camera focus refs — readable outside useEffect for overlay close handler
-  const focusPosRef  = useRef(new THREE.Vector3())
-  const focusLookRef = useRef(new THREE.Vector3())
-  const focusActiveRef = useRef(false)   // true = camera heading to / at sign
-  const overlayShownRef = useRef(false)  // true = overlay is showing
-  const proxTimerRef = useRef(0)
-  const currentSecRef = useRef<SectionId | null>(null)
+  const focusPosRef    = useRef(new THREE.Vector3())
+  const focusLookRef   = useRef(new THREE.Vector3())
+  const focusActiveRef = useRef(false)
+  const overlayShownRef = useRef(false)
+  const proxTimerRef   = useRef(0)
+  const currentSecRef  = useRef<SectionId | null>(null)
 
   function exitFocus() {
     focusActiveRef.current = false
@@ -315,7 +561,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     scene.add(sun)
     const sunDir = new THREE.Vector3(20, 40, 15).normalize()
 
-    // ── Grass ground (shader) ──────────────────────────────────────────────
+    // ── Grass ground ──────────────────────────────────────────────────────
     const grassMat = new THREE.ShaderMaterial({
       uniforms: {
         ...THREE.UniformsLib.fog,
@@ -327,10 +573,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     })
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(180, 180, 120, 120), grassMat)
     ground.rotation.x = -Math.PI / 2
-    ground.receiveShadow = false
     scene.add(ground)
 
-    // ── Fog dome cylinder ──────────────────────────────────────────────────
+    // ── Fog dome ──────────────────────────────────────────────────────────
     const dome = new THREE.Mesh(
       new THREE.CylinderGeometry(80, 80, 60, 48, 1, true),
       new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide, transparent: true, opacity: 0.90, depthWrite: false }),
@@ -338,7 +583,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     dome.position.y = 15
     scene.add(dome)
 
-    // Ground rim (dark ring at map edge for a "cliff" feel → now a soft grass ring)
+    // Ground rim
     const rim = new THREE.Mesh(
       new THREE.RingGeometry(72, 82, 48),
       new THREE.MeshLambertMaterial({ color: 0x3a6030, side: THREE.DoubleSide }),
@@ -363,7 +608,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       row++
     }
 
-    // Branch paths
     const branchGeo = new THREE.BoxGeometry(3.0, 0.14, TILE)
     SECTIONS.forEach(({ wx, wz }) => {
       if (wx === 0) return
@@ -382,8 +626,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         new THREE.CylinderGeometry(0.18 * sc, 0.26 * sc, 1.8 * sc, 7), postMat,
       )
       trunk.position.y = 0.9 * sc; trunk.castShadow = true; g.add(trunk)
-      ;([{ r:1.8,h:2.4,y:1.8,c:0x2d6b29 },{ r:1.3,h:2.0,y:3.0,c:0x357a30 },{ r:0.8,h:1.5,y:4.1,c:0x3d8a37 }] as const)
-        .forEach(({ r,h,y,c }) => {
+      ;([{ r: 1.8, h: 2.4, y: 1.8, c: 0x2d6b29 }, { r: 1.3, h: 2.0, y: 3.0, c: 0x357a30 }, { r: 0.8, h: 1.5, y: 4.1, c: 0x3d8a37 }] as const)
+        .forEach(({ r, h, y, c }) => {
           const cone = new THREE.Mesh(
             new THREE.ConeGeometry(r * sc, h * sc, 7),
             new THREE.MeshLambertMaterial({ color: c }),
@@ -404,33 +648,41 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
 
     // ── Sign posts ────────────────────────────────────────────────────────
-    SECTIONS.forEach(({ label, wx, wz }) => {
-      // Clearing
-      const clear = new THREE.Mesh(new THREE.CircleGeometry(4, 20), new THREE.MeshLambertMaterial({ color: 0x5a9c5a }))
+    SECTIONS.forEach(({ id, label, wx, wz }) => {
+      const clear = new THREE.Mesh(
+        new THREE.CircleGeometry(4, 20),
+        new THREE.MeshLambertMaterial({ color: 0x5a9c5a }),
+      )
       clear.rotation.x = -Math.PI / 2; clear.position.set(wx, 0.01, wz); scene.add(clear)
 
-      // Post
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.15, 3.2, 7), postMat)
       post.position.set(wx, 1.6, wz); post.castShadow = true; scene.add(post)
 
-      // Sign board with canvas texture (faces +Z → camera reads from worldZ + 7)
-      const tex = makeSignTexture(label)
+      const tex = makeSignTexture(label, id)
       const sign = new THREE.Mesh(
         new THREE.BoxGeometry(5.0, 2.5, 0.22),
         new THREE.MeshLambertMaterial({ map: tex }),
       )
       sign.position.set(wx, 3.8, wz); sign.castShadow = true; scene.add(sign)
 
-      // Small bracket
-      const brk = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.35), new THREE.MeshLambertMaterial({ color: 0x888888 }))
+      const brk = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 0.18, 0.35),
+        new THREE.MeshLambertMaterial({ color: 0x888888 }),
+      )
       brk.position.set(wx, 3.2, wz + 0.05); scene.add(brk)
     })
 
     // ── Player ────────────────────────────────────────────────────────────
     const player = new THREE.Group()
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.1, 10), new THREE.MeshLambertMaterial({ color: 0x2563eb }))
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.32, 1.1, 10),
+      new THREE.MeshLambertMaterial({ color: 0x2563eb }),
+    )
     body.position.y = 0.55; body.castShadow = true; player.add(body)
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10), new THREE.MeshLambertMaterial({ color: 0xfcd34d }))
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 10, 10),
+      new THREE.MeshLambertMaterial({ color: 0xfcd34d }),
+    )
     head.position.y = 1.38; head.castShadow = true; player.add(head)
     player.position.set(0, 0, 6)
     scene.add(player)
@@ -453,7 +705,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (e.key === 'ArrowDown')  keys.add('s')
       if (e.key === 'ArrowLeft')  keys.add('a')
       if (e.key === 'ArrowRight') keys.add('d')
-
       if (e.key.toLowerCase() === 'e' && !focusActiveRef.current && currentSecRef.current) {
         triggerFocus(currentSecRef.current)
       }
@@ -482,7 +733,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const delta = Math.min(clock.getDelta(), 0.05)
 
       if (!focusActiveRef.current) {
-        // Player movement
         const vel = new THREE.Vector3()
         if (keys.has('w')) vel.z -= 1
         if (keys.has('s')) vel.z += 1
@@ -496,12 +746,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         player.position.x = THREE.MathUtils.clamp(player.position.x, -24, 24)
         player.position.z = THREE.MathUtils.clamp(player.position.z, -76, 8)
 
-        // Follow camera
         camera.position.lerp(player.position.clone().add(CAM_OFFSET), 0.07)
         _tmpCam.position.copy(camera.position); _tmpCam.lookAt(player.position)
         camera.quaternion.slerp(_tmpCam.quaternion, 0.07)
 
-        // Proximity
         let nearest: SectionId | null = null, nearDist = PROX
         SECTIONS.forEach(({ id, wx, wz }) => {
           const d = Math.hypot(player.position.x - wx, player.position.z - wz)
@@ -519,12 +767,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           if (proxTimerRef.current > 2.2) triggerFocus(nearest)
         }
       } else {
-        // Cinematic: lerp camera toward sign
         camera.position.lerp(focusPosRef.current, 0.028)
         _tmpCam.position.copy(camera.position); _tmpCam.lookAt(focusLookRef.current)
         camera.quaternion.slerp(_tmpCam.quaternion, 0.04)
 
-        // Once arrived, show overlay
         if (!overlayShownRef.current && camera.position.distanceTo(focusPosRef.current) < 0.6) {
           overlayShownRef.current = true
           setActiveSection(currentSecRef.current)
@@ -575,10 +821,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       </div>
 
       {activeSection && (
-        <SectionOverlay
-          id={activeSection}
-          onClose={exitFocus}
-        />
+        <SectionOverlay id={activeSection} onClose={exitFocus} />
       )}
     </div>
   )
