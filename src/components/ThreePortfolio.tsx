@@ -22,44 +22,6 @@ function lerpAngle(from: number, to: number, t: number): number {
   return from + delta * t
 }
 
-// ─── GLSL ───────────────────────────────────────────────────────────────────
-const NOISE_FN = /* glsl */`
-float hash2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise2(vec2 p){
-  vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.0-2.0*f);
-  return mix(mix(hash2(i),hash2(i+vec2(1,0)),f.x),mix(hash2(i+vec2(0,1)),hash2(i+vec2(1,1)),f.x),f.y);
-}`
-
-const GRASS_VERT = /* glsl */`
-#include <fog_pars_vertex>
-${NOISE_FN}
-varying vec2 vXZ; varying float vElev;
-void main(){
-  vXZ=position.xy;
-  float n=noise2(position.xy*0.07)*0.45+noise2(position.xy*0.22)*0.18;
-  vElev=n; vec3 pos=position; pos.z+=n;
-  vec4 mvPosition=modelViewMatrix*vec4(pos,1.0);
-  gl_Position=projectionMatrix*mvPosition;
-  #include <fog_vertex>
-}`
-
-const GRASS_FRAG = /* glsl */`
-#include <fog_pars_fragment>
-${NOISE_FN}
-varying vec2 vXZ; varying float vElev; uniform vec3 uSunDir;
-void main(){
-  float n1=noise2(vXZ*0.15),n2=noise2(vXZ*0.42),n3=noise2(vXZ*1.30);
-  float m=n1*0.50+n2*0.30+n3*0.20;
-  vec3 darkG=vec3(0.22,0.41,0.17),midG=vec3(0.32,0.55,0.23),lightG=vec3(0.44,0.68,0.31),dryG=vec3(0.50,0.54,0.24);
-  vec3 col=mix(darkG,midG,m); col=mix(col,lightG,noise2(vXZ*0.05)*0.50);
-  float dry=smoothstep(0.60,0.80,noise2(vXZ*0.10+vec2(53.0,17.0)));
-  col=mix(col,dryG,dry*0.45); col+=vElev*0.06;
-  float NdotL=max(dot(vec3(0.0,1.0,0.0),uSunDir),0.0);
-  col=col*(0.45+NdotL*0.65);
-  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);
-  #include <fog_fragment>
-}`
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
 interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
@@ -415,15 +377,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     sun.shadow.camera.left=-80; sun.shadow.camera.right=80
     sun.shadow.camera.top=80; sun.shadow.camera.bottom=-80; sun.shadow.camera.far=160
     scene.add(sun)
-    const sunDir = new THREE.Vector3(20,40,15).normalize()
-
     // ── Ground ───────────────────────────────────────────────────────────
-    const grassMat = new THREE.ShaderMaterial({
-      uniforms: { ...THREE.UniformsLib.fog, uSunDir:{ value:sunDir } },
-      vertexShader: GRASS_VERT, fragmentShader: GRASS_FRAG, fog: true,
-    })
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(180,180,120,120), grassMat)
-    ground.rotation.x = -Math.PI/2; scene.add(ground)
+    const grassCv = document.createElement('canvas'); grassCv.width = 256; grassCv.height = 256
+    const gc = grassCv.getContext('2d')!
+    gc.fillStyle = '#3d7a2a'; gc.fillRect(0, 0, 256, 256)
+    const gRng = mulberry32(999)
+    for (let i = 0; i < 5000; i++) {
+      const gx = gRng() * 256, gy = gRng() * 256
+      const v = gRng()
+      gc.fillStyle = v > 0.65 ? '#4a9034' : v > 0.35 ? '#357828' : '#2d6820'
+      gc.fillRect(gx, gy, 1 + gRng() * 1.8, 1 + gRng() * 1.8)
+    }
+    const grassTex = new THREE.CanvasTexture(grassCv)
+    grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping
+    grassTex.repeat.set(24, 24)
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(180, 180),
+      new THREE.MeshLambertMaterial({ map: grassTex }),
+    )
+    ground.rotation.x = -Math.PI / 2; scene.add(ground)
 
     // Fog dome + map rim
     const dome = new THREE.Mesh(
@@ -446,11 +418,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
       g.position.set(x,0,z); scene.add(g)
     }
+    // Define campfire position here so tree spawner can exclude it
+    const FIRE_POS = new THREE.Vector3(0, 0, -6)
+
     const rng = mulberry32(42)
     for (let i=0; i<175; i++) {
       const x=(rng()-0.5)*130, z=rng()*110-82
       if (Math.hypot(x,z)>74) continue
       if (SECTIONS.some(s=>Math.hypot(x-s.wx,z-s.wz)<6.5)) continue
+      if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
       addTree(x,z,0.7+rng()*0.65)
     }
 
@@ -469,7 +445,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Campfire ─────────────────────────────────────────────────────────
     const logMat = new THREE.MeshLambertMaterial({ color:0x5a3010 })
     const logGeo = new THREE.CylinderGeometry(0.08,0.11,1.6,6)
-    const FIRE_POS = new THREE.Vector3(0,0,-6)
     ;[0, Math.PI/3, -Math.PI/3].forEach(ry => {
       const log = new THREE.Mesh(logGeo, logMat)
       log.position.copy(FIRE_POS); log.position.y=0.09
@@ -626,22 +601,29 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
       if (!focusActiveRef.current) {
         // ── Camera-relative WASD movement ──────────────────────────────
-        // fw = direction from camera toward player (player's "forward")
         const fw_x = -Math.sin(camYaw), fw_z = -Math.cos(camYaw)
-        // rt = screen-right = fw rotated 90° CW from above
         const rt_x =  Math.cos(camYaw), rt_z = -Math.sin(camYaw)
+        const hasW = keys.has('w'), hasS = keys.has('s')
+        const hasA = keys.has('a'), hasD = keys.has('d')
 
         const rawVel = new THREE.Vector3()
-        if (keys.has('w')) { rawVel.x += fw_x; rawVel.z += fw_z }
-        if (keys.has('s')) { rawVel.x -= fw_x; rawVel.z -= fw_z }
-        if (keys.has('a')) { rawVel.x -= rt_x; rawVel.z -= rt_z }
-        if (keys.has('d')) { rawVel.x += rt_x; rawVel.z += rt_z }
+        if (hasW) { rawVel.x += fw_x; rawVel.z += fw_z }
+        if (hasS) { rawVel.x -= fw_x; rawVel.z -= fw_z }
+        if (hasA) { rawVel.x -= rt_x; rawVel.z -= rt_z }
+        if (hasD) { rawVel.x += rt_x; rawVel.z += rt_z }
 
         const isMoving = rawVel.lengthSq() > 0
         if (isMoving) {
-          // Smooth rotation — lerp player facing toward movement direction
-          const targetRotY = Math.atan2(rawVel.x, rawVel.z)
-          player.rotation.y = lerpAngle(player.rotation.y, targetRotY, 0.16)
+          if (hasW) {
+            // Face direction of forward movement (+ optional strafe diagonal)
+            const faceX = fw_x + (hasA ? -rt_x : 0) + (hasD ? rt_x : 0)
+            const faceZ = fw_z + (hasA ? -rt_z : 0) + (hasD ? rt_z : 0)
+            const targetRotY = Math.atan2(faceX, faceZ)
+            player.rotation.y = lerpAngle(player.rotation.y, targetRotY, 0.14)
+            // Camera gently follows only when moving forward
+            camYaw = lerpAngle(camYaw, player.rotation.y + Math.PI, 0.04)
+          }
+          // S/A/D alone: translate without changing player facing or camera yaw
           rawVel.normalize().multiplyScalar(6 * delta)
           player.position.add(rawVel)
         }
@@ -659,10 +641,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
         player.position.y = Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
 
-        // 3rd-person camera — swing smoothly behind player
-        if (isMoving) {
-          camYaw = lerpAngle(camYaw, player.rotation.y + Math.PI, 0.10)
-        }
         const camDist = 5.0, camH = 2.2
         const camTarget = new THREE.Vector3(
           player.position.x + Math.sin(camYaw) * camDist,
@@ -695,7 +673,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
         // Physics balls
         balls.forEach(b => {
-          b.vel.x *= 0.88; b.vel.z *= 0.88
+          b.vel.x *= 0.84; b.vel.z *= 0.84
           b.mesh.position.x += b.vel.x * delta * 60
           b.mesh.position.z += b.vel.z * delta * 60
           b.mesh.position.y = BALL_R
@@ -715,9 +693,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           const pd  = Math.sqrt(pdx*pdx + pdz*pdz)
           if (pd < PLAYER_R + BALL_R + 0.05 && pd > 0.01) {
             const nx = pdx/pd, nz = pdz/pd
-            b.vel.x = nx * 5.5; b.vel.z = nz * 5.5
+            b.vel.x = nx * 3.0; b.vel.z = nz * 3.0
             b.mesh.position.x = player.position.x + nx * (PLAYER_R + BALL_R + 0.06)
             b.mesh.position.z = player.position.z + nz * (PLAYER_R + BALL_R + 0.06)
+          }
+
+          // Campfire stone ring collision
+          const cfdx = b.mesh.position.x - FIRE_POS.x
+          const cfdz = b.mesh.position.z - FIRE_POS.z
+          const cfd  = Math.sqrt(cfdx*cfdx + cfdz*cfdz)
+          const FIRE_R = 1.1
+          if (cfd < FIRE_R + BALL_R && cfd > 0.01) {
+            const cnx = cfdx/cfd, cnz = cfdz/cfd
+            const dot = b.vel.x*cnx + b.vel.z*cnz
+            if (dot < 0) { b.vel.x -= 2*dot*cnx; b.vel.z -= 2*dot*cnz }
+            b.mesh.position.x = FIRE_POS.x + cnx * (FIRE_R + BALL_R + 0.05)
+            b.mesh.position.z = FIRE_POS.z + cnz * (FIRE_R + BALL_R + 0.05)
           }
 
           // Ball-ball elastic collision
