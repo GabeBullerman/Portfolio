@@ -814,7 +814,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
     window.addEventListener('resize', onResize)
 
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
     return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
       cancelAnimationFrame(animId)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup',   onKeyUp)
@@ -827,7 +832,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div ref={mountRef} className="w-full h-full" />
+      <div ref={mountRef} className="w-full h-full touch-none" />
 
       <button
         onClick={onExit}
@@ -845,29 +850,33 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       </div>
       {/* Mobile Joystick */}
       <div
-        onTouchStart={() => {
-          touchActiveRef.current = true
-        }}
-        onTouchMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect()
-          const touch = e.touches[0]
+        onTouchStart={(e) => {
+  e.preventDefault()
+  touchActiveRef.current = true
+}}
+onTouchMove={(e) => {
+  e.preventDefault()
 
-          const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
-          const y = ((touch.clientY - rect.top) / rect.height) * 2 - 1
+  const rect = e.currentTarget.getBoundingClientRect()
+  const touch = e.touches[0]
 
-          touchMoveRef.current = {
-            x: Math.max(-1, Math.min(1, x)),
-            y: Math.max(-1, Math.min(1, y)),
-          }
-        }}
-        onTouchEnd={() => {
-          touchActiveRef.current = false
-          touchMoveRef.current = { x: 0, y: 0 }
-        }}
+  const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
+  const y = ((touch.clientY - rect.top) / rect.height) * 2 - 1
+
+  touchMoveRef.current = {
+    x: Math.max(-1, Math.min(1, x)),
+    y: Math.max(-1, Math.min(1, y)),
+  }
+}}
+onTouchEnd={(e) => {
+  e.preventDefault()
+  touchActiveRef.current = false
+  touchMoveRef.current = { x: 0, y: 0 }
+}}
       >
         <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
           <div
-            className="absolute w-10 h-10 rounded-full bg-white/70"
+            className="absolute bottom-36 left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{
               left: `calc(50% + ${touchMoveRef.current.x * 35}px - 20px)`,
               top: `calc(50% + ${touchMoveRef.current.y * 35}px - 20px)`,
