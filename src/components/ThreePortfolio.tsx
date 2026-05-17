@@ -841,7 +841,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       )}
 
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none">
-        WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold">Esc</kbd> or move to close
+        WASD · Arrows · Touch Joystick &nbsp;·&nbsp; <kbd className="font-bold">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold">Esc</kbd> or move to close
       </div>
       {/* Mobile Joystick */}
       <div
