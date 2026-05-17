@@ -19,9 +19,9 @@ const contactItems = [
 export default function Contact() {
   return (
     <section id="contact" className="bg-white text-black py-16">
-      <div className="max-w-xl mx-auto px-4 text-center">
-        <h2 className="text-4xl font-bold mb-8">Contact</h2>
-        <ul className="list-none p-0 m-0 border-6 border-white flex flex-col items-center gap-4">
+      <div className="max-w-3xl mx-auto px-8 text-center">
+        <h2 className="text-4xl font-bold mb-10">Contact</h2>
+        <ul className="list-none p-0 m-0 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12">
           {contactItems.map(({ icon, label, href }) => (
             <li key={label} className="flex items-center gap-3 text-lg">
               <i className={icon} />

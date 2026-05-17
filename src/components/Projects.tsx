@@ -14,7 +14,7 @@ function EvenCard({ project }: { project: Project }) {
         href={project.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-shrink-0 w-52 h-52 hover:scale-105 transition-transform duration-300 block"
+        className="flex-shrink-0 w-52 h-52 xl:w-64 xl:h-64 hover:scale-105 transition-transform duration-300 block"
       >
         <img src={project.image} alt={project.imageAlt} className="w-full h-full object-contain" />
       </a>
@@ -48,7 +48,7 @@ function OddCard({ project }: { project: Project }) {
         href={project.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-shrink-0 w-52 h-52 hover:scale-105 transition-transform duration-300 block"
+        className="flex-shrink-0 w-52 h-52 xl:w-64 xl:h-64 hover:scale-105 transition-transform duration-300 block"
       >
         <img src={project.image} alt={project.imageAlt} className="w-full h-full object-contain" />
       </a>
@@ -72,7 +72,7 @@ function OddCard({ project }: { project: Project }) {
 export default function Projects() {
   return (
     <section id="projects" className="bg-black text-white py-16">
-      <div className="max-w-5xl mx-auto px-8">
+      <div className="max-w-7xl mx-auto px-8">
         <h2 className="text-4xl font-bold text-center mb-12">Projects</h2>
         {projectsData.map((project, index) =>
           index % 2 === 0 ? (

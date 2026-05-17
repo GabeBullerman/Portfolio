@@ -12,7 +12,7 @@ export default function Certifications() {
 
   return (
     <section id="certifications" className="bg-white text-black py-16">
-      <div className="max-w-5xl mx-auto px-8">
+      <div className="max-w-7xl mx-auto px-8">
         <h2 className="text-4xl font-bold text-center mb-8">Certifications</h2>
         <div
           ref={ref}
@@ -27,7 +27,7 @@ export default function Certifications() {
                 key={cert.alt}
                 src={cert.src}
                 alt={cert.alt}
-                className="w-32 h-32 md:w-36 md:h-36 object-contain transition-opacity duration-700"
+                className="w-32 h-32 md:w-36 md:h-36 xl:w-48 xl:h-48 object-contain transition-opacity duration-700"
                 style={{ opacity: isVisible ? 1 : 0, transitionDelay: `${i * 100}ms` }}
               />
             ))}

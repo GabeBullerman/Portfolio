@@ -16,7 +16,7 @@ const columns = [
 export default function MoreOnMe() {
   return (
     <section id="me" className="bg-black text-white py-16">
-      <div className="max-w-5xl mx-auto px-8">
+      <div className="max-w-7xl mx-auto px-8">
         <h2 className="text-4xl md:text-5xl font-bold text-center mb-12">More on Me</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-white/30">
           {columns.map((col) => (

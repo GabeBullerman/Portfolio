@@ -34,9 +34,9 @@ function ExperienceCard({ item }: { item: ExperienceItem }) {
 export default function Experience() {
   return (
     <section id="experience" className="bg-white text-black py-16">
-      <div className="max-w-5xl mx-auto px-8">
+      <div className="max-w-7xl mx-auto px-8">
         <h2 className="text-4xl font-bold text-center mb-10">Experience</h2>
-        <div className="flex flex-col gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {experienceData.map((item) => (
             <ExperienceCard key={item.company} item={item} />
           ))}

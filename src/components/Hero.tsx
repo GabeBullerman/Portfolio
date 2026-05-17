@@ -7,13 +7,13 @@ export default function Hero() {
 
   return (
     <section id="about-me" className="bg-white text-black flex items-center justify-center py-16">
-      <div className="max-w-5xl mx-auto flex items-center gap-16 px-8 flex-col md:flex-row">
+      <div className="max-w-7xl mx-auto flex items-center gap-16 px-8 flex-col md:flex-row">
         <img
           src="/images/me.jpg"
           alt="Profile Photo"
-          className="w-64 h-64 rounded-full border-4 border-black object-cover flex-shrink-0"
+          className="w-64 h-64 xl:w-80 xl:h-80 rounded-full border-4 border-black object-cover flex-shrink-0"
         />
-        <div className="max-w-xl text-center md:text-left">
+        <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-4xl md:text-5xl font-bold mb-2">Gabriel John Bullerman</h1>
           <h2 className="text-2xl md:text-3xl font-bold mb-4">
             <span>{displayText}</span>
