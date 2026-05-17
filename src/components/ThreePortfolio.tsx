@@ -845,8 +845,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       </div>
       {/* Mobile Joystick */}
       <div
-        className="absolute bottom-24 left-6 z-30 w-32 h-32 md:hidden"
-        onTouchStart={(e) => {
+        onTouchStart={() => {
           touchActiveRef.current = true
         }}
         onTouchMove={(e) => {
