@@ -394,6 +394,8 @@ function Content({ id }: { id: SectionId }) {
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const mountRef       = useRef<HTMLDivElement>(null)
+  const rendererRef    = useRef<THREE.WebGLRenderer | null>(null)
+  const [brightness, setBrightness] = useState(0.85)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign]           = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
@@ -447,7 +449,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 0.42
+    renderer.toneMappingExposure = 0.85
+    rendererRef.current = renderer
     mount.appendChild(renderer.domElement)
 
     // ── HDR Skybox ───────────────────────────────────────────────────────
@@ -461,8 +464,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       pmremGen.dispose()
     })
 
-    scene.add(new THREE.AmbientLight(0xffeedd, 0.60))
-    const sun = new THREE.DirectionalLight(0xfff0d0, 0.85)
+    scene.add(new THREE.AmbientLight(0xffeedd, 1.2))
+    const sun = new THREE.DirectionalLight(0xfff0d0, 1.4)
     sun.position.set(20, 40, 15); sun.castShadow = true
     sun.shadow.mapSize.set(2048,2048)
     sun.shadow.camera.left=-80; sun.shadow.camera.right=80
@@ -1290,6 +1293,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       )}
 
       {activeSection && <SectionOverlay id={activeSection} onClose={exitFocus} />}
+
+      {/* Debug: brightness slider */}
+      <div className="absolute top-16 right-4 z-50 bg-black/70 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-xl flex items-center gap-2">
+        <span className="opacity-60">Brightness</span>
+        <input
+          type="range" min="0.1" max="3" step="0.05"
+          value={brightness}
+          onChange={e => {
+            const v = parseFloat(e.target.value)
+            setBrightness(v)
+            if (rendererRef.current) rendererRef.current.toneMappingExposure = v
+          }}
+          className="w-28 accent-yellow-400"
+        />
+        <span className="w-8 text-right opacity-80">{brightness.toFixed(2)}</span>
+      </div>
     </div>
   )
 }
