@@ -422,14 +422,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const currentSecRef   = useRef<SectionId | null>(null)
   // Prevents sign from re-triggering immediately after the player presses ESC
   const exitedRef       = useRef(false)
+  const relockRef       = useRef<(() => void) | null>(null)
 
   function exitFocus() {
     focusActiveRef.current  = false
     overlayShownRef.current = false
     proxTimerRef.current    = 0
-    exitedRef.current       = true   // suppresses re-trigger until player moves away
+    exitedRef.current       = true
     setActiveSection(null)
     setNearSign(false)
+    relockRef.current?.()
   }
 
   useEffect(() => {
@@ -543,6 +545,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
       sign.position.set(wx,3.8,wz); sign.castShadow=true; scene.add(sign)
     })
+
+    // ── Proximity progress ring ───────────────────────────────────────────
+    const RING_SEGS = 80
+    const RING_R    = 4.5
+    const ringPts   = new Float32Array((RING_SEGS + 1) * 3)
+    for (let i = 0; i <= RING_SEGS; i++) {
+      const a = (i / RING_SEGS) * Math.PI * 2 - Math.PI / 2  // start at top, go CCW
+      ringPts[i * 3]     = Math.cos(a) * RING_R
+      ringPts[i * 3 + 1] = 0.04
+      ringPts[i * 3 + 2] = Math.sin(a) * RING_R
+    }
+    const ringGeo = new THREE.BufferGeometry()
+    ringGeo.setAttribute('position', new THREE.BufferAttribute(ringPts, 3))
+    ringGeo.setDrawRange(0, 0)
+    const ringLine = new THREE.Line(ringGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }))
+    ringLine.visible = false
+    scene.add(ringLine)
 
     // ── Campfire ─────────────────────────────────────────────────────────
     const logMat = new THREE.MeshLambertMaterial({ color:0x5a3010 })
@@ -806,11 +825,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Input ────────────────────────────────────────────────────────────
     const keys = new Set<string>()
 
+    relockRef.current = () => renderer.domElement.requestPointerLock()
+
     function triggerFocus(id: SectionId) {
       const s = SECTIONS.find(sec=>sec.id===id)!
       focusPosRef.current.set(s.wx,3.8,s.wz+7.0)
       focusLookRef.current.set(s.wx,3.8,s.wz)
       focusActiveRef.current=true; overlayShownRef.current=false; proxTimerRef.current=0
+      document.exitPointerLock()
     }
     triggerFocusRef.current = triggerFocus
 
@@ -888,7 +910,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (document.pointerLockElement !== renderer.domElement) return
       if (focusActiveRef.current || bowlStateRef.current !== 'idle') return
       camYaw   -= e.movementX * MOUSE_SENS
-      camPitch  = THREE.MathUtils.clamp(camPitch + e.movementY * MOUSE_SENS, 0.05, 0.9)
+      camPitch  = THREE.MathUtils.clamp(camPitch + e.movementY * MOUSE_SENS, -0.55, 1.2)
     }
     const onPointerLockChange = () => {
       setPointerLocked(document.pointerLockElement === renderer.domElement)
@@ -977,6 +999,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         player.position.y = Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
 
         const camDist = 5.2
+        // Clamp pitch so camera never dips below ground level
+        const minPitch = Math.asin(Math.max(-1, (0.3 - player.position.y - 1.2) / camDist))
+        camPitch = Math.max(camPitch, minPitch)
         const camTarget = new THREE.Vector3(
           player.position.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
           player.position.y + Math.sin(camPitch) * camDist + 1.2,
@@ -1004,6 +1029,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (nearest && !exitedRef.current) {
           proxTimerRef.current += delta
           if (proxTimerRef.current > 2.2) triggerFocus(nearest)
+        }
+
+        // Progress ring — follows current sign, fills over 2.2 s
+        if (nearest && !exitedRef.current && proxTimerRef.current > 0) {
+          const sec = SECTIONS.find(s => s.id === nearest)!
+          ringLine.position.set(sec.wx, 0, sec.wz)
+          ringLine.visible = true
+          ringGeo.setDrawRange(0, Math.ceil((RING_SEGS + 1) * Math.min(proxTimerRef.current / 2.2, 1)))
+        } else {
+          ringLine.visible = false
+          ringGeo.setDrawRange(0, 0)
         }
 
         // Player kicks exploration balls via impulse on their Cannon bodies
