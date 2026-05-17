@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
-import { Sky } from 'three/addons/objects/Sky.js'
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { experienceData } from '../data/experience'
 import { skillsData } from '../data/skills'
 import { projectsData } from '../data/projects'
@@ -410,8 +410,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const bowlHSRef       = useRef(parseInt(localStorage.getItem('gabe-bowl-hs') || '0'))
   const nearBowlRef     = useRef(false)
   const bowlPowerRef    = useRef(0)
-  const bowlPowerDirRef = useRef(1)
-  const powerBarRef     = useRef<HTMLDivElement>(null)
+  const bowlPowerDirRef  = useRef(1)
+  const bowlThrowKeyRef  = useRef(false)  // true only if E/Space went down while already aiming
+  const powerBarRef      = useRef<HTMLDivElement>(null)
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -446,23 +447,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 0.6
+    renderer.toneMappingExposure = 0.42
     mount.appendChild(renderer.domElement)
 
-    // ── Sky ──────────────────────────────────────────────────────────────
-    const sky = new Sky(); sky.scale.setScalar(450)
-    const skyUni = (sky.material as THREE.ShaderMaterial).uniforms
-    skyUni['turbidity'].value       = 8
-    skyUni['rayleigh'].value        = 1.8
-    skyUni['mieCoefficient'].value  = 0.006
-    skyUni['mieDirectionalG'].value = 0.82
-    const sunVec = new THREE.Vector3()
-    sunVec.setFromSphericalCoords(1, THREE.MathUtils.degToRad(84), THREE.MathUtils.degToRad(200))
-    skyUni['sunPosition'].value.copy(sunVec)
-    scene.add(sky)
+    // ── HDR Skybox ───────────────────────────────────────────────────────
+    const pmremGen = new THREE.PMREMGenerator(renderer)
+    pmremGen.compileEquirectangularShader()
+    new RGBELoader().load('/images/citrus_orchard_road_puresky_1k.hdr', (hdrTex) => {
+      const envMap = pmremGen.fromEquirectangular(hdrTex).texture
+      scene.background = envMap
+      scene.environment = envMap
+      hdrTex.dispose()
+      pmremGen.dispose()
+    })
 
     scene.add(new THREE.AmbientLight(0xffeedd, 0.60))
-    const sun = new THREE.DirectionalLight(0xfff0d0, 1.2)
+    const sun = new THREE.DirectionalLight(0xfff0d0, 0.85)
     sun.position.set(20, 40, 15); sun.castShadow = true
     sun.shadow.mapSize.set(2048,2048)
     sun.shadow.camera.left=-80; sun.shadow.camera.right=80
@@ -641,6 +641,35 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     laneBody.position.set(BOWL_CX, 0.02, BOWL_LANE_Z)
     physWorld.addBody(laneBody)
 
+    // ── Pin-deck bumpers ──────────────────────────────────────────────────
+    // Warm sandstone — visible but not high-contrast
+    const bumperMat = new THREE.MeshLambertMaterial({ color: 0xb09a78 })
+    const bumperH   = 0.42
+    const bumperThk = 0.18
+    const deckFront = BOWL_PINS_Z + 0.55
+    const deckBack  = BOWL_PINS_Z - PIN_ROW_D * 3 - 0.65
+    const deckLen   = Math.abs(deckBack - deckFront)
+    const deckCtrZ  = (deckFront + deckBack) / 2
+
+    // Left and right side walls
+    ;[-1, 1].forEach(side => {
+      const wx = BOWL_CX + side * (laneW / 2 + bumperThk / 2)
+      const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(bumperThk, bumperH, deckLen), bumperMat)
+      wallMesh.position.set(wx, bumperH / 2, deckCtrZ); scene.add(wallMesh)
+      const wallBody = new CANNON.Body({ mass: 0 })
+      wallBody.addShape(new CANNON.Box(new CANNON.Vec3(bumperThk / 2, bumperH / 2, deckLen / 2)))
+      wallBody.position.set(wx, bumperH / 2, deckCtrZ)
+      physWorld.addBody(wallBody)
+    })
+
+    // Back wall
+    const backMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW + bumperThk * 2, bumperH, bumperThk), bumperMat)
+    backMesh.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2); scene.add(backMesh)
+    const backBody = new CANNON.Body({ mass: 0 })
+    backBody.addShape(new CANNON.Box(new CANNON.Vec3((laneW + bumperThk * 2) / 2, bumperH / 2, bumperThk / 2)))
+    backBody.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2)
+    physWorld.addBody(backBody)
+
     // ── Bowling pins ──────────────────────────────────────────────────────
     // Pin canvas texture: white with two red stripes near the neck
     const pinCv = document.createElement('canvas'); pinCv.width = 64; pinCv.height = 128
@@ -703,10 +732,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         pinBodies[i].quaternion.set(0, 0, 0, 1)
         pinBodies[i].sleep(); pinMeshes[i].visible = true
       })
-      bowlAimRef.current    = 0
-      bowlTimerRef.current  = 0
-      bowlPowerRef.current  = 0
+      bowlAimRef.current      = 0
+      bowlTimerRef.current    = 0
+      bowlPowerRef.current    = 0
       bowlPowerDirRef.current = 1
+      bowlThrowKeyRef.current = false
     }
     function throwBowl() {
       const spd = 8 + bowlPowerRef.current * 14   // 8–22 units/s
@@ -808,10 +838,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       }
       if (bs === 'aiming') {
         if (e.key === 'Escape') {
+          bowlThrowKeyRef.current = false
           bowlStateRef.current = 'idle'; resetBowling()
           setBowlDisplay(p => ({ ...p, state: 'idle' })); setNearBowl(false)
         }
-        // Space/E: hold to charge power; release (keyUp) throws
+        if (e.key === ' ' || e.key.toLowerCase() === 'e') {
+          bowlThrowKeyRef.current = true  // mark that the key went down while aiming
+        }
         return
       }
       if (bs === 'result') {
@@ -831,8 +864,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
     const onKeyUp = (e: KeyboardEvent) => {
       keys.delete(keyToWASD(e.key.toLowerCase()))
-      // Release Space or E while aiming → throw at current power
-      if (bowlStateRef.current === 'aiming' && (e.key === ' ' || e.key.toLowerCase() === 'e')) {
+      // Release Space or E while aiming → throw only if key was pressed during aiming
+      if (bowlStateRef.current === 'aiming' && bowlThrowKeyRef.current && (e.key === ' ' || e.key.toLowerCase() === 'e')) {
+        bowlThrowKeyRef.current = false
         throwBowl(); bowlStateRef.current = 'thrown'; bowlTimerRef.current = 0
         setBowlDisplay(p => ({ ...p, state: 'thrown' }))
       }
