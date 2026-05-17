@@ -393,7 +393,8 @@ function Content({ id }: { id: SectionId }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
-  const mountRef       = useRef<HTMLDivElement>(null)
+  const mountRef          = useRef<HTMLDivElement>(null)
+  const [pointerLocked, setPointerLocked] = useState(false)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign]           = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
@@ -686,7 +687,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const pinGeo = new THREE.CylinderGeometry(PIN_R_TOP, PIN_R_BOT, PIN_H, 12)
       const m = new THREE.Mesh(pinGeo, pinMat); m.castShadow = true; scene.add(m)
       m.position.set(px, py, pz); pinMeshes.push(m)
-      const b = new CANNON.Body({ mass: 0.5 })
+      const b = new CANNON.Body({ mass: 0.15 })
       b.addShape(new CANNON.Cylinder(PIN_R_TOP, PIN_R_BOT, PIN_H, 8))
       b.position.set(px, py, pz)
       b.linearDamping  = 0.3
@@ -701,7 +702,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       new THREE.MeshPhongMaterial({ color: 0x1a1a3a, shininess: 180, specular: 0x6688cc }),
     )
     bowlBallMesh.castShadow = true; bowlBallMesh.visible = false; scene.add(bowlBallMesh)
-    const bowlBallBody = new CANNON.Body({ mass: 3 })
+    const bowlBallBody = new CANNON.Body({ mass: 8 })
     bowlBallBody.addShape(new CANNON.Sphere(BOWL_BALL_R))
     bowlBallBody.position.set(BOWL_CX, BOWL_BALL_R, BOWL_START_Z)
     bowlBallBody.linearDamping  = 0.12
@@ -851,6 +852,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (mapped === 'e' || e.key === ' ') {
           e.preventDefault(); resetBowling(); bowlStateRef.current = 'aiming'
           setBowlDisplay(p => ({ ...p, state: 'aiming', score: 0 }))
+        } else if (e.key === 'Escape') {
+          resetBowling(); bowlStateRef.current = 'idle'
+          setBowlDisplay(p => ({ ...p, state: 'idle' })); setNearBowl(false); nearBowlRef.current = false
         }
         return
       }
@@ -878,6 +882,26 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     window.addEventListener('keyup',   onKeyUp)
     window.addEventListener('blur',    onBlur)
 
+    // ── Pointer lock (mouse look) ──────────────────────────────────────────
+    const MOUSE_SENS = 0.0022
+    const onMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement !== renderer.domElement) return
+      if (focusActiveRef.current || bowlStateRef.current !== 'idle') return
+      camYaw   += e.movementX * MOUSE_SENS
+      camPitch  = THREE.MathUtils.clamp(camPitch - e.movementY * MOUSE_SENS, 0.05, 0.9)
+    }
+    const onPointerLockChange = () => {
+      setPointerLocked(document.pointerLockElement === renderer.domElement)
+    }
+    const onCanvasClick = () => {
+      if (!focusActiveRef.current && bowlStateRef.current === 'idle') {
+        renderer.domElement.requestPointerLock()
+      }
+    }
+    renderer.domElement.addEventListener('click', onCanvasClick)
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('pointerlockchange', onPointerLockChange)
+
     // ── Animation ─────────────────────────────────────────────────────────
     const _tmpCam = camera.clone()
     const _mat4   = new THREE.Matrix4()
@@ -887,9 +911,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     let lastTime = performance.now()
     let walkPhase = 0
     let swingAmt  = 0
-    // camYaw: angle such that camera sits at player + (sin(camYaw)*dist, h, cos(camYaw)*dist)
-    // 0 = camera at +Z side (behind player who faces -Z by default)
-    let camYaw = 0
+    let camYaw   = 0   // horizontal orbit angle around player
+    let camPitch = 0.3 // vertical tilt (radians, positive = camera higher)
 
     function animate() {
       animId = requestAnimationFrame(animate)
@@ -934,19 +957,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
         const isMoving = rawVel.lengthSq() > 0
         if (isMoving) {
-          if (hasW) {
-            // Face direction of forward movement (+ optional strafe diagonal)
-            const faceX = fw_x + (hasA ? -rt_x : 0) + (hasD ? rt_x : 0)
-            const faceZ = fw_z + (hasA ? -rt_z : 0) + (hasD ? rt_z : 0)
-            const targetRotY = Math.atan2(faceX, faceZ)
-            player.rotation.y = lerpAngle(player.rotation.y, targetRotY, 0.14)
-            // Camera gently follows only when moving forward
-            camYaw = lerpAngle(camYaw, player.rotation.y + Math.PI, 0.04)
-          }
-          // S/A/D alone: translate without changing player facing or camera yaw
           rawVel.normalize().multiplyScalar(8.5 * delta)
           player.position.add(rawVel)
         }
+        // Player model always faces camera forward direction
+        player.rotation.y = lerpAngle(player.rotation.y, camYaw + Math.PI, 0.14)
         player.position.x = THREE.MathUtils.clamp(player.position.x, -28, 28)
         player.position.z = THREE.MathUtils.clamp(player.position.z, -78, 8)
 
@@ -961,14 +976,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
         player.position.y = Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
 
-        const camDist = 5.2, camH = 2.0
+        const camDist = 5.2
         const camTarget = new THREE.Vector3(
-          player.position.x + Math.sin(camYaw) * camDist,
-          player.position.y + camH,
-          player.position.z + Math.cos(camYaw) * camDist,
+          player.position.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+          player.position.y + Math.sin(camPitch) * camDist + 1.2,
+          player.position.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist,
         )
         camera.position.lerp(camTarget, 0.15)
-        camera.lookAt(player.position.x, player.position.y + 1.4, player.position.z)
+        camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z)
 
         // Proximity to signs
         let nearest: SectionId | null = null, nearDist = PROX
@@ -1105,6 +1120,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       window.removeEventListener('keyup',   onKeyUp)
       window.removeEventListener('blur',    onBlur)
       window.removeEventListener('resize',  onResize)
+      renderer.domElement.removeEventListener('click', onCanvasClick)
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('pointerlockchange', onPointerLockChange)
+      if (document.pointerLockElement === renderer.domElement) document.exitPointerLock()
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
       // Remove all cannon bodies
@@ -1118,6 +1137,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div ref={mountRef} className="w-full h-full touch-none" />
+
+      {/* Click-to-look prompt — desktop only, idle state */}
+      {!pointerLocked && !activeSection && bowlDisplay.state === 'idle' && (
+        <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
+          <div className="bg-black/50 backdrop-blur-sm text-white text-sm px-5 py-2 rounded-full opacity-70">
+            Click to look around
+          </div>
+        </div>
+      )}
 
       {/* Back button — always visible */}
       <button
