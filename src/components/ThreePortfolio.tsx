@@ -36,13 +36,14 @@ const PIN_R_TOP    = 0.04        // pin neck radius
 const BOWL_BALL_R  = 0.13        // bowling ball radius
 const PIN_SPACING  = 0.48
 const PIN_ROW_D    = 0.54
+const PIN_Y = 0.04 + PIN_H / 2   // rests on top of lane surface (lane top = 0.04)
 const PIN_POSITIONS: [number, number, number][] = [
-  [BOWL_CX,                  PIN_H/2, BOWL_PINS_Z],
-  [BOWL_CX - PIN_SPACING/2,  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D],
-  [BOWL_CX + PIN_SPACING/2,  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D],
-  [BOWL_CX - PIN_SPACING,    PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
-  [BOWL_CX,                  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
-  [BOWL_CX + PIN_SPACING,    PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
+  [BOWL_CX,                  PIN_Y, BOWL_PINS_Z],
+  [BOWL_CX - PIN_SPACING/2,  PIN_Y, BOWL_PINS_Z - PIN_ROW_D],
+  [BOWL_CX + PIN_SPACING/2,  PIN_Y, BOWL_PINS_Z - PIN_ROW_D],
+  [BOWL_CX - PIN_SPACING,    PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
+  [BOWL_CX,                  PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
+  [BOWL_CX + PIN_SPACING,    PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
 ]
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -396,9 +397,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [nearBowl, setNearBowl]           = useState(false)
   const [bowlDisplay, setBowlDisplay]     = useState<{ state: BowlState; score: number; hs: number }>({ state: 'idle', score: 0, hs: 0 })
   const bowlStateRef  = useRef<BowlState>('idle')
-  const bowlAimRef    = useRef(0)           // horizontal aim offset (radians)
-  const bowlTimerRef  = useRef(0)           // countdown after throw
+  const bowlAimRef    = useRef(0)
+  const bowlTimerRef  = useRef(0)
   const bowlHSRef     = useRef(parseInt(localStorage.getItem('gabe-bowl-hs') || '0'))
+  const nearBowlRef   = useRef(false)
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -587,34 +589,75 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     })
 
     // ── Bowling lane ──────────────────────────────────────────────────────
-    // Lane floor
-    const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 3
-    const laneMat = new THREE.MeshLambertMaterial({ color: 0xd4a96a })
-    const laneMesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.04, laneLen), laneMat)
+    const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
+    const laneW   = 2.6
+
+    // Wood canvas texture
+    const laneCv = document.createElement('canvas'); laneCv.width = 128; laneCv.height = 512
+    const lc = laneCv.getContext('2d')!
+    lc.fillStyle = '#c8913a'; lc.fillRect(0, 0, 128, 512)
+    // Board lines
+    for (let bx = 16; bx < 128; bx += 16) {
+      lc.strokeStyle = '#9a6a22'; lc.lineWidth = 1.5
+      lc.beginPath(); lc.moveTo(bx, 0); lc.lineTo(bx, 512); lc.stroke()
+    }
+    // Approach dots (7 dots across, repeated rows)
+    lc.fillStyle = '#7a4e10'
+    for (let row = 0; row < 3; row++) {
+      const dy = 80 + row * 50
+      for (let col = 0; col < 7; col++) {
+        lc.beginPath(); lc.arc(9 + col * 18, dy, 3, 0, Math.PI * 2); lc.fill()
+      }
+    }
+    const laneTex = new THREE.CanvasTexture(laneCv)
+    laneTex.wrapS = THREE.RepeatWrapping; laneTex.wrapT = THREE.RepeatWrapping
+    laneTex.repeat.set(1, 1)
+
+    const laneMat = new THREE.MeshPhongMaterial({ map: laneTex, shininess: 60 })
+    const laneMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW, 0.04, laneLen), laneMat)
+    laneMesh.receiveShadow = true
     laneMesh.position.set(BOWL_CX, 0.02, BOWL_LANE_Z); scene.add(laneMesh)
-    // Gutter stripes
-    ;[-1.1, 1.1].forEach(ox => {
-      const gutter = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, laneLen), new THREE.MeshLambertMaterial({ color: 0x8b6c42 }))
+
+    // Gutters
+    ;[-(laneW / 2 + 0.12), (laneW / 2 + 0.12)].forEach(ox => {
+      const gutter = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, laneLen), new THREE.MeshLambertMaterial({ color: 0x6b4a1a }))
       gutter.position.set(BOWL_CX + ox, 0.02, BOWL_LANE_Z); scene.add(gutter)
     })
-    // Approach marker arrows
-    for (let ai = 0; ai < 3; ai++) {
-      const arr = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), new THREE.MeshLambertMaterial({ color: 0xffcc44 }))
-      arr.rotation.x = Math.PI / 2
-      arr.position.set(BOWL_CX, 0.06, BOWL_START_Z - 1.5 - ai * 0.6); scene.add(arr)
-    }
+
+    // Backdrop wall behind pin deck
+    const backdropMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(laneW + 0.5, 3.5, 0.15),
+      new THREE.MeshLambertMaterial({ color: 0x1a1a2e }),
+    )
+    backdropMesh.position.set(BOWL_CX, 1.75, BOWL_PINS_Z - PIN_ROW_D * 2 - 0.8); scene.add(backdropMesh)
+
+    // Neon stripe on backdrop
+    const neonMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(laneW + 0.4, 0.08, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0x44aaff }),
+    )
+    neonMesh.position.set(BOWL_CX, 2.8, BOWL_PINS_Z - PIN_ROW_D * 2 - 0.8); scene.add(neonMesh)
+
     // Static lane body so balls roll on it
     const laneBody = new CANNON.Body({ mass: 0 })
-    laneBody.addShape(new CANNON.Box(new CANNON.Vec3(1.0, 0.02, laneLen / 2)))
+    laneBody.addShape(new CANNON.Box(new CANNON.Vec3(laneW / 2, 0.02, laneLen / 2)))
     laneBody.position.set(BOWL_CX, 0.02, BOWL_LANE_Z)
     physWorld.addBody(laneBody)
 
     // ── Bowling pins ──────────────────────────────────────────────────────
-    const pinMat = new THREE.MeshLambertMaterial({ color: 0xfff5e0 })
+    // Pin canvas texture: white with two red stripes near the neck
+    const pinCv = document.createElement('canvas'); pinCv.width = 64; pinCv.height = 128
+    const pctx = pinCv.getContext('2d')!
+    pctx.fillStyle = '#f5f0e8'; pctx.fillRect(0, 0, 64, 128)
+    pctx.fillStyle = '#cc1111'; pctx.fillRect(0, 28, 64, 9)
+    pctx.fillStyle = '#cc1111'; pctx.fillRect(0, 42, 64, 9)
+    const pinTex = new THREE.CanvasTexture(pinCv)
+    const pinMat = new THREE.MeshPhongMaterial({ map: pinTex, shininess: 90 })
+
     const pinMeshes: THREE.Mesh[] = []
     const pinBodies: CANNON.Body[] = []
     PIN_POSITIONS.forEach(([px, py, pz]) => {
-      const pinGeo = new THREE.CylinderGeometry(PIN_R_TOP, PIN_R_BOT, PIN_H, 8)
+      const pinGeo = new THREE.CylinderGeometry(PIN_R_TOP, PIN_R_BOT, PIN_H, 12)
       const m = new THREE.Mesh(pinGeo, pinMat); m.castShadow = true; scene.add(m)
       m.position.set(px, py, pz); pinMeshes.push(m)
       const b = new CANNON.Body({ mass: 0.5 })
@@ -628,8 +671,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Bowling ball ──────────────────────────────────────────────────────
     const bowlBallMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(BOWL_BALL_R, 14, 10),
-      new THREE.MeshPhongMaterial({ color: 0xcc1111, shininess: 80 }),
+      new THREE.SphereGeometry(BOWL_BALL_R, 18, 14),
+      new THREE.MeshPhongMaterial({ color: 0x1a1a3a, shininess: 180, specular: 0x6688cc }),
     )
     bowlBallMesh.castShadow = true; bowlBallMesh.visible = false; scene.add(bowlBallMesh)
     const bowlBallBody = new CANNON.Body({ mass: 3 })
@@ -746,6 +789,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
       // Bowling controls take priority when active
       const bs = bowlStateRef.current
+      if (bs === 'idle' && mapped === 'e' && nearBowlRef.current) {
+        e.preventDefault()
+        bowlStateRef.current = 'aiming'
+        setBowlDisplay(p => ({ ...p, state: 'aiming', score: 0 }))
+        return
+      }
       if (bs === 'aiming') {
         if (e.key === ' ' || mapped === 'e') {
           e.preventDefault()
@@ -910,7 +959,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         // ── Bowling proximity & state machine ──────────────────────────
         const bowlDist = Math.hypot(player.position.x - BOWL_CX, player.position.z - BOWL_START_Z)
         const newNearBowl = bowlStateRef.current === 'idle' && bowlDist < BOWL_PROX
-        if (newNearBowl !== _nearBowl) { _nearBowl = newNearBowl; setNearBowl(newNearBowl) }
+        if (newNearBowl !== _nearBowl) { _nearBowl = newNearBowl; nearBowlRef.current = newNearBowl; setNearBowl(newNearBowl) }
 
         if (bowlStateRef.current === 'thrown') {
           bowlTimerRef.current += delta
