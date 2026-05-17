@@ -26,9 +26,9 @@ function lerpAngle(from: number, to: number, t: number): number {
 
 // ─── Bowling constants ────────────────────────────────────────────────────────
 const BOWL_CX      = 22          // lane centre X
-const BOWL_START_Z = -20         // where player throws from
-const BOWL_PINS_Z  = -36         // front pin Z
-const BOWL_LANE_Z  = -28         // lane visual centre Z
+const BOWL_START_Z = -32         // where player throws from
+const BOWL_PINS_Z  = -48         // front pin Z
+const BOWL_LANE_Z  = -40         // lane visual centre Z
 const BOWL_PROX    = 5.5         // approach distance to start game
 const PIN_H        = 0.40        // pin height
 const PIN_R_BOT    = 0.07        // pin base radius
@@ -62,9 +62,9 @@ const BENCH_POSITIONS = [
 const BENCH_PROX = 2.3
 
 // ─── Ring toss constants ──────────────────────────────────────────────────────
-const RTOSS_CX      = -20
-const RTOSS_START_Z = -5
-const RTOSS_POST_Z  = -17
+const RTOSS_CX      = 14
+const RTOSS_START_Z = -32
+const RTOSS_POST_Z  = -44
 const RTOSS_PROX    = 5.5
 const RTOSS_RING_R  = 0.36
 const RTOSS_RING_TUBE = 0.048
@@ -72,18 +72,22 @@ const RTOSS_RINGS   = 3
 const RTOSS_POST_H  = 1.5
 const RTOSS_POST_R  = 0.044
 
+// ─── Ball pit + trampoline constants ─────────────────────────────────────────
+const PIT_CX   = 18,  PIT_CZ   = -22
+const TRAMP_CX = 18,  TRAMP_CZ = -14
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
 interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
 
 const SECTIONS: SectionCfg[] = [
-  { id: 'about',          label: 'About Me',   wx:  0, wz:   2 },
-  { id: 'experience',     label: 'Experience', wx:  8, wz: -14 },
-  { id: 'skills',         label: 'Skills',     wx: -8, wz: -26 },
-  { id: 'projects',       label: 'Projects',   wx:  8, wz: -38 },
-  { id: 'certifications', label: 'Certs',      wx: -8, wz: -50 },
-  { id: 'moreonme',       label: 'More on Me', wx:  8, wz: -62 },
-  { id: 'contact',        label: 'Contact',    wx:  0, wz: -72 },
+  { id: 'about',          label: 'About Me',   wx: -6,  wz:  -3 },
+  { id: 'experience',     label: 'Experience', wx: -18, wz: -16 },
+  { id: 'skills',         label: 'Skills',     wx:  4,  wz: -26 },
+  { id: 'projects',       label: 'Projects',   wx: -14, wz: -40 },
+  { id: 'certifications', label: 'Certs',      wx:  6,  wz: -52 },
+  { id: 'moreonme',       label: 'More on Me', wx: -16, wz: -62 },
+  { id: 'contact',        label: 'Contact',    wx:  2,  wz: -72 },
 ]
 
 const PROX = 6.5
@@ -574,6 +578,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (SECTIONS.some(s=>Math.hypot(x-s.wx,z-s.wz)<6.5)) continue
       if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
       if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
+      if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
+      if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
+      if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < 3.0) continue
       addTree(x,z,0.7+rng()*0.65)
     }
 
@@ -616,6 +623,47 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
       sign.position.set(wx,3.8,wz); sign.castShadow=true; scene.add(sign)
     })
+
+    // ── Stone paths between signs ─────────────────────────────────────────
+    {
+      const pathStoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8a7e })
+      const pathStoneGeo = new THREE.SphereGeometry(1, 5, 4)
+      const pathStoneInst = new THREE.InstancedMesh(pathStoneGeo, pathStoneMat, 1200)
+      pathStoneInst.receiveShadow = true; scene.add(pathStoneInst)
+      const dummy = new THREE.Object3D()
+      const pathRng = mulberry32(888)
+      let idx = 0
+
+      function addStonePath(x1: number, z1: number, x2: number, z2: number) {
+        const dx = x2 - x1, dz = z2 - z1
+        const len = Math.hypot(dx, dz)
+        const ux = dx / len, uz = dz / len
+        const count = Math.ceil(len * 5.5)
+        for (let i = 0; i < count && idx < 1200; i++) {
+          const t   = (i + pathRng() * 0.7) / count
+          const perp = (pathRng() - 0.5) * 1.4
+          const sx  = x1 + ux * t * len + (-uz) * perp
+          const sz  = z1 + uz * t * len +  ux  * perp
+          const r   = 0.055 + pathRng() * 0.085
+          dummy.position.set(sx, r * 0.25, sz)
+          dummy.scale.set(r, r * (0.22 + pathRng() * 0.18), r * (0.85 + pathRng() * 0.3))
+          dummy.rotation.y = pathRng() * Math.PI * 2
+          dummy.updateMatrix()
+          pathStoneInst.setMatrixAt(idx++, dummy.matrix)
+        }
+      }
+
+      // Path from campfire area to first sign, then sign→sign
+      const waypoints: [number, number][] = [
+        [FIRE_POS.x, FIRE_POS.z],
+        ...SECTIONS.map(s => [s.wx, s.wz] as [number, number]),
+      ]
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        addStonePath(waypoints[i][0], waypoints[i][1], waypoints[i+1][0], waypoints[i+1][1])
+      }
+      pathStoneInst.instanceMatrix.needsUpdate = true
+      pathStoneInst.count = idx
+    }
 
     // ── Proximity progress ring ───────────────────────────────────────────
     const RING_SEGS = 80
@@ -685,27 +733,65 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ph: ffRng()*Math.PI*2, sp: 0.35+ffRng()*0.75, am: 1.0+ffRng()*2.8,
     }))
 
-    // ── Physics balls (Cannon-backed) ────────────────────────────────────
-    const BALL_R   = 0.42
-    const PLAYER_R = 0.38
+    // ── Ball pit + trampoline (near minigames) ────────────────────────────
+    const PIT_R  = 2.2, PIT_WALL_H = 0.55
+    const BALL_R = 0.14, PLAYER_R = 0.38
     interface PhysBall { mesh: THREE.Mesh; body: CANNON.Body }
     const balls: PhysBall[] = []
-    const ballColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff]
-    const ballSpots: [number,number][] = [[6,-12],[-9,-26],[12,-38],[-12,-50],[3,-7],[-4,-18],[14,-32],[-14,-44]]
-    ballColors.forEach((color,i) => {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(BALL_R,12,8),
-        new THREE.MeshLambertMaterial({ color }),
-      )
+
+    // Pit walls (4 sides, low box barriers)
+    const pitWallMat = new THREE.MeshLambertMaterial({ color: 0x3a5faa })
+    ;[
+      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,       pz: PIT_CZ - PIT_R, rx: 0 },
+      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,       pz: PIT_CZ + PIT_R, rx: 0 },
+      { w: 0.18, d: PIT_R*2,      px: PIT_CX - PIT_R, pz: PIT_CZ,      rx: 0 },
+      { w: 0.18, d: PIT_R*2,      px: PIT_CX + PIT_R, pz: PIT_CZ,      rx: 0 },
+    ].forEach(({ w, d, px, pz }) => {
+      const wm = new THREE.Mesh(new THREE.BoxGeometry(w, PIT_WALL_H, d), pitWallMat)
+      wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm)
+      const wb = new CANNON.Body({ mass: 0 })
+      wb.addShape(new CANNON.Box(new CANNON.Vec3(w/2, PIT_WALL_H/2, d/2)))
+      wb.position.set(px, PIT_WALL_H / 2, pz); physWorld.addBody(wb)
+    })
+    // Pit floor (slightly sunken visual)
+    const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R - 0.18, 20), new THREE.MeshLambertMaterial({ color: 0x4a80ee }))
+    pitFloor.rotation.x = -Math.PI / 2; pitFloor.position.set(PIT_CX, 0.005, PIT_CZ); scene.add(pitFloor)
+
+    // Fill pit with ~30 small balls
+    const pitBallColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff, 0xff9999, 0x99ff99]
+    const pitBallGeo = new THREE.SphereGeometry(BALL_R, 8, 6)
+    const pitRng = mulberry32(321)
+    for (let i = 0; i < 30; i++) {
+      const angle = pitRng() * Math.PI * 2
+      const rad   = pitRng() * (PIT_R - BALL_R - 0.2)
+      const px    = PIT_CX + Math.cos(angle) * rad
+      const pz    = PIT_CZ + Math.sin(angle) * rad
+      const color = pitBallColors[i % pitBallColors.length]
+      const mesh  = new THREE.Mesh(pitBallGeo, new THREE.MeshLambertMaterial({ color }))
       mesh.castShadow = true; scene.add(mesh)
-      const body = new CANNON.Body({ mass: 1 })
+      const body = new CANNON.Body({ mass: 0.12, linearDamping: 0.6, angularDamping: 0.6 })
       body.addShape(new CANNON.Sphere(BALL_R))
-      body.position.set(ballSpots[i][0], BALL_R, ballSpots[i][1])
-      body.linearDamping  = 0.55
-      body.angularDamping = 0.55
+      body.position.set(px, BALL_R + 0.4 + pitRng() * 1.0, pz)
       physWorld.addBody(body)
       balls.push({ mesh, body })
+    }
+
+    // Trampoline (flat disc platform with bounce physics)
+    const TRAMP_R  = 1.6
+    const trampMat = new THREE.MeshPhongMaterial({ color: 0x22cc55, shininess: 40 })
+    const trampMesh = new THREE.Mesh(new THREE.CylinderGeometry(TRAMP_R, TRAMP_R, 0.12, 20), trampMat)
+    trampMesh.position.set(TRAMP_CX, 0.3, TRAMP_CZ); trampMesh.castShadow = true; scene.add(trampMesh)
+    // Metal frame ring
+    const frameMat = new THREE.MeshLambertMaterial({ color: 0x888888 })
+    const frameMesh = new THREE.Mesh(new THREE.TorusGeometry(TRAMP_R + 0.08, 0.06, 8, 24), frameMat)
+    frameMesh.rotation.x = Math.PI / 2; frameMesh.position.set(TRAMP_CX, 0.38, TRAMP_CZ); scene.add(frameMesh)
+    // Trampoline legs (4 angled supports)
+    ;[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx, sz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.55, 6), frameMat)
+      leg.position.set(TRAMP_CX + sx * (TRAMP_R * 0.7), 0.06, TRAMP_CZ + sz * (TRAMP_R * 0.7))
+      leg.rotation.z = sx * 0.25; leg.rotation.x = sz * 0.25; scene.add(leg)
     })
+    // Physics: bouncy body — player touching it gets upward impulse (handled in animate)
 
     // ── Bowling lane ──────────────────────────────────────────────────────
     const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
@@ -1159,10 +1245,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     let animId:  number
     let elapsed  = 0
     let lastTime = performance.now()
-    let walkPhase = 0
-    let swingAmt  = 0
-    let camYaw   = 0   // horizontal orbit angle around player
-    let camPitch = 0.3 // vertical tilt (radians, positive = camera higher)
+    let walkPhase    = 0
+    let swingAmt     = 0
+    let camYaw       = 0    // horizontal orbit angle around player
+    let camPitch     = 0.3  // vertical tilt (radians, positive = camera higher)
+    let trampolineVel = 0   // upward velocity from trampoline bounce
 
     function animate() {
       animId = requestAnimationFrame(animate)
@@ -1173,7 +1260,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       // ── Cannon physics step ───────────────────────────────────────────
       physWorld.step(1 / 60, delta, 3)
 
-      // Sync exploration ball meshes from cannon bodies
+      // Sync pit ball meshes
       balls.forEach(b => {
         b.mesh.position.set(b.body.position.x, b.body.position.y, b.body.position.z)
         b.mesh.quaternion.set(b.body.quaternion.x, b.body.quaternion.y, b.body.quaternion.z, b.body.quaternion.w)
@@ -1276,19 +1363,33 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           ringGeo.setDrawRange(0, 0)
         }
 
-        // Player kicks exploration balls via impulse on their Cannon bodies
+        // Player nudges pit balls
         balls.forEach(b => {
           const pdx = b.body.position.x - player.position.x
           const pdz = b.body.position.z - player.position.z
           const pd  = Math.sqrt(pdx * pdx + pdz * pdz)
-          if (pd < PLAYER_R + BALL_R + 0.05 && pd > 0.01) {
+          if (pd < PLAYER_R + BALL_R + 0.02 && pd > 0.01) {
             const nx = pdx / pd, nz = pdz / pd
-            b.body.velocity.x = nx * 6; b.body.velocity.z = nz * 6; b.body.velocity.y = 0.4
-            b.body.position.x = player.position.x + nx * (PLAYER_R + BALL_R + 0.07)
-            b.body.position.z = player.position.z + nz * (PLAYER_R + BALL_R + 0.07)
+            b.body.velocity.x = nx * 3.5; b.body.velocity.z = nz * 3.5; b.body.velocity.y = 0.3
+            b.body.position.x = player.position.x + nx * (PLAYER_R + BALL_R + 0.04)
+            b.body.position.z = player.position.z + nz * (PLAYER_R + BALL_R + 0.04)
             b.body.wakeUp()
           }
         })
+
+        // Trampoline bounce — give player an upward kick when on the pad
+        if (!sittingRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle') {
+          const td = Math.hypot(player.position.x - TRAMP_CX, player.position.z - TRAMP_CZ)
+          if (td < TRAMP_R && player.position.y < 0.5) {
+            player.position.y = 0
+            trampolineVel = Math.max(trampolineVel, 8.0)
+          }
+        }
+        if (trampolineVel > 0) {
+          player.position.y += trampolineVel * delta
+          trampolineVel -= 20 * delta
+          if (player.position.y <= 0) { player.position.y = 0; trampolineVel = 0 }
+        }
 
         // ── Bench proximity & sit ─────────────────────────────────────────────
         if (!sittingRef.current) {
@@ -1302,15 +1403,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         } else {
           // Lock player to bench
           const s = BENCH_POSITIONS[seatIdxRef.current]
-          player.position.set(s.x, 0.36, s.z)
-          player.rotation.y = s.ry + Math.PI  // face fire
+          // y=-0.46 so hip (local y≈1.0) sits at bench top (y=0.54)
+          player.position.set(s.x, -0.46, s.z)
+          // Face toward fire
+          player.rotation.y = Math.atan2(FIRE_POS.x - s.x, FIRE_POS.z - s.z)
           // Sitting pose
-          lLegPivot.rotation.x = -Math.PI / 3; rLegPivot.rotation.x = -Math.PI / 3
-          lKnee.rotation.x = Math.PI / 2.2;    rKnee.rotation.x = Math.PI / 2.2
-          lArmPivot.rotation.x = 0.1;          rArmPivot.rotation.x = 0.1
-          // Camera: look at fire from bench
-          const bFireLook = new THREE.Vector3(0, 0.7, -6)
-          const bCamPos   = new THREE.Vector3(s.x * 0.4, 2.2, s.z + 1.5)
+          lLegPivot.rotation.x = -Math.PI / 2.8; rLegPivot.rotation.x = -Math.PI / 2.8
+          lKnee.rotation.x = Math.PI / 2.0;      rKnee.rotation.x = Math.PI / 2.0
+          lArmPivot.rotation.x = 0.1;            rArmPivot.rotation.x = 0.1
+          // Camera: sit behind player looking at fire
+          const bFireLook = new THREE.Vector3(FIRE_POS.x, 0.7, FIRE_POS.z)
+          const bCamPos   = new THREE.Vector3(s.x - (FIRE_POS.x - s.x) * 0.5, 1.8, s.z - (FIRE_POS.z - s.z) * 0.5)
           camera.position.lerp(bCamPos, 0.07)
           camera.lookAt(bFireLook)
         }
@@ -1481,7 +1584,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       <div ref={mountRef} className="w-full h-full touch-none" />
 
       {/* Click-to-look prompt — desktop only, idle state */}
-      {!pointerLocked && !activeSection && bowlDisplay.state === 'idle' && (
+      {!pointerLocked && !activeSection && bowlDisplay.state === 'idle' && !sitting && (
         <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
           <div className="bg-black/50 backdrop-blur-sm text-white text-sm px-5 py-2 rounded-full opacity-70">
             Click to look around
