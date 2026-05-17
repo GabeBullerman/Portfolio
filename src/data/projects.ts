@@ -11,23 +11,23 @@ export interface Project {
 export const projectsData: Project[] = [
   {
     title: 'MusiQuest',
-    subtitle: 'Mobile App',
+    subtitle: 'Full-Stack Mobile App',
     description:
-      'Developed a full-stack Android application for early-education music teachers with real-time global chat, leaderboards, and friends list via WebSockets.',
+      'Full-stack Android application for music educators featuring real-time global chat, dynamic leaderboards, and social networking via WebSockets. Handled backend data management with MongoDB and real-time synchronization for scalable multi-user interactions.',
     image: '/images/ImageAI-262x242.gif',
     imageAlt: 'MusiQuest',
     link: 'https://github.com/GabeBullerman/MusiQuest',
-    tags: ['Java', 'Android Studio', 'Gradle', 'MongoDB', 'WebSockets'],
+    tags: ['Java', 'Android Studio', 'MongoDB', 'WebSockets', 'Real-time Sync'],
   },
   {
     title: 'Lusiant',
-    subtitle: 'Web App',
+    subtitle: 'Full-Stack E-Commerce Platform',
     description:
-      'Built a full-stack e-commerce SPA for a clothing brand with payment API integration and a MySQL database managing customer tickets, purchases, and rewards.',
+      'Full-stack e-commerce SPA with React frontend and Node.js backend featuring Stripe payment integration, inventory management, customer loyalty rewards, and support ticketing. Designed responsive UI with TailwindCSS and managed relational data with MySQL.',
     image: '/images/lusiant.gif',
     imageAlt: 'Lusiant',
     link: 'https://github.com/GabeBullerman/Lusiant',
-    tags: ['React', 'Node.js', 'MySQL', 'JavaScript', 'TailwindCSS'],
+    tags: ['React', 'Node.js', 'Express', 'MySQL', 'TailwindCSS', 'Stripe API'],
   },
   {
     title: 'Rainfall Simulation',
@@ -50,13 +50,13 @@ export const projectsData: Project[] = [
     tags: ['Java', 'File I/O', 'OOP'],
   },
   {
-    title: 'Mini Projects',
-    subtitle: '3D Web Design',
+    title: 'Interactive 3D Web Projects',
+    subtitle: 'Advanced Frontend Development',
     description:
-      'A collection of 3D web design projects covering shaders, lighting, model imports from Blender, physics engines, and debug UI.',
+      'Advanced web projects showcasing modern frontend capabilities: custom GLSL shaders, real-time lighting systems, 3D model imports, physics engines, and interactive debug interfaces. Built with Three.js and TypeScript demonstrating expertise in WebGL and performance optimization.',
     image: '/images/vercel-logo.png',
     imageAlt: 'Vercel',
     link: 'https://vercel.com/gabe-bullermans-projects',
-    tags: ['Three.JS', 'Vite', 'Shaders', 'WebGL'],
+    tags: ['Three.js', 'TypeScript', 'WebGL', 'GLSL', 'Vite'],
   },
 ]

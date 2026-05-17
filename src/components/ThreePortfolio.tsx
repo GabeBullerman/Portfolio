@@ -91,7 +91,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.fillStyle=b.bg; rrect(c,x,y,bw,bh,14); c.fill()
         c.fillStyle=b.fg; c.font=`bold ${b.text.length>2?34:50}px monospace`
         c.fillText(b.text,x+bw/2,y+bh/2); x+=bw+gap
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('Frontend · Backend · DevOps', W/2, top + avail - 28)
+      break
     }
     case 'projects': {
       const iw=284, ih=190, gap=22, sx=(W-(3*iw+2*gap))/2, sy=196+((H-240)-ih)/2
@@ -99,7 +102,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.fillStyle='rgba(255,245,224,0.10)'; rrect(c,sx+i*(iw+gap),sy,iw,ih,8); c.fill()
         c.strokeStyle='rgba(255,245,224,0.25)'; c.lineWidth=2; rrect(c,sx+i*(iw+gap),sy,iw,ih,8); c.stroke()
         c.fillStyle='#fff5e0'; c.font='bold 24px Georgia,serif'; c.fillText(p.title,sx+i*(iw+gap)+iw/2,sy+ih/2)
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('Full-Stack · Mobile · Web', W/2, top + avail - 28)
+      break
     }
     case 'experience': {
       const entries=experienceData.slice(0,2), rowH=88, gap=14, totalH=entries.length*rowH+(entries.length-1)*gap
@@ -115,7 +121,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.fillStyle='rgba(255,245,224,0.58)'; c.font='21px Georgia,serif'
         c.fillText(e.company+' · '+e.period,134,y+58)
         c.textAlign='center'; y+=rowH+gap
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('1.5 yrs · Full-Stack · DevOps', W/2, top + avail - 28)
+      break
     }
     case 'certifications': {
       const iw=156, ih=156, gap=26, sx=(W-(4*iw+3*gap))/2, sy=196+((H-240)-ih)/2
@@ -128,7 +137,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.lineTo(cx-iw*0.44,cy+ih*0.12); c.lineTo(cx-iw*0.44,cy-ih*0.18)
         c.closePath(); c.fill()
         c.fillStyle='#fff'; c.font='bold 20px sans-serif'; c.fillText('AWS',cx,cy)
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('4 AWS Certifications · Cloud Ready', W/2, top + avail - 28)
+      break
     }
     case 'about': {
       const cx=W/2, cy=top+avail/2
@@ -140,6 +152,8 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
       c.beginPath(); c.arc(cx,cy-10,46,Math.PI,0); c.fill()
       c.fillStyle='#fff5e0'; c.font='bold 30px Georgia,serif'; c.fillText('Gabriel Bullerman',cx,cy+58)
       c.fillStyle='rgba(255,245,224,0.58)'; c.font='21px Georgia,serif'; c.fillText('CS · Iowa State University',cx,cy+94)
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('Full-Stack Developer | React · TypeScript · Java', cx, cy + 126)
       break
     }
     case 'moreonme': {
@@ -151,7 +165,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.strokeStyle='rgba(255,245,224,0.22)'; c.lineWidth=2; rrect(c,x,y,bw,bh,16); c.stroke()
         c.font='54px serif'; c.fillStyle='#fff5e0'; c.fillText(cat.icon,x+bw/2,y+74)
         c.font='bold 24px Georgia,serif'; c.fillText(cat.label,x+bw/2,y+142); x+=bw+gap
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('Travel · Passion · Growth', W/2, top + avail - 28)
+      break
     }
     case 'contact': {
       const items=[{icon:'✉',label:'Email',bg:'#b91c1c'},{icon:'◉',label:'GitHub',bg:'#1f2937'},{icon:'🔗',label:'LinkedIn',bg:'#0369a1'}]
@@ -161,7 +178,10 @@ function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, 
         c.fillStyle=item.bg; rrect(c,x,y,bw,bh,16); c.fill()
         c.font='58px serif'; c.fillStyle='#fff'; c.fillText(item.icon,x+bw/2,y+82)
         c.font='bold 24px Georgia,serif'; c.fillText(item.label,x+bw/2,y+146); x+=bw+gap
-      }); break
+      })
+      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
+      c.fillText('Let\'s Connect · Get in Touch', W/2, top + avail - 28)
+      break
     }
   }
   c.restore()
@@ -218,10 +238,10 @@ function SectionOverlay({ id, onClose }: { id: SectionId; onClose: () => void })
     <div className="absolute inset-0 flex items-center justify-center z-20">
       <div className="absolute inset-0 bg-black/25" onClick={onClose} />
       <div className="relative z-10 flex flex-col overflow-hidden" style={{
-        width:'min(680px,88vw)', maxHeight:'74vh',
+        width:'min(92vw, 1100px)', maxHeight:'88vh',
         background:'linear-gradient(180deg,#c89060 0%,#b87c4e 25%,#cc9668 50%,#b27248 75%,#c89060 100%)',
         border:'14px solid #5a2e10', outline:'3px solid #8a4c24',
-        boxShadow:'0 28px 72px rgba(0,0,0,0.72)', borderRadius:'3px',
+        boxShadow:'0 32px 88px rgba(0,0,0,0.80)', borderRadius:'3px',
       }}>
         <div className="flex justify-between items-center px-6 py-3 flex-shrink-0" style={{background:'rgba(50,22,6,0.55)'}}>
           <h2 className="font-bold text-lg font-serif" style={{color:WT}}>{label}</h2>
@@ -241,9 +261,13 @@ function Content({ id }: { id: SectionId }) {
   if (id==='about') return (
     <div>
       <p className="font-bold text-sm mb-1" style={{color:WT}}>Gabriel John Bullerman</p>
-      <p className="text-xs mb-3" style={{color:WM}}>CS · Iowa State University</p>
-      <p className="text-xs leading-relaxed" style={{color:WM}}>Undergraduate CS major interested in full-stack development, mobile apps, and webapps.</p>
-      <div className="flex gap-2 mt-4 flex-wrap">
+      <p className="text-xs mb-3" style={{color:WM}}>CS Graduate · Iowa State University</p>
+      <p className="text-xs leading-relaxed mb-4" style={{color:WM}}>Full-stack developer specializing in web and mobile applications. Passionate about building scalable, user-centered solutions with React, TypeScript, Node.js, and Java backends.</p>
+      <div className="space-y-2 text-xs mb-4" style={{color:WD}}>
+        <p><strong style={{color:WT}}>Core Stack:</strong> React · TypeScript · Node.js · Java Spring Boot · React Native</p>
+        <p><strong style={{color:WT}}>Latest:</strong> Full-stack classroom management system with real-time WebSockets &amp; CI/CD</p>
+      </div>
+      <div className="flex gap-2 flex-wrap">
         {[['GitHub','https://github.com/GabeBullerman'],['LinkedIn','https://www.linkedin.com/in/gabe-bullerman/']].map(([l,h])=>(
           <a key={l} href={h} target="_blank" rel="noopener noreferrer"
             className="text-xs px-3 py-1 rounded-full font-bold hover:opacity-80"
@@ -253,13 +277,14 @@ function Content({ id }: { id: SectionId }) {
     </div>
   )
   if (id==='experience') return (
-    <div className="space-y-4">
-      {experienceData.map(e=>(
-        <div key={e.company}>
-          <p className="font-bold text-xs" style={{color:WT}}>{e.title}</p>
-          <p className="text-xs mb-1" style={{color:WD}}>{e.company} · {e.period}</p>
-          <ul className="text-xs list-disc pl-4 space-y-1 leading-relaxed" style={{color:WM}}>
-            {e.bullets.map((b,i)=><li key={i}>{b}</li>)}
+    <div className="space-y-5">
+      {experienceData.map((e, idx)=>(
+        <div key={e.company} className="pb-4 last:pb-0" style={{borderBottom: idx < experienceData.length - 1 ? '1px solid rgba(255,245,224,0.15)' : 'none'}}>
+          <p className="font-bold text-sm" style={{color:WT}}>{e.title}</p>
+          <p className="text-xs mb-1" style={{color:WD}}>{e.company} · {e.location}</p>
+          <p className="text-xs mb-3 font-medium" style={{color:'#f5d070'}}>{e.period}</p>
+          <ul className="text-xs list-disc pl-5 space-y-2 leading-relaxed" style={{color:WM}}>
+            {e.bullets.map((b,i)=><li key={i}><span style={{color:WM}}>{b}</span></li>)}
           </ul>
         </div>
       ))}
@@ -276,14 +301,20 @@ function Content({ id }: { id: SectionId }) {
     </div>
   )
   if (id==='projects') return (
-    <div className="space-y-4">
-      {projectsData.map(p=>(
-        <div key={p.title} className="pb-3 last:pb-0" style={{borderBottom:'1px solid rgba(255,245,224,0.15)'}}>
-          <a href={p.link} target="_blank" rel="noopener noreferrer" className="font-bold text-xs hover:underline block" style={{color:WT}}>{p.title}</a>
-          <p className="text-xs mb-1" style={{color:WD}}>{p.subtitle}</p>
-          <p className="text-xs leading-relaxed" style={{color:WM}}>{p.description}</p>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {p.tags.map(t=><span key={t} className="text-xs rounded-full px-2 py-0.5" style={{border:'1px solid rgba(255,245,224,0.28)',color:WD}}>{t}</span>)}
+    <div className="space-y-5">
+      {projectsData.map((p)=>(
+        <div key={p.title} className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 last:pb-0" style={{borderBottom:'1px solid rgba(255,245,224,0.15)'}}>
+          <div className="md:col-span-2">
+            <a href={p.link} target="_blank" rel="noopener noreferrer" className="font-bold text-sm hover:underline block" style={{color:WT}}>{p.title}</a>
+            <p className="text-xs mb-2" style={{color:WD}}>{p.subtitle}</p>
+            <p className="text-xs leading-relaxed mb-3" style={{color:WM}}>{p.description}</p>
+            <div className="flex flex-wrap gap-1">
+              {p.tags.map(t=><span key={t} className="text-xs rounded-full px-2 py-0.5" style={{border:'1px solid rgba(255,245,224,0.28)',color:WD}}>{t}</span>)}
+            </div>
+            <a href={p.link} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs hover:underline" style={{color:'#f5d070'}}>→ View on GitHub</a>
+          </div>
+          <div className="flex items-center justify-center">
+            <img src={p.image} alt={p.imageAlt} className="w-full h-auto object-contain rounded" style={{maxHeight:'160px',background:'rgba(0,0,0,0.2)'}} />
           </div>
         </div>
       ))}
@@ -303,10 +334,10 @@ function Content({ id }: { id: SectionId }) {
     </div>
   )
   if (id==='moreonme') return (
-    <div className="space-y-4">
-      {[['Hobbies','Piano, Kawasaki sports bike restoration, film (IMDB top 250 — Interstellar #1).'],
-        ['Journeys','49/50 US states. Greece, Italy, Japan — chasing contrasts in culture and landscape.'],
-        ['Industry','Built 40+ computers since age 8. A high-school question flipped the switch from hardware to software.']].map(([t,p])=>(
+    <div className="space-y-5">
+      {[['Technical Philosophy','I believe in writing clean, maintainable code and building scalable systems. I\'m passionate about mastering new technologies — whether WebGL rendering, WebSocket architectures, or microservices design.'],
+        ['Growth Mindset','I learn something new every day about software development. From React optimization to backend design, I push my boundaries and stay current with industry best practices.'],
+        ['What Drives Me','Since age 8, I\'ve been obsessed with computers. I went from building custom PCs to discovering the power of great software. Now I\'m dedicated to creating impactful solutions.']].map(([t,p])=>(
         <div key={t}>
           <p className="font-bold text-xs uppercase tracking-wide mb-1" style={{color:WT}}>{t}</p>
           <p className="text-xs leading-relaxed" style={{color:WM}}>{p}</p>
@@ -438,8 +469,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       post.position.set(wx,1.6,wz); post.castShadow=true; scene.add(post)
       const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
       sign.position.set(wx,3.8,wz); sign.castShadow=true; scene.add(sign)
-      const brk = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.35), new THREE.MeshLambertMaterial({color:0x888888}))
-      brk.position.set(wx,3.2,wz+0.05); scene.add(brk)
     })
 
     // ── Campfire ─────────────────────────────────────────────────────────
@@ -624,7 +653,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             camYaw = lerpAngle(camYaw, player.rotation.y + Math.PI, 0.04)
           }
           // S/A/D alone: translate without changing player facing or camera yaw
-          rawVel.normalize().multiplyScalar(6 * delta)
+          rawVel.normalize().multiplyScalar(8.5 * delta)
           player.position.add(rawVel)
         }
         player.position.x = THREE.MathUtils.clamp(player.position.x, -28, 28)
@@ -641,13 +670,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
         player.position.y = Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
 
-        const camDist = 5.0, camH = 2.2
+        const camDist = 5.2, camH = 2.0
         const camTarget = new THREE.Vector3(
           player.position.x + Math.sin(camYaw) * camDist,
           player.position.y + camH,
           player.position.z + Math.cos(camYaw) * camDist,
         )
-        camera.position.lerp(camTarget, 0.10)
+        camera.position.lerp(camTarget, 0.15)
         camera.lookAt(player.position.x, player.position.y + 1.4, player.position.z)
 
         // Proximity to signs
@@ -740,9 +769,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         })
       } else {
         // ── Cinematic: glide camera to sign ────────────────────────────
-        camera.position.lerp(focusPosRef.current, 0.028)
+        camera.position.lerp(focusPosRef.current, 0.042)
         _tmpCam.position.copy(camera.position); _tmpCam.lookAt(focusLookRef.current)
-        camera.quaternion.slerp(_tmpCam.quaternion, 0.04)
+        camera.quaternion.slerp(_tmpCam.quaternion, 0.062)
 
         if (!overlayShownRef.current && camera.position.distanceTo(focusPosRef.current) < 0.6) {
           overlayShownRef.current = true

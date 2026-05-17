@@ -1,15 +1,15 @@
 const columns = [
   {
-    title: 'Hobbies',
-    text: "I've always enjoyed practicing my spontaneity. My most recent endeavors include piano, automotive mechanical work, and film. In my childhood home, there was a grand piano that nobody knew how to play — after moving out, I finally decided to honor it and have been self-teaching music theory ever since. I also bought a Kawasaki sports bike, took it apart, rebuilt it, and heavily modified it within a year. And I've dedicated a lot of time to studying the art of film and watching the IMDB top 250 — Interstellar being my favorite.",
+    title: 'Technical Philosophy',
+    text: "I believe in writing clean, maintainable code and building scalable systems from day one. I'm passionate about mastering new technologies and frameworks — whether it's advanced WebGL rendering, real-time WebSocket architectures, or microservices design. Every project is an opportunity to deepen my expertise in full-stack development and deliver solutions that users love.",
   },
   {
-    title: 'Journeys',
-    text: "I have been fortunate enough to travel the world far and wide. I visited 49/50 states (New Mexico left) from birth to 21 years old — the mountains of Colorado, neon lights of NYC, beaches of Hawaii, and glaciers of Alaska. Internationally, I've hiked and photographed much of Greece, enjoyed the culinary and renaissance arts of Italy, and treasured the cultural suburbs and technological cities of Japan.",
+    title: 'Growth Mindset',
+    text: "I learn something new about software development every single day. From optimizing React performance to architecting backend systems, I'm constantly pushing my boundaries. I actively contribute to open source, explore emerging technologies, and stay current with industry best practices. This drive to continually improve makes me a better engineer and a valuable addition to any development team.",
   },
   {
-    title: 'Industry',
-    text: 'Since receiving my first laptop at age 8, I\'ve had an infatuation with computers. Between side work and helping friends and family, I\'ve built over 40 desktop computers. A conversation in high school sparked something in me when a friend asked, "So you can build them and make them do stuff?" — since that moment, I put hardware on the backburner and dedicated everything to software. I want to make computers valuable in the way that great software does. It\'s what drives my career.',
+    title: 'What Drives Me',
+    text: 'Since getting my first laptop at age 8, I\'ve been obsessed with computers. I went from building custom PCs to discovering the real power comes from great software. Now I\'m dedicated to creating solutions that solve real problems and make an impact. Whether it\'s building intuitive mobile apps, crafting performant web experiences, or architecting robust backends, I love turning ideas into reality.',
   },
 ]
 

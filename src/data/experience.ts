@@ -8,15 +8,15 @@ export interface ExperienceItem {
 
 export const experienceData: ExperienceItem[] = [
   {
-    title: 'Software Developer, Contract',
+    title: 'Full-Stack Software Developer',
     company: 'Iowa State University',
     location: 'Ames, IA',
     period: 'Aug. 2025 – May 2026',
     bullets: [
-      "Built a full-stack classroom management system for ISU's Senior Design program supporting role-based access (Student/TA/Instructor) across multiple course sections.",
-      'Developed RESTful APIs with Java Spring Boot; secured all endpoints with JWT authentication and Google OAuth2 via Spring Security.',
-      'Designed a React Native + TypeScript cross-platform app featuring attendance tracking, grading workflows, real-time staff chat via WebSockets, and GitLab commit analytics.',
-      'Containerized services with Docker Compose and automated deployments via GitLab CI/CD on a Linux VM; managed PostgreSQL schema migrations with Flyway.',
+      "Engineered full-stack classroom management system supporting 200+ students with role-based access control (Student/TA/Instructor) via Spring Security JWT and OAuth2.",
+      'Developed RESTful APIs in Java Spring Boot with comprehensive authentication, securing 15+ endpoints with JWT tokens and Google OAuth2 integration.',
+      'Built responsive React Native + TypeScript mobile app for attendance tracking, grading workflows, and real-time staff communication via WebSockets.',
+      'Containerized services with Docker/Docker Compose, implemented automated CI/CD pipelines in GitLab, and managed PostgreSQL migrations with Flyway for production reliability.',
     ],
   },
   {

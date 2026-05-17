@@ -1,6 +1,6 @@
 import { useTypingEffect } from '../hooks/useTypingEffect'
 
-const TYPING_TEXTS = ['Software Engineer', 'Fullstack Developer', 'TypeScript Developer']
+const TYPING_TEXTS = ['Full-Stack Developer', 'React/TypeScript Specialist', 'Mobile App Developer']
 
 export default function Hero() {
   const displayText = useTypingEffect(TYPING_TEXTS)
@@ -20,8 +20,9 @@ export default function Hero() {
             <span className="animate-blink font-thin">|</span>
           </h2>
           <p className="text-lg md:text-xl leading-relaxed mb-6">
-            Undergraduate Computer Science major at Iowa State University. Interested in full-stack
-            development, mobile apps, and webapps.
+            CS graduate from Iowa State University specializing in full-stack web and mobile application
+            development. Passionate about building scalable, user-centered solutions with React, TypeScript,
+            Node.js, and Java backends.
           </p>
           <div className="flex gap-4 justify-center md:justify-start flex-wrap">
             <a
