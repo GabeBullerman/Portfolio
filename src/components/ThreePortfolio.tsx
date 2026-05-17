@@ -54,6 +54,24 @@ const PIN_POSITIONS: [number, number, number][] = [
   [BOWL_CX + PIN_SPACING * 1.5,   PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 3],
 ]
 
+// ─── Bench constants ──────────────────────────────────────────────────────────
+const BENCH_POSITIONS = [
+  { x: -2.3, z: -7.8, ry: Math.PI * 0.3 },
+  { x:  2.3, z: -7.8, ry: -Math.PI * 0.3 },
+] as const
+const BENCH_PROX = 2.3
+
+// ─── Ring toss constants ──────────────────────────────────────────────────────
+const RTOSS_CX      = -20
+const RTOSS_START_Z = -5
+const RTOSS_POST_Z  = -17
+const RTOSS_PROX    = 5.5
+const RTOSS_RING_R  = 0.36
+const RTOSS_RING_TUBE = 0.048
+const RTOSS_RINGS   = 3
+const RTOSS_POST_H  = 1.5
+const RTOSS_POST_R  = 0.044
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
 interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
@@ -398,6 +416,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign]           = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
+  // Background music
+  const audioRef      = useRef<HTMLAudioElement | null>(null)
+  const [musicMuted, setMusicMuted] = useState(false)
+  const musicStarted  = useRef(false)
   const touchMoveRef    = useRef({ x: 0, y: 0 })
   const touchActiveRef  = useRef(false)
   const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
@@ -414,6 +436,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const bowlPowerDirRef  = useRef(1)
   const bowlThrowKeyRef  = useRef(false)  // true only if E/Space went down while already aiming
   const powerBarRef      = useRef<HTMLDivElement>(null)
+  // Bench sit
+  const [nearBench, setNearBench] = useState(false)
+  const [sitting, setSitting]     = useState(false)
+  const sittingRef    = useRef(false)
+  const nearBenchRef  = useRef(false)
+  const seatIdxRef    = useRef(0)
+  // Ring toss
+  type RTossState = 'idle' | 'aiming' | 'thrown' | 'result'
+  const [nearRToss, setNearRToss]       = useState(false)
+  const [rtossDisplay, setRTossDisplay] = useState<{ state: RTossState; thrown: number; score: number; hs: number }>({ state: 'idle', thrown: 0, score: 0, hs: parseInt(localStorage.getItem('gabe-rtoss-hs') || '0') })
+  const rtossStateRef    = useRef<RTossState>('idle')
+  const rtossAimRef      = useRef(0)
+  const rPowerRef        = useRef(0)
+  const rPowerDirRef     = useRef(1)
+  const rtossThrowKeyRef = useRef(false)
+  const rtossTimerRef    = useRef(0)
+  const nearRTossRef     = useRef(false)
+  const rPowerBarRef     = useRef<HTMLDivElement>(null)
+  const rtossThrownRef   = useRef(0)
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -536,6 +577,36 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       addTree(x,z,0.7+rng()*0.65)
     }
 
+    // ── World border fence ──────────────────────────────────────────────────────
+    const fPostMat = new THREE.MeshLambertMaterial({ color: 0x7a5c2e })
+    const fPostGeo = new THREE.CylinderGeometry(0.06, 0.09, 1.5, 6)
+    const fRailGeoX = new THREE.BoxGeometry(3.3, 0.07, 0.07)
+    const fRailGeoZ = new THREE.BoxGeometry(0.07, 0.07, 3.3)
+
+    function addFenceSide(fixedAxis: 'x'|'z', fixedVal: number, from: number, to: number, count: number) {
+      const step = (to - from) / count
+      for (let i = 0; i <= count; i++) {
+        const v = from + step * i
+        const px = fixedAxis === 'z' ? v : fixedVal
+        const pz = fixedAxis === 'x' ? v : fixedVal
+        const post = new THREE.Mesh(fPostGeo, fPostMat)
+        post.position.set(px, 0.75, pz); post.castShadow = true; scene.add(post)
+        if (i < count) {
+          const mx = fixedAxis === 'z' ? v + step / 2 : fixedVal
+          const mz = fixedAxis === 'x' ? v + step / 2 : fixedVal
+          const rg = fixedAxis === 'z' ? fRailGeoX : fRailGeoZ
+          ;[0.42, 0.92].forEach(h => {
+            const rail = new THREE.Mesh(rg, fPostMat)
+            rail.position.set(mx, h, mz); scene.add(rail)
+          })
+        }
+      }
+    }
+    addFenceSide('z',   8, -28,  28, 18)   // North
+    addFenceSide('z', -78, -28,  28, 18)   // South
+    addFenceSide('x', -28, -78,   8, 27)   // West
+    addFenceSide('x',  28, -78,   8, 27)   // East
+
     // ── Signs ────────────────────────────────────────────────────────────
     SECTIONS.forEach(({ id, label, wx, wz }) => {
       const clear = new THREE.Mesh(new THREE.CircleGeometry(4.5,20), new THREE.MeshLambertMaterial({color:0x5a9c5a}))
@@ -576,6 +647,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       stone.position.set(FIRE_POS.x+Math.sin(i*Math.PI*2/9)*0.68,0.09,FIRE_POS.z+Math.cos(i*Math.PI*2/9)*0.68)
       scene.add(stone)
     }
+    // ── Benches ──────────────────────────────────────────────────────────────
+    const benchLogMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
+    const benchPlankMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
+    BENCH_POSITIONS.forEach(({ x, z, ry }) => {
+      const g = new THREE.Group()
+      // Seat plank
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.42), benchPlankMat)
+      seat.position.y = 0.48; g.add(seat)
+      // Legs
+      ;[-0.55, 0.55].forEach(ox => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.48, 6), benchLogMat)
+        leg.position.set(ox, 0.24, 0); g.add(leg)
+      })
+      g.position.set(x, 0, z); g.rotation.y = ry
+      g.castShadow = true; scene.add(g)
+    })
+
     const flameMat  = new THREE.MeshBasicMaterial({ color:0xff6600 })
     const flameMesh = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.85,8), flameMat)
     flameMesh.position.set(FIRE_POS.x,0.52,FIRE_POS.z); scene.add(flameMesh)
@@ -729,6 +817,91 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     bowlBallBody.sleep()
     physWorld.addBody(bowlBallBody)
 
+    // ── Ring toss ─────────────────────────────────────────────────────────────
+    // Ground platform
+    const rtossPlatMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(3.0, 0.06, 14.0),
+      new THREE.MeshPhongMaterial({ color: 0xc8a050, shininess: 20 })
+    )
+    rtossPlatMesh.position.set(RTOSS_CX, 0.03, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
+    rtossPlatMesh.receiveShadow = true; scene.add(rtossPlatMesh)
+    // Physics for platform
+    const rtossPlatBody = new CANNON.Body({ mass: 0 })
+    rtossPlatBody.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 0.03, 7.0)))
+    rtossPlatBody.position.set(RTOSS_CX, 0.03, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
+    physWorld.addBody(rtossPlatBody)
+
+    // Post / pole
+    const rtossPostMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(RTOSS_POST_R, RTOSS_POST_R * 1.3, RTOSS_POST_H, 10),
+      new THREE.MeshLambertMaterial({ color: 0x5a3010 })
+    )
+    rtossPostMesh.position.set(RTOSS_CX, RTOSS_POST_H / 2, RTOSS_POST_Z)
+    rtossPostMesh.castShadow = true; scene.add(rtossPostMesh)
+    // Post physics body
+    const rtossPostBody = new CANNON.Body({ mass: 0 })
+    rtossPostBody.addShape(new CANNON.Cylinder(RTOSS_POST_R, RTOSS_POST_R, RTOSS_POST_H, 8))
+    rtossPostBody.position.set(RTOSS_CX, RTOSS_POST_H / 2, RTOSS_POST_Z)
+    physWorld.addBody(rtossPostBody)
+
+    // 3 rings (torus visual, compound sphere physics)
+    const RING_COLORS = [0xff3333, 0x3388ff, 0xffcc00]
+    const ringMeshes: THREE.Mesh[] = []
+    const ringBodies: CANNON.Body[] = []
+    for (let ri = 0; ri < RTOSS_RINGS; ri++) {
+      const m = new THREE.Mesh(
+        new THREE.TorusGeometry(RTOSS_RING_R, RTOSS_RING_TUBE, 10, 28),
+        new THREE.MeshPhongMaterial({ color: RING_COLORS[ri], shininess: 60 })
+      )
+      m.castShadow = true; m.visible = false; scene.add(m); ringMeshes.push(m)
+      const rb = new CANNON.Body({ mass: 0.08, linearDamping: 0.15, angularDamping: 0.5 })
+      for (let si = 0; si < 8; si++) {
+        const a = (si / 8) * Math.PI * 2
+        rb.addShape(
+          new CANNON.Sphere(RTOSS_RING_TUBE),
+          new CANNON.Vec3(Math.cos(a) * RTOSS_RING_R, 0, Math.sin(a) * RTOSS_RING_R)
+        )
+      }
+      rb.sleep()
+      physWorld.addBody(rb); ringBodies.push(rb)
+    }
+
+    // Ring toss helpers
+    function resetRingToss() {
+      ringMeshes.forEach((m, i) => {
+        m.visible = false
+        ringBodies[i].position.set(RTOSS_CX - 0.5 + i * 0.5, 0.5 + i * 0.12, RTOSS_START_Z + 0.5)
+        ringBodies[i].velocity.setZero(); ringBodies[i].angularVelocity.setZero()
+        ringBodies[i].quaternion.set(0, 0, 0, 1); ringBodies[i].sleep()
+      })
+      rtossAimRef.current    = 0
+      rtossTimerRef.current  = 0
+      rPowerRef.current      = 0
+      rPowerDirRef.current   = 1
+      rtossThrowKeyRef.current = false
+      rtossThrownRef.current = 0
+    }
+    function throwRing(ringIdx: number) {
+      const spd = 7 + rPowerRef.current * 9
+      const aim = rtossAimRef.current
+      ringBodies[ringIdx].position.set(RTOSS_CX + Math.sin(aim) * 0.3, 1.3, RTOSS_START_Z - 0.3)
+      ringBodies[ringIdx].velocity.set(Math.sin(aim) * spd * 0.3, 5.0, -spd)
+      // Orient ring for flight — flat/horizontal initially
+      ringBodies[ringIdx].quaternion.setFromEuler(Math.PI / 2, 0, 0)
+      ringBodies[ringIdx].wakeUp()
+      ringMeshes[ringIdx].visible = true
+    }
+    function countRingers() {
+      let ringers = 0
+      ringBodies.forEach(rb => {
+        const dx = rb.position.x - RTOSS_CX
+        const dz = rb.position.z - RTOSS_POST_Z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist < RTOSS_RING_R + 0.08 && rb.position.y < RTOSS_POST_H + 0.1) ringers++
+      })
+      return ringers
+    }
+
     // ── Aim arrow ─────────────────────────────────────────────────────────
     const aimArrowMat = new THREE.MeshBasicMaterial({ color: 0xffdd00 })
     const aimShaft = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 1.1), aimArrowMat)
@@ -881,7 +1054,45 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         return
       }
 
-      if (mapped==='e' && !focusActiveRef.current && !exitedRef.current && currentSecRef.current) {
+      // Bench sit/stand
+      if (sittingRef.current && (mapped === 'e' || ['w','a','s','d'].includes(mapped))) {
+        sittingRef.current = false; setSitting(false); nearBenchRef.current = false; setNearBench(false)
+        relockRef.current?.()
+        if (mapped === 'e') return
+      }
+      if (mapped === 'e' && nearBenchRef.current && !sittingRef.current && bowlStateRef.current === 'idle') {
+        sittingRef.current = true; setSitting(true)
+        document.exitPointerLock()
+        return
+      }
+
+      // Ring toss start
+      if (rtossStateRef.current === 'idle' && mapped === 'e' && nearRTossRef.current) {
+        e.preventDefault()
+        resetRingToss(); rtossStateRef.current = 'aiming'; rtossThrownRef.current = 0
+        setRTossDisplay({ state: 'aiming', thrown: 0, score: 0, hs: parseInt(localStorage.getItem('gabe-rtoss-hs') || '0') })
+        return
+      }
+      if (rtossStateRef.current === 'aiming') {
+        if (e.key === 'Escape') {
+          rtossThrowKeyRef.current = false; rtossStateRef.current = 'idle'; resetRingToss()
+          setRTossDisplay(p => ({ ...p, state: 'idle' })); setNearRToss(false); nearRTossRef.current = false
+        }
+        if (e.key === ' ' || e.key.toLowerCase() === 'e') rtossThrowKeyRef.current = true
+        return
+      }
+      if (rtossStateRef.current === 'result') {
+        if (mapped === 'e' || e.key === ' ') {
+          e.preventDefault(); resetRingToss(); rtossStateRef.current = 'aiming'; rtossThrownRef.current = 0
+          setRTossDisplay(p => ({ ...p, state: 'aiming', thrown: 0, score: 0 }))
+        } else if (e.key === 'Escape') {
+          resetRingToss(); rtossStateRef.current = 'idle'
+          setRTossDisplay(p => ({ ...p, state: 'idle' })); setNearRToss(false); nearRTossRef.current = false
+        }
+        return
+      }
+
+      if (mapped==='e' && !focusActiveRef.current && currentSecRef.current) {
         triggerFocus(currentSecRef.current)
       }
       if (e.key==='Escape' && (focusActiveRef.current || overlayShownRef.current)) {
@@ -895,6 +1106,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         bowlThrowKeyRef.current = false
         throwBowl(); bowlStateRef.current = 'thrown'; bowlTimerRef.current = 0
         setBowlDisplay(p => ({ ...p, state: 'thrown' }))
+      }
+      // Ring toss throw on release
+      if (rtossStateRef.current === 'aiming' && rtossThrowKeyRef.current && (e.key === ' ' || e.key.toLowerCase() === 'e')) {
+        rtossThrowKeyRef.current = false
+        throwRing(rtossThrownRef.current)
+        rtossThrownRef.current++
+        rtossTimerRef.current = 0
+        rtossStateRef.current = 'thrown'
+        setRTossDisplay(p => ({ ...p, state: 'thrown', thrown: rtossThrownRef.current }))
       }
     }
     // Clear all held keys if window loses focus (prevents stuck-key bug)
@@ -914,6 +1134,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
     const onPointerLockChange = () => {
       setPointerLocked(document.pointerLockElement === renderer.domElement)
+      if (document.pointerLockElement === renderer.domElement && !musicStarted.current) {
+        musicStarted.current = true
+        const audio = new Audio('/audio/Space Aquarium - Lofi Study & Relaxation Music for Deep Focus.mp3')
+        audio.loop = true
+        audio.volume = 0.35
+        audio.play().catch(() => {})
+        audioRef.current = audio
+      }
     }
     const onCanvasClick = () => {
       if (!focusActiveRef.current && bowlStateRef.current === 'idle') {
@@ -957,8 +1185,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         m.position.set(pinBodies[i].position.x, pinBodies[i].position.y, pinBodies[i].position.z)
         m.quaternion.set(pinBodies[i].quaternion.x, pinBodies[i].quaternion.y, pinBodies[i].quaternion.z, pinBodies[i].quaternion.w)
       })
+      ringMeshes.forEach((m, i) => {
+        if (m.visible) {
+          m.position.set(ringBodies[i].position.x, ringBodies[i].position.y, ringBodies[i].position.z)
+          m.quaternion.set(ringBodies[i].quaternion.x, ringBodies[i].quaternion.y, ringBodies[i].quaternion.z, ringBodies[i].quaternion.w)
+        }
+      })
 
-      player.visible = !focusActiveRef.current && bowlStateRef.current === 'idle'
+      player.visible = !focusActiveRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle'
 
       if (!focusActiveRef.current) {
         // ── Camera-relative WASD movement ──────────────────────────────
@@ -1055,6 +1289,77 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             b.body.wakeUp()
           }
         })
+
+        // ── Bench proximity & sit ─────────────────────────────────────────────
+        if (!sittingRef.current) {
+          let nearB = false
+          BENCH_POSITIONS.forEach((b, i) => {
+            if (Math.hypot(player.position.x - b.x, player.position.z - b.z) < BENCH_PROX) {
+              nearB = true; seatIdxRef.current = i
+            }
+          })
+          if (nearB !== nearBenchRef.current) { nearBenchRef.current = nearB; setNearBench(nearB) }
+        } else {
+          // Lock player to bench
+          const s = BENCH_POSITIONS[seatIdxRef.current]
+          player.position.set(s.x, 0.36, s.z)
+          player.rotation.y = s.ry + Math.PI  // face fire
+          // Sitting pose
+          lLegPivot.rotation.x = -Math.PI / 3; rLegPivot.rotation.x = -Math.PI / 3
+          lKnee.rotation.x = Math.PI / 2.2;    rKnee.rotation.x = Math.PI / 2.2
+          lArmPivot.rotation.x = 0.1;          rArmPivot.rotation.x = 0.1
+          // Camera: look at fire from bench
+          const bFireLook = new THREE.Vector3(0, 0.7, -6)
+          const bCamPos   = new THREE.Vector3(s.x * 0.4, 2.2, s.z + 1.5)
+          camera.position.lerp(bCamPos, 0.07)
+          camera.lookAt(bFireLook)
+        }
+
+        // ── Ring toss proximity & state machine ───────────────────────────────
+        const rDist = Math.hypot(player.position.x - RTOSS_CX, player.position.z - RTOSS_START_Z)
+        const newNearRToss = rtossStateRef.current === 'idle' && rDist < RTOSS_PROX
+        if (newNearRToss !== nearRTossRef.current) { nearRTossRef.current = newNearRToss; setNearRToss(newNearRToss) }
+
+        if (rtossStateRef.current === 'aiming' || rtossStateRef.current === 'thrown' || rtossStateRef.current === 'result') {
+          const rAim = rtossAimRef.current
+          if (rtossStateRef.current === 'aiming') {
+            if (keys.has('a') || touchMoveRef.current.x < -0.2) rtossAimRef.current = THREE.MathUtils.clamp(rtossAimRef.current - delta * 1.2, -0.4, 0.4)
+            if (keys.has('d') || touchMoveRef.current.x > 0.2)  rtossAimRef.current = THREE.MathUtils.clamp(rtossAimRef.current + delta * 1.2, -0.4, 0.4)
+            rPowerRef.current += delta * rPowerDirRef.current * 1.4
+            if (rPowerRef.current >= 1) { rPowerRef.current = 1; rPowerDirRef.current = -1 }
+            if (rPowerRef.current <= 0) { rPowerRef.current = 0; rPowerDirRef.current =  1 }
+            if (rPowerBarRef.current) rPowerBarRef.current.style.width = `${rPowerRef.current * 100}%`
+          }
+          if (rtossStateRef.current === 'thrown') {
+            rtossTimerRef.current += delta
+            if (rtossTimerRef.current > 3.0) {
+              if (rtossThrownRef.current >= RTOSS_RINGS) {
+                // All rings thrown — score
+                const sc = countRingers()
+                const hs = Math.max(sc, parseInt(localStorage.getItem('gabe-rtoss-hs') || '0'))
+                localStorage.setItem('gabe-rtoss-hs', String(hs))
+                rtossStateRef.current = 'result'
+                setRTossDisplay({ state: 'result', thrown: rtossThrownRef.current, score: sc, hs })
+              } else {
+                // More rings to throw
+                rtossStateRef.current = 'aiming'
+                rtossTimerRef.current = 0
+                rPowerRef.current = 0; rPowerDirRef.current = 1; rtossThrowKeyRef.current = false
+                setRTossDisplay(p => ({ ...p, state: 'aiming' }))
+              }
+            }
+          }
+          // Camera toward post
+          if (rtossStateRef.current === 'result') {
+            camera.position.lerp(new THREE.Vector3(RTOSS_CX, 2.2, RTOSS_START_Z + 2.0), 0.07)
+            camera.lookAt(RTOSS_CX, 0.4, RTOSS_POST_Z)
+          } else {
+            camera.position.lerp(new THREE.Vector3(RTOSS_CX, 1.55, RTOSS_START_Z + 0.2), 0.18)
+            camera.lookAt(RTOSS_CX + Math.sin(rAim) * 8, 0.5, RTOSS_POST_Z)
+          }
+          player.position.set(RTOSS_CX, 0, RTOSS_START_Z + 1.5)
+          player.rotation.y = Math.PI
+        }
 
         // ── Bowling proximity & state machine ──────────────────────────
         const bowlDist = Math.hypot(player.position.x - BOWL_CX, player.position.z - BOWL_START_Z)
@@ -1160,6 +1465,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('pointerlockchange', onPointerLockChange)
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock()
+      audioRef.current?.pause()
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
       // Remove all cannon bodies
@@ -1190,6 +1496,21 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
       >
         ← 2D View
+      </button>
+
+      {/* Music mute toggle */}
+      <button
+        onClick={() => {
+          if (audioRef.current) {
+            audioRef.current.muted = !audioRef.current.muted
+            setMusicMuted(audioRef.current.muted)
+          }
+        }}
+        className="absolute z-10 px-3 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full text-sm hover:bg-white hover:text-black transition-colors duration-300"
+        style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', right: '1rem' }}
+        title={musicMuted ? 'Unmute music' : 'Mute music'}
+      >
+        {musicMuted ? '🔇' : '🎵'}
       </button>
 
       {/* Bowling overlay — shown when actively bowling */}
@@ -1260,11 +1581,59 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         </button>
       )}
 
+      {/* Ring toss overlay */}
+      {!activeSection && rtossDisplay.state !== 'idle' && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+          <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
+            <span>Ring <span className="text-yellow-300">{rtossDisplay.thrown}</span>/{RTOSS_RINGS}</span>
+            <span className="opacity-40">|</span>
+            <span>Score: <span className="text-yellow-300">{rtossDisplay.score}</span></span>
+            <span className="opacity-40">|</span>
+            <span>Best: <span className="text-green-300">{rtossDisplay.hs}</span></span>
+          </div>
+          <div className="text-center">
+            {rtossDisplay.state === 'aiming' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-4 rounded-2xl text-sm space-y-3 min-w-64">
+                <div className="hidden md:block text-center opacity-70 text-xs">
+                  <kbd className="font-bold bg-white/20 px-1.5 rounded">A</kbd> / <kbd className="font-bold bg-white/20 px-1.5 rounded">D</kbd> aim &nbsp;·&nbsp; hold <kbd className="font-bold bg-white/20 px-1.5 rounded">Space</kbd> / <kbd className="font-bold bg-white/20 px-1.5 rounded">E</kbd> — release to throw
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs opacity-60 mb-1"><span>POWER</span></div>
+                  <div className="w-full h-4 bg-white/20 rounded-full overflow-hidden">
+                    <div ref={rPowerBarRef} className="h-full rounded-full transition-none"
+                      style={{ width: '0%', background: 'linear-gradient(90deg, #22c55e, #eab308, #ef4444)' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            {rtossDisplay.state === 'thrown' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-3 rounded-2xl text-sm animate-pulse">
+                {rtossDisplay.thrown < RTOSS_RINGS ? 'Ring in flight...' : 'Settling...'}
+              </div>
+            )}
+            {rtossDisplay.state === 'result' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-8 py-4 rounded-2xl text-center space-y-2">
+                <div className="text-2xl font-bold">
+                  {rtossDisplay.score === RTOSS_RINGS ? 'Perfect! ' : ''}{rtossDisplay.score} / {RTOSS_RINGS} ringers
+                </div>
+                {rtossDisplay.score === rtossDisplay.hs && rtossDisplay.score > 0 && (
+                  <div className="text-green-300 text-sm font-bold">New Best!</div>
+                )}
+                <div className="hidden md:block text-xs opacity-70 mt-1">
+                  <kbd className="font-bold bg-white/20 px-1.5 rounded">E</kbd> play again &nbsp;·&nbsp; <kbd className="font-bold bg-white/20 px-1.5 rounded">Esc</kbd> leave
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* All HUD — hidden when modal is open */}
       {!activeSection && (
         <>
           {/* Near-bowl hint — only when idle near lane */}
-          {nearBowl && (
+          {nearBowl && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
             <div
               className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
@@ -1273,8 +1642,32 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </div>
           )}
 
+          {/* Near ring toss hint */}
+          {nearRToss && rtossDisplay.state === 'idle' && bowlDisplay.state === 'idle' && !sitting && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> for Ring Toss
+            </div>
+          )}
+
+          {/* Bench sit/stand hints */}
+          {nearBench && !sitting && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+              Press <kbd className="font-bold mx-1">E</kbd> to sit
+            </div>
+          )}
+          {sitting && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+              <kbd className="font-bold mx-1">E</kbd> or move to stand
+            </div>
+          )}
+
           {/* Desktop: near-sign hint (above controls bar) */}
-          {!nearBowl && nearSign && (
+          {!nearBowl && !nearRToss && !nearBench && !sitting && nearSign && (
             <div
               className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
@@ -1283,8 +1676,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </div>
           )}
 
-          {/* Desktop: controls bar — hidden during bowling */}
-          {bowlDisplay.state === 'idle' && (
+          {/* Desktop: controls bar — hidden during bowling/rtoss/sitting */}
+          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
           <div
             className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
@@ -1293,8 +1686,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           </div>
           )}
 
-          {/* Mobile: controls hint — hidden during bowling */}
-          {bowlDisplay.state === 'idle' && (
+          {/* Mobile: controls hint — hidden during bowling/rtoss/sitting */}
+          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
           <div
             className="md:hidden absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full pointer-events-none whitespace-nowrap"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
@@ -1304,7 +1697,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           )}
 
           {/* Mobile: Inspect button — right side, same height as joystick */}
-          {bowlDisplay.state === 'idle' && nearSign && (
+          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && nearSign && (
             <button
               className="md:hidden absolute right-6 z-30 px-5 py-3 bg-amber-800/90 backdrop-blur-sm text-white border border-amber-500/50 rounded-full font-bold text-sm animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
@@ -1319,8 +1712,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </button>
           )}
 
-          {/* Mobile: Joystick — left side, hidden during bowling */}
-          {bowlDisplay.state === 'idle' && <div
+          {/* Mobile: Joystick — left side, hidden during bowling/rtoss/sitting */}
+          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
             className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
             onTouchStart={(e) => { e.preventDefault(); touchActiveRef.current = true }}
