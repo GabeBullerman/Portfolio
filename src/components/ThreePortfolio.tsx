@@ -887,8 +887,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const onMouseMove = (e: MouseEvent) => {
       if (document.pointerLockElement !== renderer.domElement) return
       if (focusActiveRef.current || bowlStateRef.current !== 'idle') return
-      camYaw   += e.movementX * MOUSE_SENS
-      camPitch  = THREE.MathUtils.clamp(camPitch - e.movementY * MOUSE_SENS, 0.05, 0.9)
+      camYaw   -= e.movementX * MOUSE_SENS
+      camPitch  = THREE.MathUtils.clamp(camPitch + e.movementY * MOUSE_SENS, 0.05, 0.9)
     }
     const onPointerLockChange = () => {
       setPointerLocked(document.pointerLockElement === renderer.domElement)
