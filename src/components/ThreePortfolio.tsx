@@ -364,8 +364,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const mountRef       = useRef<HTMLDivElement>(null)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign]           = useState(false)
-  const touchMoveRef = useRef({ x: 0, y: 0 })
-  const touchActiveRef = useRef(false)
+  const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
+  const touchMoveRef    = useRef({ x: 0, y: 0 })
+  const touchActiveRef  = useRef(false)
+  const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -577,6 +579,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       focusLookRef.current.set(s.wx,3.8,s.wz)
       focusActiveRef.current=true; overlayShownRef.current=false; proxTimerRef.current=0
     }
+    triggerFocusRef.current = triggerFocus
 
     function keyToWASD(key: string): string {
       if (key==='arrowup') return 'w'; if (key==='arrowdown') return 's'
@@ -830,93 +833,102 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-return (
-  <div
-    className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none"
-    style={{
-      height: '100dvh',
-      paddingTop: 'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
-    }}
-  >
-    <div ref={mountRef} className="w-full h-full touch-none" />
-
-    <button
-      onClick={onExit}
-      className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300"
-      style={{
-        top: 'calc(env(safe-area-inset-top) + 1rem)',
-      }}
+  return (
+    <div
+      className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none"
+      style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      ← 2D View
-    </button>
+      <div ref={mountRef} className="w-full h-full touch-none" />
 
-    {nearSign && !activeSection && (
-      <div
-        className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
-        style={{
-          bottom: 'calc(env(safe-area-inset-bottom) + 4rem)',
-        }}
+      {/* Back button — always visible */}
+      <button
+        onClick={onExit}
+        className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300"
+        style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}
       >
-        Press <kbd className="font-bold">E</kbd> to inspect · or stand still for 2s
-      </div>
-    )}
+        ← 2D View
+      </button>
 
-    <div
-      className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full pointer-events-none"
-      style={{
-        bottom: 'calc(env(safe-area-inset-bottom) + 1rem)',
-      }}
-    >
-      WASD · Arrows · Touch Joystick &nbsp;·&nbsp;
-      <kbd className="font-bold">E</kbd> inspect &nbsp;·&nbsp;
-      <kbd className="font-bold">Esc</kbd> or move to close
+      {/* All HUD — hidden when modal is open */}
+      {!activeSection && (
+        <>
+          {/* Desktop: near-sign hint (above controls bar) */}
+          {nearSign && (
+            <div
+              className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to inspect · or stand still for 2s
+            </div>
+          )}
+
+          {/* Desktop: controls bar */}
+          <div
+            className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+          >
+            WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> or move to close
+          </div>
+
+          {/* Mobile: controls hint (sits below joystick/inspect button) */}
+          <div
+            className="md:hidden absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full pointer-events-none whitespace-nowrap"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+          >
+            Joystick to move &nbsp;·&nbsp; Tap <strong>Inspect</strong> near signs
+          </div>
+
+          {/* Mobile: Inspect button — right side, same height as joystick */}
+          {nearSign && (
+            <button
+              className="md:hidden absolute right-6 z-30 px-5 py-3 bg-amber-800/90 backdrop-blur-sm text-white border border-amber-500/50 rounded-full font-bold text-sm animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                if (currentSecRef.current && triggerFocusRef.current) {
+                  triggerFocusRef.current(currentSecRef.current)
+                }
+              }}
+            >
+              Inspect
+            </button>
+          )}
+
+          {/* Mobile: Joystick — left side */}
+          <div
+            className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+            onTouchStart={(e) => { e.preventDefault(); touchActiveRef.current = true }}
+            onTouchMove={(e) => {
+              e.preventDefault()
+              const rect = e.currentTarget.getBoundingClientRect()
+              const touch = e.touches[0]
+              const x = Math.max(-1, Math.min(1, ((touch.clientX - rect.left) / rect.width) * 2 - 1))
+              const y = Math.max(-1, Math.min(1, ((touch.clientY - rect.top) / rect.height) * 2 - 1))
+              touchMoveRef.current = { x, y }
+              setJoyPos({ x, y })
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault()
+              touchActiveRef.current = false
+              touchMoveRef.current = { x: 0, y: 0 }
+              setJoyPos({ x: 0, y: 0 })
+            }}
+          >
+            <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
+              <div
+                className="absolute w-10 h-10 rounded-full bg-white/70"
+                style={{
+                  left: `calc(50% + ${joyPos.x * 35}px - 20px)`,
+                  top:  `calc(50% + ${joyPos.y * 35}px - 20px)`,
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeSection && <SectionOverlay id={activeSection} onClose={exitFocus} />}
     </div>
-
-    {/* Mobile Joystick */}
-    <div
-      className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
-      style={{
-        bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)',
-      }}
-      onTouchStart={(e) => {
-        e.preventDefault()
-        touchActiveRef.current = true
-      }}
-      onTouchMove={(e) => {
-        e.preventDefault()
-
-        const rect = e.currentTarget.getBoundingClientRect()
-        const touch = e.touches[0]
-
-        const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
-        const y = ((touch.clientY - rect.top) / rect.height) * 2 - 1
-
-        touchMoveRef.current = {
-          x: Math.max(-1, Math.min(1, x)),
-          y: Math.max(-1, Math.min(1, y)),
-        }
-      }}
-      onTouchEnd={(e) => {
-        e.preventDefault()
-        touchActiveRef.current = false
-        touchMoveRef.current = { x: 0, y: 0 }
-      }}
-    >
-      <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
-        <div
-          className="absolute w-10 h-10 rounded-full bg-white/70"
-          style={{
-            left: `calc(50% + ${touchMoveRef.current.x * 35}px - 20px)`,
-            top: `calc(50% + ${touchMoveRef.current.y * 35}px - 20px)`,
-          }}
-        />
-      </div>
-    </div>
-
-    {activeSection && (
-      <SectionOverlay id={activeSection} onClose={exitFocus} />
-    )}
-  </div>
-)
+  )
 }
