@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import * as CANNON from 'cannon-es'
+import { Sky } from 'three/addons/objects/Sky.js'
 import { experienceData } from '../data/experience'
 import { skillsData } from '../data/skills'
 import { projectsData } from '../data/projects'
@@ -21,6 +23,27 @@ function lerpAngle(from: number, to: number, t: number): number {
   const delta = ((to - from) % twoPi + twoPi * 1.5) % twoPi - Math.PI
   return from + delta * t
 }
+
+// ─── Bowling constants ────────────────────────────────────────────────────────
+const BOWL_CX      = 22          // lane centre X
+const BOWL_START_Z = -20         // where player throws from
+const BOWL_PINS_Z  = -36         // front pin Z
+const BOWL_LANE_Z  = -28         // lane visual centre Z
+const BOWL_PROX    = 5.5         // approach distance to start game
+const PIN_H        = 0.40        // pin height
+const PIN_R_BOT    = 0.07        // pin base radius
+const PIN_R_TOP    = 0.04        // pin neck radius
+const BOWL_BALL_R  = 0.13        // bowling ball radius
+const PIN_SPACING  = 0.48
+const PIN_ROW_D    = 0.54
+const PIN_POSITIONS: [number, number, number][] = [
+  [BOWL_CX,                  PIN_H/2, BOWL_PINS_Z],
+  [BOWL_CX - PIN_SPACING/2,  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D],
+  [BOWL_CX + PIN_SPACING/2,  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D],
+  [BOWL_CX - PIN_SPACING,    PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
+  [BOWL_CX,                  PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
+  [BOWL_CX + PIN_SPACING,    PIN_H/2, BOWL_PINS_Z - PIN_ROW_D * 2],
+]
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
@@ -368,6 +391,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const touchMoveRef    = useRef({ x: 0, y: 0 })
   const touchActiveRef  = useRef(false)
   const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
+  // Bowling mini-game
+  type BowlState = 'idle' | 'aiming' | 'thrown' | 'result'
+  const [nearBowl, setNearBowl]           = useState(false)
+  const [bowlDisplay, setBowlDisplay]     = useState<{ state: BowlState; score: number; hs: number }>({ state: 'idle', score: 0, hs: 0 })
+  const bowlStateRef  = useRef<BowlState>('idle')
+  const bowlAimRef    = useRef(0)           // horizontal aim offset (radians)
+  const bowlTimerRef  = useRef(0)           // countdown after throw
+  const bowlHSRef     = useRef(parseInt(localStorage.getItem('gabe-bowl-hs') || '0'))
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -393,24 +424,53 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Scene ────────────────────────────────────────────────────────────
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x87ceeb)
-    scene.fog = new THREE.FogExp2(0x87ceeb, 0.012)
+    scene.fog = new THREE.FogExp2(0xb8d4f0, 0.010)
 
-    const camera = new THREE.PerspectiveCamera(65, W/H, 0.1, 200)
+    const camera = new THREE.PerspectiveCamera(65, W/H, 0.1, 300)
     camera.position.set(0, 2.2, 11)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 0.6
     mount.appendChild(renderer.domElement)
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55))
-    const sun = new THREE.DirectionalLight(0xfff4e0, 1.1)
+    // ── Sky ──────────────────────────────────────────────────────────────
+    const sky = new Sky(); sky.scale.setScalar(450)
+    const skyUni = (sky.material as THREE.ShaderMaterial).uniforms
+    skyUni['turbidity'].value       = 8
+    skyUni['rayleigh'].value        = 1.8
+    skyUni['mieCoefficient'].value  = 0.006
+    skyUni['mieDirectionalG'].value = 0.82
+    const sunVec = new THREE.Vector3()
+    sunVec.setFromSphericalCoords(1, THREE.MathUtils.degToRad(84), THREE.MathUtils.degToRad(200))
+    skyUni['sunPosition'].value.copy(sunVec)
+    scene.add(sky)
+
+    scene.add(new THREE.AmbientLight(0xffeedd, 0.60))
+    const sun = new THREE.DirectionalLight(0xfff0d0, 1.2)
     sun.position.set(20, 40, 15); sun.castShadow = true
     sun.shadow.mapSize.set(2048,2048)
     sun.shadow.camera.left=-80; sun.shadow.camera.right=80
     sun.shadow.camera.top=80; sun.shadow.camera.bottom=-80; sun.shadow.camera.far=160
     scene.add(sun)
+
+    // ── Cannon physics world ──────────────────────────────────────────────
+    const physWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -12, 0) })
+    physWorld.broadphase = new CANNON.NaiveBroadphase()
+    ;(physWorld.solver as CANNON.GSSolver).iterations = 8
+
+    // Static ground plane
+    const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() })
+    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2)
+    physWorld.addBody(groundBody)
+
+    // Static campfire obstacle (approximate with short cylinder)
+    const fireObstacle = new CANNON.Body({ mass: 0 })
+    fireObstacle.addShape(new CANNON.Cylinder(0.75, 0.75, 0.3, 8))
+    fireObstacle.position.set(0, 0.15, -6)
+    physWorld.addBody(fireObstacle)
     // ── Ground ───────────────────────────────────────────────────────────
     const grassCv = document.createElement('canvas'); grassCv.width = 256; grassCv.height = 256
     const gc = grassCv.getContext('2d')!
@@ -431,12 +491,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     )
     ground.rotation.x = -Math.PI / 2; scene.add(ground)
 
-    // Fog dome + map rim
-    const dome = new THREE.Mesh(
-      new THREE.CylinderGeometry(80,80,60,48,1,true),
-      new THREE.MeshBasicMaterial({ color:0x87ceeb, side:THREE.BackSide, transparent:true, opacity:0.90, depthWrite:false }),
-    )
-    dome.position.y = 15; scene.add(dome)
+    // Map rim (tree-line edge)
     const rim = new THREE.Mesh(new THREE.RingGeometry(72,82,48), new THREE.MeshLambertMaterial({ color:0x3a6030, side:THREE.DoubleSide }))
     rim.rotation.x = -Math.PI/2; rim.position.y = -0.3; scene.add(rim)
 
@@ -461,6 +516,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (Math.hypot(x,z)>74) continue
       if (SECTIONS.some(s=>Math.hypot(x-s.wx,z-s.wz)<6.5)) continue
       if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
+      if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
       addTree(x,z,0.7+rng()*0.65)
     }
 
@@ -508,10 +564,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ph: ffRng()*Math.PI*2, sp: 0.35+ffRng()*0.75, am: 1.0+ffRng()*2.8,
     }))
 
-    // ── Physics balls ────────────────────────────────────────────────────
-    const BALL_R  = 0.42
+    // ── Physics balls (Cannon-backed) ────────────────────────────────────
+    const BALL_R   = 0.42
     const PLAYER_R = 0.38
-    interface PhysBall { mesh: THREE.Mesh; vel: THREE.Vector3 }
+    interface PhysBall { mesh: THREE.Mesh; body: CANNON.Body }
     const balls: PhysBall[] = []
     const ballColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff]
     const ballSpots: [number,number][] = [[6,-12],[-9,-26],[12,-38],[-12,-50],[3,-7],[-4,-18],[14,-32],[-14,-44]]
@@ -520,10 +576,102 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         new THREE.SphereGeometry(BALL_R,12,8),
         new THREE.MeshLambertMaterial({ color }),
       )
-      mesh.position.set(ballSpots[i][0], BALL_R, ballSpots[i][1])
       mesh.castShadow = true; scene.add(mesh)
-      balls.push({ mesh, vel:new THREE.Vector3() })
+      const body = new CANNON.Body({ mass: 1 })
+      body.addShape(new CANNON.Sphere(BALL_R))
+      body.position.set(ballSpots[i][0], BALL_R, ballSpots[i][1])
+      body.linearDamping  = 0.55
+      body.angularDamping = 0.55
+      physWorld.addBody(body)
+      balls.push({ mesh, body })
     })
+
+    // ── Bowling lane ──────────────────────────────────────────────────────
+    // Lane floor
+    const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 3
+    const laneMat = new THREE.MeshLambertMaterial({ color: 0xd4a96a })
+    const laneMesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.04, laneLen), laneMat)
+    laneMesh.position.set(BOWL_CX, 0.02, BOWL_LANE_Z); scene.add(laneMesh)
+    // Gutter stripes
+    ;[-1.1, 1.1].forEach(ox => {
+      const gutter = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, laneLen), new THREE.MeshLambertMaterial({ color: 0x8b6c42 }))
+      gutter.position.set(BOWL_CX + ox, 0.02, BOWL_LANE_Z); scene.add(gutter)
+    })
+    // Approach marker arrows
+    for (let ai = 0; ai < 3; ai++) {
+      const arr = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), new THREE.MeshLambertMaterial({ color: 0xffcc44 }))
+      arr.rotation.x = Math.PI / 2
+      arr.position.set(BOWL_CX, 0.06, BOWL_START_Z - 1.5 - ai * 0.6); scene.add(arr)
+    }
+    // Static lane body so balls roll on it
+    const laneBody = new CANNON.Body({ mass: 0 })
+    laneBody.addShape(new CANNON.Box(new CANNON.Vec3(1.0, 0.02, laneLen / 2)))
+    laneBody.position.set(BOWL_CX, 0.02, BOWL_LANE_Z)
+    physWorld.addBody(laneBody)
+
+    // ── Bowling pins ──────────────────────────────────────────────────────
+    const pinMat = new THREE.MeshLambertMaterial({ color: 0xfff5e0 })
+    const pinMeshes: THREE.Mesh[] = []
+    const pinBodies: CANNON.Body[] = []
+    PIN_POSITIONS.forEach(([px, py, pz]) => {
+      const pinGeo = new THREE.CylinderGeometry(PIN_R_TOP, PIN_R_BOT, PIN_H, 8)
+      const m = new THREE.Mesh(pinGeo, pinMat); m.castShadow = true; scene.add(m)
+      m.position.set(px, py, pz); pinMeshes.push(m)
+      const b = new CANNON.Body({ mass: 0.5 })
+      b.addShape(new CANNON.Cylinder(PIN_R_TOP, PIN_R_BOT, PIN_H, 8))
+      b.position.set(px, py, pz)
+      b.linearDamping  = 0.3
+      b.angularDamping = 0.4
+      b.sleep()
+      physWorld.addBody(b); pinBodies.push(b)
+    })
+
+    // ── Bowling ball ──────────────────────────────────────────────────────
+    const bowlBallMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(BOWL_BALL_R, 14, 10),
+      new THREE.MeshPhongMaterial({ color: 0xcc1111, shininess: 80 }),
+    )
+    bowlBallMesh.castShadow = true; bowlBallMesh.visible = false; scene.add(bowlBallMesh)
+    const bowlBallBody = new CANNON.Body({ mass: 3 })
+    bowlBallBody.addShape(new CANNON.Sphere(BOWL_BALL_R))
+    bowlBallBody.position.set(BOWL_CX, BOWL_BALL_R, BOWL_START_Z)
+    bowlBallBody.linearDamping  = 0.12
+    bowlBallBody.angularDamping = 0.25
+    bowlBallBody.sleep()
+    physWorld.addBody(bowlBallBody)
+
+    // ── Bowling helpers ───────────────────────────────────────────────────
+    function resetBowling() {
+      bowlBallBody.position.set(BOWL_CX, BOWL_BALL_R, BOWL_START_Z)
+      bowlBallBody.velocity.setZero(); bowlBallBody.angularVelocity.setZero()
+      bowlBallBody.sleep(); bowlBallMesh.visible = false
+      PIN_POSITIONS.forEach(([px, py, pz], i) => {
+        pinBodies[i].position.set(px, py, pz)
+        pinBodies[i].velocity.setZero(); pinBodies[i].angularVelocity.setZero()
+        pinBodies[i].quaternion.set(0, 0, 0, 1)
+        pinBodies[i].sleep(); pinMeshes[i].visible = true
+      })
+      bowlAimRef.current   = 0
+      bowlTimerRef.current = 0
+    }
+    function throwBowl() {
+      const spd = 15
+      const aim = bowlAimRef.current
+      bowlBallBody.position.set(BOWL_CX + Math.sin(aim) * 0.5, BOWL_BALL_R, BOWL_START_Z)
+      bowlBallBody.velocity.set(Math.sin(aim) * spd * 0.25, 0.3, -spd)
+      bowlBallBody.wakeUp()
+      PIN_POSITIONS.forEach((_, i) => pinBodies[i].wakeUp())
+      bowlBallMesh.visible = true
+    }
+    function countKnockedPins() {
+      let knocked = 0
+      pinBodies.forEach(b => {
+        const q = b.quaternion
+        const upY = 1 - 2 * (q.x * q.x + q.z * q.z)
+        if (upY < 0.5) knocked++
+      })
+      return knocked
+    }
 
     // ── Player ───────────────────────────────────────────────────────────
     const skinMat  = new THREE.MeshLambertMaterial({ color:0xfcd34d })
@@ -591,9 +739,30 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const mapped = keyToWASD(e.key.toLowerCase())
       keys.add(mapped)
 
-      // Any movement key closes the overlay so the player can walk away
+      // Any movement key closes the sign overlay
       if (['w','a','s','d'].includes(mapped) && (focusActiveRef.current || overlayShownRef.current)) {
         exitFocus(); return
+      }
+
+      // Bowling controls take priority when active
+      const bs = bowlStateRef.current
+      if (bs === 'aiming') {
+        if (e.key === ' ' || mapped === 'e') {
+          e.preventDefault()
+          throwBowl(); bowlStateRef.current = 'thrown'; bowlTimerRef.current = 0
+          setBowlDisplay(p => ({ ...p, state: 'thrown' }))
+        } else if (e.key === 'Escape') {
+          bowlStateRef.current = 'idle'; resetBowling()
+          setBowlDisplay(p => ({ ...p, state: 'idle' })); setNearBowl(false)
+        }
+        return
+      }
+      if (bs === 'result') {
+        if (mapped === 'e' || e.key === ' ') {
+          e.preventDefault(); resetBowling(); bowlStateRef.current = 'aiming'
+          setBowlDisplay(p => ({ ...p, state: 'aiming', score: 0 }))
+        }
+        return
       }
 
       if (mapped==='e' && !focusActiveRef.current && !exitedRef.current && currentSecRef.current) {
@@ -612,9 +781,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     window.addEventListener('blur',    onBlur)
 
     // ── Animation ─────────────────────────────────────────────────────────
-    const _tmpCam  = camera.clone()
-    const _mat4    = new THREE.Matrix4()
-    const _rotAxis = new THREE.Vector3()
+    const _tmpCam = camera.clone()
+    const _mat4   = new THREE.Matrix4()
+    let _nearBowl = false   // local mirror of nearBowl state for change-detection
     let animId:  number
     let elapsed  = 0
     let lastTime = performance.now()
@@ -629,6 +798,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const now = performance.now()
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now; elapsed += delta
+
+      // ── Cannon physics step ───────────────────────────────────────────
+      physWorld.step(1 / 60, delta, 3)
+
+      // Sync exploration ball meshes from cannon bodies
+      balls.forEach(b => {
+        b.mesh.position.set(b.body.position.x, b.body.position.y, b.body.position.z)
+        b.mesh.quaternion.set(b.body.quaternion.x, b.body.quaternion.y, b.body.quaternion.z, b.body.quaternion.w)
+      })
+      // Sync bowling objects
+      bowlBallMesh.position.set(bowlBallBody.position.x, bowlBallBody.position.y, bowlBallBody.position.z)
+      bowlBallMesh.quaternion.set(bowlBallBody.quaternion.x, bowlBallBody.quaternion.y, bowlBallBody.quaternion.z, bowlBallBody.quaternion.w)
+      pinMeshes.forEach((m, i) => {
+        m.position.set(pinBodies[i].position.x, pinBodies[i].position.y, pinBodies[i].position.z)
+        m.quaternion.set(pinBodies[i].quaternion.x, pinBodies[i].quaternion.y, pinBodies[i].quaternion.z, pinBodies[i].quaternion.w)
+      })
 
       player.visible = !focusActiveRef.current
 
@@ -708,73 +893,53 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           if (proxTimerRef.current > 2.2) triggerFocus(nearest)
         }
 
-        // Physics balls
+        // Player kicks exploration balls via impulse on their Cannon bodies
         balls.forEach(b => {
-          b.vel.x *= 0.84; b.vel.z *= 0.84
-          b.mesh.position.x += b.vel.x * delta * 60
-          b.mesh.position.z += b.vel.z * delta * 60
-          b.mesh.position.y = BALL_R
-
-          // Map boundary
-          const br = Math.hypot(b.mesh.position.x, b.mesh.position.z)
-          if (br > 68) {
-            const nx = b.mesh.position.x/br, nz = b.mesh.position.z/br
-            b.mesh.position.x = nx*68; b.mesh.position.z = nz*68
-            const dot = b.vel.x*nx + b.vel.z*nz
-            b.vel.x -= 2*dot*nx; b.vel.z -= 2*dot*nz
-          }
-
-          // Player collision — player kicks ball
-          const pdx = b.mesh.position.x - player.position.x
-          const pdz = b.mesh.position.z - player.position.z
-          const pd  = Math.sqrt(pdx*pdx + pdz*pdz)
+          const pdx = b.body.position.x - player.position.x
+          const pdz = b.body.position.z - player.position.z
+          const pd  = Math.sqrt(pdx * pdx + pdz * pdz)
           if (pd < PLAYER_R + BALL_R + 0.05 && pd > 0.01) {
-            const nx = pdx/pd, nz = pdz/pd
-            b.vel.x = nx * 3.0; b.vel.z = nz * 3.0
-            b.mesh.position.x = player.position.x + nx * (PLAYER_R + BALL_R + 0.06)
-            b.mesh.position.z = player.position.z + nz * (PLAYER_R + BALL_R + 0.06)
-          }
-
-          // Campfire stone ring collision
-          const cfdx = b.mesh.position.x - FIRE_POS.x
-          const cfdz = b.mesh.position.z - FIRE_POS.z
-          const cfd  = Math.sqrt(cfdx*cfdx + cfdz*cfdz)
-          const FIRE_R = 1.1
-          if (cfd < FIRE_R + BALL_R && cfd > 0.01) {
-            const cnx = cfdx/cfd, cnz = cfdz/cfd
-            const dot = b.vel.x*cnx + b.vel.z*cnz
-            if (dot < 0) { b.vel.x -= 2*dot*cnx; b.vel.z -= 2*dot*cnz }
-            b.mesh.position.x = FIRE_POS.x + cnx * (FIRE_R + BALL_R + 0.05)
-            b.mesh.position.z = FIRE_POS.z + cnz * (FIRE_R + BALL_R + 0.05)
-          }
-
-          // Ball-ball elastic collision
-          balls.forEach(b2 => {
-            if (b === b2) return
-            const dx = b.mesh.position.x - b2.mesh.position.x
-            const dz = b.mesh.position.z - b2.mesh.position.z
-            const d  = Math.sqrt(dx*dx + dz*dz)
-            if (d < BALL_R*2 && d > 0.01) {
-              const nx = dx/d, nz = dz/d
-              const rvx = b.vel.x - b2.vel.x, rvz = b.vel.z - b2.vel.z
-              const impulse = rvx*nx + rvz*nz
-              if (impulse < 0) {
-                b.vel.x -= impulse*nx; b.vel.z -= impulse*nz
-                b2.vel.x += impulse*nx; b2.vel.z += impulse*nz
-              }
-              const overlap = BALL_R*2 - d
-              b.mesh.position.x += nx*overlap*0.5; b.mesh.position.z += nz*overlap*0.5
-              b2.mesh.position.x -= nx*overlap*0.5; b2.mesh.position.z -= nz*overlap*0.5
-            }
-          })
-
-          // Rolling rotation
-          const spd = b.vel.length()
-          if (spd > 0.02) {
-            _rotAxis.set(-b.vel.z, 0, b.vel.x).normalize()
-            b.mesh.rotateOnWorldAxis(_rotAxis, spd * delta * 60 * (1/BALL_R) * 0.09)
+            const nx = pdx / pd, nz = pdz / pd
+            b.body.velocity.x = nx * 6; b.body.velocity.z = nz * 6; b.body.velocity.y = 0.4
+            b.body.position.x = player.position.x + nx * (PLAYER_R + BALL_R + 0.07)
+            b.body.position.z = player.position.z + nz * (PLAYER_R + BALL_R + 0.07)
+            b.body.wakeUp()
           }
         })
+
+        // ── Bowling proximity & state machine ──────────────────────────
+        const bowlDist = Math.hypot(player.position.x - BOWL_CX, player.position.z - BOWL_START_Z)
+        const newNearBowl = bowlStateRef.current === 'idle' && bowlDist < BOWL_PROX
+        if (newNearBowl !== _nearBowl) { _nearBowl = newNearBowl; setNearBowl(newNearBowl) }
+
+        if (bowlStateRef.current === 'thrown') {
+          bowlTimerRef.current += delta
+          if (bowlTimerRef.current > 4.5) {
+            const knocked = countKnockedPins()
+            const score   = knocked * 10 + (knocked === 6 ? 20 : 0)
+            const newHS   = Math.max(score, bowlHSRef.current)
+            if (newHS > bowlHSRef.current) {
+              bowlHSRef.current = newHS
+              localStorage.setItem('gabe-bowl-hs', String(newHS))
+            }
+            bowlStateRef.current = 'result'
+            setBowlDisplay({ state: 'result', score, hs: newHS })
+          }
+        }
+
+        // Bowling camera — override normal follow when active
+        if (bowlStateRef.current === 'aiming' || bowlStateRef.current === 'thrown' || bowlStateRef.current === 'result') {
+          if (bowlStateRef.current === 'aiming') {
+            if (keys.has('a') || touchMoveRef.current.x < -0.2) bowlAimRef.current = THREE.MathUtils.clamp(bowlAimRef.current - delta * 1.2, -0.45, 0.45)
+            if (keys.has('d') || touchMoveRef.current.x > 0.2)  bowlAimRef.current = THREE.MathUtils.clamp(bowlAimRef.current + delta * 1.2, -0.45, 0.45)
+          }
+          // Camera behind and above throw position, angled at pin cluster
+          const aim = bowlAimRef.current
+          const camTgt = new THREE.Vector3(BOWL_CX + Math.sin(aim) * 1.5, 2.0, BOWL_START_Z + 3.0)
+          camera.position.lerp(camTgt, 0.10)
+          camera.lookAt(BOWL_CX, 0.2, BOWL_PINS_Z - PIN_ROW_D)
+          player.position.set(BOWL_CX, 0, BOWL_START_Z + 1); player.rotation.y = Math.PI
+        }
       } else {
         // ── Cinematic: glide camera to sign ────────────────────────────
         camera.position.lerp(focusPosRef.current, 0.042)
@@ -830,6 +995,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       window.removeEventListener('resize',  onResize)
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
+      // Remove all cannon bodies
+      while (physWorld.bodies.length > 0) physWorld.removeBody(physWorld.bodies[0])
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -849,11 +1016,76 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         ← 2D View
       </button>
 
+      {/* Bowling overlay — shown when actively bowling */}
+      {!activeSection && bowlDisplay.state !== 'idle' && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+          {/* Score bar at top */}
+          <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
+            <span>Score: <span className="text-yellow-300">{bowlDisplay.score}</span></span>
+            <span className="opacity-40">|</span>
+            <span>Best: <span className="text-green-300">{bowlDisplay.hs}</span></span>
+          </div>
+
+          {/* State-specific instructions at bottom */}
+          <div className="text-center">
+            {bowlDisplay.state === 'aiming' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-3 rounded-2xl text-sm space-y-1">
+                <div className="font-bold text-yellow-300 mb-1">Bowling — Aim your shot</div>
+                <div className="hidden md:block opacity-80"><kbd className="font-bold bg-white/20 px-1.5 rounded">A</kbd> / <kbd className="font-bold bg-white/20 px-1.5 rounded">D</kbd> to aim &nbsp;·&nbsp; <kbd className="font-bold bg-white/20 px-1.5 rounded">E</kbd> or <kbd className="font-bold bg-white/20 px-1.5 rounded">Space</kbd> to throw &nbsp;·&nbsp; <kbd className="font-bold bg-white/20 px-1.5 rounded">Esc</kbd> to cancel</div>
+                <div className="md:hidden opacity-80">Joystick left/right to aim &nbsp;·&nbsp; <strong>Throw</strong> button to bowl</div>
+              </div>
+            )}
+            {bowlDisplay.state === 'thrown' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-3 rounded-2xl text-sm animate-pulse">
+                Ball in motion...
+              </div>
+            )}
+            {bowlDisplay.state === 'result' && (
+              <div className="bg-black/70 backdrop-blur-sm text-white px-8 py-4 rounded-2xl text-center space-y-2">
+                <div className="text-2xl font-bold">
+                  {bowlDisplay.score >= 80 ? '🎳 STRIKE! ' : ''}{bowlDisplay.score} pts
+                </div>
+                {bowlDisplay.score === bowlDisplay.hs && bowlDisplay.score > 0 && (
+                  <div className="text-green-300 text-sm font-bold">New High Score!</div>
+                )}
+                <div className="hidden md:block text-xs opacity-70 mt-1"><kbd className="font-bold bg-white/20 px-1.5 rounded">E</kbd> play again &nbsp;·&nbsp; <kbd className="font-bold bg-white/20 px-1.5 rounded">Esc</kbd> leave lane</div>
+                <div className="md:hidden text-xs opacity-70 mt-1">Tap <strong>Play Again</strong> or move away</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile throw/play-again button — only during bowling */}
+      {!activeSection && (bowlDisplay.state === 'aiming' || bowlDisplay.state === 'result') && (
+        <button
+          className="md:hidden absolute right-6 z-30 px-5 py-3 bg-yellow-600/90 backdrop-blur-sm text-white border border-yellow-400/50 rounded-full font-bold text-sm pointer-events-auto"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+          onTouchEnd={(e) => {
+            e.preventDefault()
+            // Simulate E keypress
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }))
+          }}
+        >
+          {bowlDisplay.state === 'aiming' ? 'Throw' : 'Play Again'}
+        </button>
+      )}
+
       {/* All HUD — hidden when modal is open */}
       {!activeSection && (
         <>
+          {/* Near-bowl hint — only when idle near lane */}
+          {nearBowl && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to Bowl
+            </div>
+          )}
+
           {/* Desktop: near-sign hint (above controls bar) */}
-          {nearSign && (
+          {!nearBowl && nearSign && (
             <div
               className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
@@ -862,24 +1094,28 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </div>
           )}
 
-          {/* Desktop: controls bar */}
+          {/* Desktop: controls bar — hidden during bowling */}
+          {bowlDisplay.state === 'idle' && (
           <div
             className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
           >
             WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> or move to close
           </div>
+          )}
 
-          {/* Mobile: controls hint (sits below joystick/inspect button) */}
+          {/* Mobile: controls hint — hidden during bowling */}
+          {bowlDisplay.state === 'idle' && (
           <div
             className="md:hidden absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full pointer-events-none whitespace-nowrap"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
           >
             Joystick to move &nbsp;·&nbsp; Tap <strong>Inspect</strong> near signs
           </div>
+          )}
 
           {/* Mobile: Inspect button — right side, same height as joystick */}
-          {nearSign && (
+          {bowlDisplay.state === 'idle' && nearSign && (
             <button
               className="md:hidden absolute right-6 z-30 px-5 py-3 bg-amber-800/90 backdrop-blur-sm text-white border border-amber-500/50 rounded-full font-bold text-sm animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
@@ -894,8 +1130,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </button>
           )}
 
-          {/* Mobile: Joystick — left side */}
-          <div
+          {/* Mobile: Joystick — left side, hidden during bowling */}
+          {bowlDisplay.state === 'idle' && <div
             className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
             onTouchStart={(e) => { e.preventDefault(); touchActiveRef.current = true }}
@@ -924,7 +1160,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                 }}
               />
             </div>
-          </div>
+          </div>}
         </>
       )}
 

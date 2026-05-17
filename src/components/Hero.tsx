@@ -14,7 +14,7 @@ export default function Hero() {
           className="w-64 h-64 xl:w-80 xl:h-80 rounded-full border-4 border-black object-cover flex-shrink-0"
         />
         <div className="max-w-2xl text-center md:text-left">
-          <h1 className="text-4xl md:text-5xl font-bold mb-2">Gabriel John Bullerman</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-2">Gabriel Bullerman</h1>
           <h2 className="text-2xl md:text-3xl font-bold mb-4">
             <span>{displayText}</span>
             <span className="animate-blink font-thin">|</span>
