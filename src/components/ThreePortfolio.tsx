@@ -364,7 +364,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const mountRef       = useRef<HTMLDivElement>(null)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [nearSign, setNearSign]           = useState(false)
-
+  const touchMoveRef = useRef({ x: 0, y: 0 })
+  const touchActiveRef = useRef(false)
   const focusPosRef     = useRef(new THREE.Vector3())
   const focusLookRef    = useRef(new THREE.Vector3())
   const focusActiveRef  = useRef(false)
@@ -632,8 +633,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         // ── Camera-relative WASD movement ──────────────────────────────
         const fw_x = -Math.sin(camYaw), fw_z = -Math.cos(camYaw)
         const rt_x =  Math.cos(camYaw), rt_z = -Math.sin(camYaw)
-        const hasW = keys.has('w'), hasS = keys.has('s')
-        const hasA = keys.has('a'), hasD = keys.has('d')
+        const joyX = touchMoveRef.current.x
+        const joyY = touchMoveRef.current.y
+        const hasW = keys.has('w') || joyY < -0.2
+        const hasS = keys.has('s') || joyY > 0.2
+        const hasA = keys.has('a') || joyX < -0.2
+        const hasD = keys.has('d') || joyX > 0.2
 
         const rawVel = new THREE.Vector3()
         if (hasW) { rawVel.x += fw_x; rawVel.z += fw_z }
@@ -838,7 +843,39 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none">
         WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold">Esc</kbd> or move to close
       </div>
+      {/* Mobile Joystick */}
+      <div
+        className="absolute bottom-24 left-6 z-30 w-32 h-32 md:hidden"
+        onTouchStart={(e) => {
+          touchActiveRef.current = true
+        }}
+        onTouchMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const touch = e.touches[0]
 
+          const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
+          const y = ((touch.clientY - rect.top) / rect.height) * 2 - 1
+
+          touchMoveRef.current = {
+            x: Math.max(-1, Math.min(1, x)),
+            y: Math.max(-1, Math.min(1, y)),
+          }
+        }}
+        onTouchEnd={() => {
+          touchActiveRef.current = false
+          touchMoveRef.current = { x: 0, y: 0 }
+        }}
+      >
+        <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
+          <div
+            className="absolute w-10 h-10 rounded-full bg-white/70"
+            style={{
+              left: `calc(50% + ${touchMoveRef.current.x * 35}px - 20px)`,
+              top: `calc(50% + ${touchMoveRef.current.y * 35}px - 20px)`,
+            }}
+          />
+        </div>
+      </div>
       {activeSection && <SectionOverlay id={activeSection} onClose={exitFocus} />}
     </div>
   )
