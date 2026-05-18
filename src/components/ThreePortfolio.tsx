@@ -2095,7 +2095,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                         <div key={ax} className="flex gap-1 mb-1 items-center">
                           <span className="text-xs text-white/50 w-4 font-mono">{labels[ax]}</span>
                           <span className="text-xs text-white/70 font-mono w-8 text-right">{mesh.scale[ax].toFixed(2)}</span>
-                          {[-2, -0.5, +0.5, +2].map(d => (
+                          {[-2, -0.5, -0.25, -0.1, +0.1, +0.25, +0.5, +2].map(d => (
                             <button key={d} onClick={() => bump(ax, d)}
                               className="flex-1 text-xs py-0.5 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
                               {d > 0 ? `+${d}` : d}
