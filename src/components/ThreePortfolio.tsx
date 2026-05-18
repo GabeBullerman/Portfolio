@@ -2048,7 +2048,35 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                   ))}
                 </div>
 
-                {/* Scale controls */}
+                {/* Per-axis size controls for hitbox planes */}
+                {movablesRef.current[debugSel]?.isHitbox && (() => {
+                  const mesh = (movablesRef.current[debugSel].group as any).__hitMesh as THREE.Mesh | undefined
+                  if (!mesh) return null
+                  const bump = (axis: 'x'|'y'|'z', d: number) => {
+                    mesh.scale[axis] = Math.max(0.05, mesh.scale[axis] + d)
+                    setSelPos(p => p ? { ...p } : { x: 0, y: 0, z: 0 })
+                  }
+                  const labels = { x: 'W', y: 'H', z: 'D' } as const
+                  return (
+                    <div className="mt-2 pt-2 border-t border-white/10">
+                      <div className="text-xs text-white/50 mb-1">Size (W / H / D)</div>
+                      {(['x','y','z'] as const).map(ax => (
+                        <div key={ax} className="flex gap-1 mb-1 items-center">
+                          <span className="text-xs text-white/50 w-4 font-mono">{labels[ax]}</span>
+                          <span className="text-xs text-white/70 font-mono w-8 text-right">{mesh.scale[ax].toFixed(2)}</span>
+                          {[-2, -0.5, +0.5, +2].map(d => (
+                            <button key={d} onClick={() => bump(ax, d)}
+                              className="flex-1 text-xs py-0.5 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
+                              {d > 0 ? `+${d}` : d}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {/* Uniform scale controls for non-hitbox objects */}
                 {movablesRef.current[debugSel]?.scaleObj && (() => {
                   const sc = movablesRef.current[debugSel].scaleObj!
                   const applyScale = (delta: number) => {
@@ -2084,8 +2112,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                 const lines = movablesRef.current.map(m => {
                   const p = m.group.position, rot = m.group.rotation
                   const base = `${m.name}: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`
+                  if (!m.isHitbox) return base
                   const rotStr = `rot(${r2d(rot.x)}°, ${r2d(rot.y)}°, ${r2d(rot.z)}°)`
-                  return m.isHitbox ? `${base}  ${rotStr}` : base
+                  const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
+                  const scStr = mesh ? `  size(${mesh.scale.x.toFixed(2)}, ${mesh.scale.y.toFixed(2)}, ${mesh.scale.z.toFixed(2)})` : ''
+                  return `${base}  ${rotStr}${scStr}`
                 })
                 navigator.clipboard.writeText(lines.join('\n'))
               }}
