@@ -186,6 +186,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // Define campfire position here so tree spawner can exclude it
     const FIRE_POS = new THREE.Vector3(0, 0, -6)
 
+    // Cabin and pond positions (defined early for tree exclusion)
+    const CABIN_X = -7, CABIN_Z = 19
+    const POND_X = 9,  POND_Z = 15, POND_R = 3.2
+
     const rng = mulberry32(42)
     for (let i=0; i<175; i++) {
       const x=(rng()-0.5)*130, z=rng()*110-82
@@ -196,6 +200,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
       if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
       if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
+      if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
+      if (Math.hypot(x - POND_X,  z - POND_Z)  < POND_R + 2.5) continue
       addTree(x,z,0.7+rng()*0.65)
     }
 
@@ -350,6 +356,127 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       bx: (ffRng()-0.5)*120, by: 0.7+ffRng()*4, bz: ffRng()*95-80,
       ph: ffRng()*Math.PI*2, sp: 0.35+ffRng()*0.75, am: 1.0+ffRng()*2.8,
     }))
+
+    // ── Cabin (behind spawn) ──────────────────────────────────────────────────
+    const CW = 7, CD = 5.5, CH = 3.2, ROOF_PK = 1.4
+    const DOOR_W = 1.1, DOOR_H = 2.1
+    const cabinMat  = new THREE.MeshLambertMaterial({ color: 0x6b3a1f })
+    const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d })
+
+    // Foundation
+    const cabFound = new THREE.Mesh(new THREE.BoxGeometry(CW+0.4, 0.2, CD+0.4), new THREE.MeshLambertMaterial({ color: 0x999999 }))
+    cabFound.position.set(CABIN_X, 0.1, CABIN_Z); cabFound.receiveShadow = true; scene.add(cabFound)
+    // Back wall
+    const cabBack = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, 0.3), cabinMat)
+    cabBack.position.set(CABIN_X, CH/2, CABIN_Z - CD/2); cabBack.castShadow = true; scene.add(cabBack)
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
+    // Left wall
+    const cabLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
+    cabLeft.position.set(CABIN_X-CW/2, CH/2, CABIN_Z); cabLeft.castShadow = true; scene.add(cabLeft)
+    boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
+    // Right wall
+    const cabRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
+    cabRight.position.set(CABIN_X+CW/2, CH/2, CABIN_Z); cabRight.castShadow = true; scene.add(cabRight)
+    boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
+    // Front wall — left/right of door + strip above door
+    const fwSeg = (CW - DOOR_W) / 2
+    const cabFrontL = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
+    cabFrontL.position.set(CABIN_X - (DOOR_W + fwSeg)/2, CH/2, CABIN_Z+CD/2); cabFrontL.castShadow = true; scene.add(cabFrontL)
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    const cabFrontR = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
+    cabFrontR.position.set(CABIN_X + (DOOR_W + fwSeg)/2, CH/2, CABIN_Z+CD/2); cabFrontR.castShadow = true; scene.add(cabFrontR)
+    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    const cabFrontTop = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, CH-DOOR_H, 0.3), cabinMat)
+    cabFrontTop.position.set(CABIN_X, DOOR_H+(CH-DOOR_H)/2, CABIN_Z+CD/2); scene.add(cabFrontTop)
+    // Door (dark wood)
+    const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-0.1, DOOR_H, 0.1), new THREE.MeshLambertMaterial({ color: 0x3d1a00 }))
+    cabDoor.position.set(CABIN_X, DOOR_H/2, CABIN_Z+CD/2+0.06); scene.add(cabDoor)
+    // Windows (left & right walls)
+    ;[-1, 1].forEach(side => {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.62, 0.62), new THREE.MeshBasicMaterial({ color: 0x1a3a5c }))
+      win.position.set(CABIN_X + side*(CW/2+0.05), CH*0.6, CABIN_Z+0.5); scene.add(win)
+      const wf = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.70, 0.70), new THREE.MeshLambertMaterial({ color: 0x8b5e2a }))
+      wf.position.copy(win.position); scene.add(wf)
+    })
+    // Roof — two angled halves
+    const halfRun = CW/2
+    const roofHalfLen = Math.sqrt(halfRun*halfRun + ROOF_PK*ROOF_PK) + 0.35
+    const roofAng = Math.atan2(ROOF_PK, halfRun)
+    ;[-1, 1].forEach(side => {
+      const rh = new THREE.Mesh(new THREE.BoxGeometry(roofHalfLen, 0.24, CD+0.9), roofMat2)
+      rh.rotation.z = -side * roofAng
+      rh.position.set(CABIN_X + side*halfRun/2, CH + ROOF_PK/2, CABIN_Z)
+      rh.castShadow = true; scene.add(rh)
+    })
+    // Chimney
+    const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.0, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
+    chim.position.set(CABIN_X+CW/4, CH+ROOF_PK*0.55, CABIN_Z-CD/4); scene.add(chim)
+    const chimCap = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.14, 0.80), new THREE.MeshLambertMaterial({ color: 0x666666 }))
+    chimCap.position.set(CABIN_X+CW/4, CH+ROOF_PK*0.55+1.1, CABIN_Z-CD/4); scene.add(chimCap)
+    // Porch step
+    const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
+    cabStep.position.set(CABIN_X, 0.1, CABIN_Z+CD/2+0.35); scene.add(cabStep)
+
+    // ── Pond (near cabin) ─────────────────────────────────────────────────────
+    const pondMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(POND_R, 28),
+      new THREE.MeshLambertMaterial({ color: 0x2255aa, transparent: true, opacity: 0.88 })
+    )
+    pondMesh.rotation.x = -Math.PI/2; pondMesh.position.set(POND_X, 0.02, POND_Z); scene.add(pondMesh)
+    // Muddy rim ring
+    const pondRim = new THREE.Mesh(
+      new THREE.RingGeometry(POND_R, POND_R+0.55, 28),
+      new THREE.MeshLambertMaterial({ color: 0x4a6b30, side: THREE.DoubleSide })
+    )
+    pondRim.rotation.x = -Math.PI/2; pondRim.position.set(POND_X, 0.01, POND_Z); scene.add(pondRim)
+    // Reeds
+    const reedMat  = new THREE.MeshLambertMaterial({ color: 0x5a7a2a })
+    const reedTopMat = new THREE.MeshLambertMaterial({ color: 0x5a3a10 })
+    const reedRng  = mulberry32(555)
+    for (let r = 0; r < 16; r++) {
+      const ra = reedRng()*Math.PI*2, rr = POND_R*0.78 + reedRng()*POND_R*0.38
+      const rx = POND_X+Math.cos(ra)*rr, rz2 = POND_Z+Math.sin(ra)*rr
+      const rh = 0.75+reedRng()*0.65
+      const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, rh, 4), reedMat)
+      reed.position.set(rx, rh/2, rz2); scene.add(reed)
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.06, 0.18, 6), reedTopMat)
+      tip.position.set(rx, rh+0.09, rz2); scene.add(tip)
+    }
+    // Lily pads
+    const lilyMat = new THREE.MeshLambertMaterial({ color: 0x2d6622 })
+    for (let l = 0; l < 6; l++) {
+      const la = (l/6)*Math.PI*2+0.5, lr = POND_R*0.45
+      const lily = new THREE.Mesh(new THREE.CircleGeometry(0.26, 8), lilyMat)
+      lily.rotation.x = -Math.PI/2; lily.position.set(POND_X+Math.cos(la)*lr, 0.03, POND_Z+Math.sin(la)*lr)
+      scene.add(lily)
+    }
+
+    // ── Ducks ─────────────────────────────────────────────────────────────────
+    const duckBodyMat = new THREE.MeshLambertMaterial({ color: 0xfafafa })
+    const duckHeadMat = new THREE.MeshLambertMaterial({ color: 0x226622 })
+    const duckBillMat = new THREE.MeshLambertMaterial({ color: 0xffaa00 })
+    const DUCK_Y = 0.13
+    interface DuckData { group: THREE.Group; headG: THREE.Group; x: number; z: number; angle: number; timer: number; phase: number }
+    const ducks: DuckData[] = []
+    const duckRng = mulberry32(999)
+    for (let d = 0; d < 5; d++) {
+      const g = new THREE.Group()
+      // Body
+      g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.26, 0.58), duckBodyMat), { castShadow: true }))
+      // Tail tuft
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.13), duckBodyMat)
+      tail.position.set(0, 0.09, -0.33); tail.rotation.x = -0.38; g.add(tail)
+      // Head group (for nod animation)
+      const headG = new THREE.Group(); headG.position.set(0, 0.21, 0.22); g.add(headG)
+      headG.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.20, 0.20), duckHeadMat))
+      const bill = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.16), duckBillMat)
+      bill.position.set(0, -0.04, 0.16); headG.add(bill)
+      const sa = (d/5)*Math.PI*2, sr = 1.0+duckRng()*1.8
+      const sx = POND_X+Math.cos(sa)*sr, sz = POND_Z+Math.sin(sa)*sr
+      g.position.set(sx, DUCK_Y, sz)
+      scene.add(g)
+      ducks.push({ group: g, headG, x: sx, z: sz, angle: duckRng()*Math.PI*2, timer: duckRng()*2.5, phase: d*1.26 })
+    }
 
     // ── Ball pit ──────────────────────────────────────────────────────────
     const PIT_R  = 2.2, PIT_WALL_H = 0.55
@@ -1337,6 +1464,30 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         ffMesh.setMatrixAt(i, _mat4)
       })
       ffMesh.instanceMatrix.needsUpdate = true
+
+      // ── Duck animation ──────────────────────────────────────────────────
+      ducks.forEach(duck => {
+        duck.timer -= delta
+        if (duck.timer <= 0) {
+          const ddx = POND_X - duck.x, ddz = POND_Z - duck.z
+          if (Math.hypot(ddx, ddz) > 4.8) {
+            // Steer back toward pond
+            duck.angle = Math.atan2(ddz, ddx) + (Math.random()-0.5)*0.7
+          } else {
+            duck.angle += (Math.random()-0.5)*Math.PI*0.75
+          }
+          duck.timer = 1.8 + Math.random()*3.0
+        }
+        duck.x += Math.cos(duck.angle) * 0.7 * delta
+        duck.z += Math.sin(duck.angle) * 0.7 * delta
+        // Waddle bob
+        const bob = Math.abs(Math.sin(elapsed*5.5 + duck.phase)) * 0.022
+        duck.group.position.set(duck.x, DUCK_Y + bob, duck.z)
+        // Face direction of travel (local +Z = forward)
+        duck.group.rotation.y = Math.PI/2 - duck.angle
+        // Head nod
+        duck.headG.rotation.x = Math.sin(elapsed*5.5 + duck.phase) * 0.13
+      })
 
       renderer.render(scene, camera)
     }
