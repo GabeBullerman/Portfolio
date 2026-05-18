@@ -196,15 +196,20 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const gltfLoader = new GLTFLoader()
     const fbxLoader  = new FBXLoader()
 
+    function logSize(label: string, grp: THREE.Group) {
+      const box = new THREE.Box3().setFromObject(grp)
+      const size = new THREE.Vector3(); box.getSize(size)
+      console.log(`[nature] ${label}  size: x=${size.x.toFixed(2)} y=${size.y.toFixed(2)} z=${size.z.toFixed(2)}`)
+    }
     function loadGLB(path: string): Promise<THREE.Group> {
       return new Promise((resolve, reject) => {
         gltfLoader.load(
           path,
           gltf => {
-            console.log('[nature] GLB loaded:', path, gltf.scene)
             gltf.scene.traverse(child => {
               if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
             })
+            logSize(path.split('/').pop()!, gltf.scene)
             resolve(gltf.scene)
           },
           undefined,
@@ -217,10 +222,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         fbxLoader.load(
           path,
           grp => {
-            console.log('[nature] FBX loaded:', path, grp)
             grp.traverse(child => {
               if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
             })
+            logSize(path.split('/').pop()!, grp)
             resolve(grp)
           },
           undefined,
