@@ -561,15 +561,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }))
 
     // ── Cabin (behind spawn) ──────────────────────────────────────────────────
-    const CW = 7, CD = 5.5, CH = 3.2
+    const CD = 5.5, CH = 3.2
     const DOOR_W = 1.1
 
-    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = 0; scene.add(cabGrp)
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
+    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI / 2; scene.add(cabGrp)
 
     // GLB cabin shell — scaled to match CW × CH footprint; interactive elements added separately below
     gltfLoader.load('/assets/cabin/cabin/Untitled.glb', gltf => {
@@ -577,24 +572,31 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cabMesh.traverse(child => {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
-      const box = new THREE.Box3().setFromObject(cabMesh)
-      const size = new THREE.Vector3(); box.getSize(size)
       cabMesh.scale.setScalar(0.600)
       const box2 = new THREE.Box3().setFromObject(cabMesh)
       const center2 = new THREE.Vector3(); box2.getCenter(center2)
-      cabMesh.position.set(-center2.x, -box2.min.y, -center2.z)
-
-      // Sink the built-in brown ground plane below world ground so it's hidden
-      cabMesh.traverse(child => {
-        if (!(child as THREE.Mesh).isMesh) return
-        const b = new THREE.Box3().setFromObject(child)
-        const s = new THREE.Vector3(); b.getSize(s)
-        if (s.y < 0.25 * s.x && s.y < 0.25 * s.z && s.x > 0.5 && s.z > 0.5) {
-          child.position.y -= 0.35  // flat ground plane — push below y=0
-        }
-      })
+      cabMesh.position.set(-center2.x, -0.50, -center2.z)
 
       cabGrp.add(cabMesh)
+      cabGrp.updateMatrixWorld(true)
+
+      // Derive wall hitboxes from mesh world bounds
+      const wBox = new THREE.Box3().setFromObject(cabMesh)
+      const WT = 0.25
+      const doorHalfW = 0.65
+      const doorCX = (wBox.min.x + wBox.max.x) / 2
+      // Back wall
+      boxCols.push({ x0: wBox.min.x, x1: wBox.max.x, z0: wBox.max.z - WT, z1: wBox.max.z + WT, maxY: 99 })
+      // Side walls
+      boxCols.push({ x0: wBox.min.x - WT, x1: wBox.min.x + WT, z0: wBox.min.z, z1: wBox.max.z, maxY: 99 })
+      boxCols.push({ x0: wBox.max.x - WT, x1: wBox.max.x + WT, z0: wBox.min.z, z1: wBox.max.z, maxY: 99 })
+      // Front wall (door side) with gap
+      boxCols.push({ x0: wBox.min.x, x1: doorCX - doorHalfW, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
+      boxCols.push({ x0: doorCX + doorHalfW, x1: wBox.max.x, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
+
+      // Position ramp at front of cabin (door face)
+      rampGrp.position.set(0, 0, -(wBox.max.z - CABIN_Z) - 0.5)
+
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
@@ -1505,15 +1507,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         rKnee.rotation.x = Math.max(0,  Math.sin(walkPhase)) * swingAmt * 0.40
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
 
-        // ── Camera (third-person ↔ first-person blend) ────────────────────
-        const insideCabin =
-          player.position.x > CABIN_X - CW/2 + 0.35 &&
-          player.position.x < CABIN_X + CW/2 - 0.35 &&
-          player.position.z > CABIN_Z - CD/2 + 0.35 &&
-          player.position.z < CABIN_Z + CD/2 - 0.35
-
-        fpvBlend = THREE.MathUtils.lerp(fpvBlend, insideCabin ? 1 : 0, delta * 4.5)
-        player.visible = fpvBlend < 0.5
+        // ── Camera (third-person) ─────────────────────────────────────────
+        fpvBlend = 0
+        player.visible = true
 
         const HEAD_H = 1.65
         const camDist = 5.2
@@ -1709,11 +1705,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
 
         // ── Light switch proximity ────────────────────────────────────
-        // Switch is at cabGrp local (SWITCH_LX, _, SWITCH_LZ); world = (CABIN_X - SWITCH_LX, _, CABIN_Z - SWITCH_LZ)
         {
-          const swWX = CABIN_X - (DOOR_W / 2 + 0.35)
-          const swWZ = CABIN_Z - (CD / 2 - 0.06)
-          const swDist = Math.hypot(player.position.x - swWX, player.position.z - swWZ)
+          const swWorld = cabGrp.localToWorld(new THREE.Vector3(SWITCH_LX, 0, SWITCH_LZ))
+          const swDist = Math.hypot(player.position.x - swWorld.x, player.position.z - swWorld.z)
           const newNear = swDist < 1.6
           if (newNear !== nearSwitchRef.current) { nearSwitchRef.current = newNear; setNearSwitch(newNear) }
         }
