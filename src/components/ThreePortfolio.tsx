@@ -778,6 +778,75 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   })
 }, undefined, err => console.error('[bed] GLB failed:', err))
 
+    // ── Radio / jukebox ───────────────────────────────────────────────────────
+    gltfLoader.load('/assets/cabin/radio/scene.gltf', gltf => {
+      const radioMesh = gltf.scene
+      radioMesh.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+        }
+      })
+
+      const radioBox = new THREE.Box3().setFromObject(radioMesh)
+      const radioSize = new THREE.Vector3()
+      const radioCenter = new THREE.Vector3()
+      radioBox.getSize(radioSize)
+      radioBox.getCenter(radioCenter)
+      radioMesh.position.sub(radioCenter)
+
+      const radioGroup = new THREE.Group()
+      radioGroup.add(radioMesh)
+
+      const radioMax = Math.max(radioSize.x, radioSize.y, radioSize.z)
+      // Target ~0.5 m tall jukebox radio
+      radioGroup.scale.setScalar(0.5 / radioMax)
+
+      radioGroup.position.set(-3.4, 2.9, -2.3)
+      radioGroup.rotation.set(0,82,0)
+      cabGrp.add(radioGroup)
+
+      movablesRef.current.push({
+        name: '📻 Radio (cabin local)',
+        group: radioGroup,
+        scaleObj: radioGroup,
+      })
+    }, undefined, err => console.error('[radio] GLTF failed:', err))
+
+    // ── Table ─────────────────────────────────────────────────────────────────
+    gltfLoader.load('/assets/cabin/table/scene.gltf', gltf => {
+      const tableMesh = gltf.scene
+      tableMesh.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+        }
+      })
+
+      const tableBox = new THREE.Box3().setFromObject(tableMesh)
+      const tableSize = new THREE.Vector3()
+      const tableCenter = new THREE.Vector3()
+      tableBox.getSize(tableSize)
+      tableBox.getCenter(tableCenter)
+      tableMesh.position.sub(tableCenter)
+
+      const tableGroup = new THREE.Group()
+      tableGroup.add(tableMesh)
+
+      const tableMax = Math.max(tableSize.x, tableSize.y, tableSize.z)
+      // Target ~1.0 m wide table
+      tableGroup.scale.setScalar(1.0 / tableMax)
+
+      tableGroup.position.set(-3.5, 2.35, -2.6)
+      cabGrp.add(tableGroup)
+
+      movablesRef.current.push({
+        name: '🪵 Table (cabin local)',
+        group: tableGroup,
+        scaleObj: tableGroup,
+      })
+    }, undefined, err => console.error('[table] GLTF failed:', err))
+
     // ── Pond ─────────────────────────────────────────────────────────────────
     const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
 
