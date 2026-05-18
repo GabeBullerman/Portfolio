@@ -75,11 +75,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [climbing, setClimbing] = useState(false)
   const [nearLadder, setNearLadder] = useState(false)
   const nearLadderRef   = useRef(false)
+  // Cabin door + smoke
+  const doorOpenRef     = useRef(false)
+  const doorRotRef      = useRef(0)
+  const doorPivotRef    = useRef<THREE.Group | null>(null)
   // Debug overlay (backtick to toggle)
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   // Object editor
-  const movablesRef     = useRef<{ name: string; group: THREE.Group }[]>([])
+  const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[] }[]>([])
   const [debugOpen, setDebugOpen]   = useState(false)
   const [debugSel,  setDebugSel]    = useState(-1)
   const [debugStep, setDebugStep]   = useState(1)
@@ -196,8 +200,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const FIRE_POS = new THREE.Vector3(0, 0, -6)
 
     // Cabin and pond positions (defined early for tree exclusion)
-    const CABIN_X = -7, CABIN_Z = 19
-    const POND_X = -25, POND_Z = -35, POND_R = 3.2
+    const CABIN_X = -5, CABIN_Z = 15
+    const POND_X = -28, POND_Z = -35, POND_R = 3.2
 
     const rng = mulberry32(42)
     for (let i=0; i<220; i++) {
@@ -398,27 +402,76 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     cabFrontR.position.set((DOOR_W + fwSeg)/2, CH/2, CD/2); cabFrontR.castShadow = true; cabGrp.add(cabFrontR)
     const cabFrontTop = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, CH-DOOR_H, 0.3), cabinMat)
     cabFrontTop.position.set(0, DOOR_H+(CH-DOOR_H)/2, CD/2); cabGrp.add(cabFrontTop)
+    // Door as pivot group so it can swing open
+    const doorPivot = new THREE.Group()
+    doorPivot.position.set(-DOOR_W/2, 0, CD/2)
+    cabGrp.add(doorPivot)
+    doorPivotRef.current = doorPivot
     const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-0.1, DOOR_H, 0.1), new THREE.MeshLambertMaterial({ color: 0x3d1a00 }))
-    cabDoor.position.set(0, DOOR_H/2, CD/2+0.06); cabGrp.add(cabDoor)
+    cabDoor.position.set(DOOR_W/2, DOOR_H/2, 0.06); doorPivot.add(cabDoor)
+    // Door handle
+    const dHandle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshLambertMaterial({ color: 0xccaa00 }))
+    dHandle.position.set(DOOR_W-0.18, DOOR_H*0.46, 0.12); doorPivot.add(dHandle)
+
     ;[-1, 1].forEach(side => {
       const win = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.62, 0.62), new THREE.MeshBasicMaterial({ color: 0x1a3a5c }))
       win.position.set(side*(CW/2+0.05), CH*0.6, 0.5); cabGrp.add(win)
       const wf = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.70, 0.70), new THREE.MeshLambertMaterial({ color: 0x8b5e2a }))
       wf.position.copy(win.position); cabGrp.add(wf)
     })
-    const halfRun = CW/2
-    const roofHalfLen = Math.sqrt(halfRun*halfRun + ROOF_PK*ROOF_PK) + 0.35
-    const roofAng = Math.atan2(ROOF_PK, halfRun)
-    ;[-1, 1].forEach(side => {
-      const rh = new THREE.Mesh(new THREE.BoxGeometry(roofHalfLen, 0.24, CD+0.9), roofMat2)
-      rh.rotation.z = -side * roofAng
-      rh.position.set(side*halfRun/2, CH + ROOF_PK/2, 0)
-      rh.castShadow = true; cabGrp.add(rh)
-    })
-    const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.0, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
-    chim.position.set(CW/4, CH+ROOF_PK*0.55, -CD/4); cabGrp.add(chim)
+
+    // Pyramid roof using BufferGeometry (5-vertex pyramid over rect base)
+    const RW = CW + 0.5, RD = CD + 0.5   // overhang
+    const pyVerts = new Float32Array([
+      // Front face (apex, front-right, front-left)
+       0,    ROOF_PK,  0,
+       RW/2, 0,         RD/2,
+      -RW/2, 0,         RD/2,
+      // Back face (apex, back-left, back-right)
+       0,    ROOF_PK,  0,
+      -RW/2, 0,        -RD/2,
+       RW/2, 0,        -RD/2,
+      // Right face (apex, back-right, front-right)
+       0,    ROOF_PK,  0,
+       RW/2, 0,        -RD/2,
+       RW/2, 0,         RD/2,
+      // Left face (apex, front-left, back-left)
+       0,    ROOF_PK,  0,
+      -RW/2, 0,         RD/2,
+      -RW/2, 0,        -RD/2,
+    ])
+    const pyGeo = new THREE.BufferGeometry()
+    pyGeo.setAttribute('position', new THREE.BufferAttribute(pyVerts, 3))
+    pyGeo.computeVertexNormals()
+    const pyRoof = new THREE.Mesh(pyGeo, roofMat2)
+    pyRoof.position.set(0, CH, 0); pyRoof.castShadow = true; cabGrp.add(pyRoof)
+
+    // Chimney (pokes through pyramid roof)
+    const CHIM_X = CW/4, CHIM_Z = -CD/4
+    const CHIM_TOP_Y = CH + ROOF_PK * 1.15
+    const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.2, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
+    chim.position.set(CHIM_X, CH + 1.1, CHIM_Z); cabGrp.add(chim)
     const chimCap = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.14, 0.80), new THREE.MeshLambertMaterial({ color: 0x666666 }))
-    chimCap.position.set(CW/4, CH+ROOF_PK*0.55+1.1, -CD/4); cabGrp.add(chimCap)
+    chimCap.position.set(CHIM_X, CHIM_TOP_Y, CHIM_Z); cabGrp.add(chimCap)
+
+    // Smoke particles
+    const SMOKE_COUNT = 10
+    const smokeGeo = new THREE.SphereGeometry(0.18, 6, 4)
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.55 })
+    const smokeParticles = Array.from({ length: SMOKE_COUNT }, (_, i) => {
+      const m = new THREE.Mesh(smokeGeo, smokeMat.clone())
+      const t = i / SMOKE_COUNT
+      m.position.set(
+        CABIN_X + CHIM_X + (Math.random()-0.5)*0.15,
+        CHIM_TOP_Y + t * 3.2,
+        CABIN_Z + CHIM_Z + (Math.random()-0.5)*0.15
+      )
+      m.scale.setScalar(0.4 + t * 1.4)
+      ;(m.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
+      scene.add(m)
+      return { mesh: m, offset: t * 3.2, speed: 0.5 + Math.random()*0.4, drift: (Math.random()-0.5)*0.06 }
+    })
+
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
     cabStep.position.set(0, 0.1, CD/2+0.35); cabGrp.add(cabStep)
 
@@ -483,13 +536,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ducks.push({ group: g, headG, x: sx, z: sz, angle: duckRng()*Math.PI*2, timer: duckRng()*2.5, phase: d*1.26 })
     }
 
-    // ── Register movable objects for debug editor ─────────────────────────────
-    movablesRef.current = [
-      ...SECTIONS.map((s, i) => ({ name: `Sign: ${s.label}`, group: signGroups[i] })),
-      { name: 'Cabin', group: cabGrp },
-      { name: 'Pond',  group: pondGrp },
-    ]
-
     // ── Ball pit ──────────────────────────────────────────────────────────
     const PIT_R  = 2.2, PIT_WALL_H = 0.55
     const BALL_R = 0.14, PLAYER_R = 0.38
@@ -498,6 +544,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // Pit walls (4 sides, low box barriers)
     const pitWallMat = new THREE.MeshLambertMaterial({ color: 0x3a5faa })
+    const pitMeshes: THREE.Object3D[] = []
+    const pitGrp = new THREE.Group(); pitGrp.position.set(PIT_CX, 0, PIT_CZ)
     ;[
       { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,         pz: PIT_CZ - PIT_R },
       { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,         pz: PIT_CZ + PIT_R },
@@ -507,7 +555,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       // Box collider for player
       boxCols.push({ x0: px - w/2, x1: px + w/2, z0: pz - d/2, z1: pz + d/2, maxY: PIT_WALL_H })
       const wm = new THREE.Mesh(new THREE.BoxGeometry(w, PIT_WALL_H, d), pitWallMat)
-      wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm)
+      wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm); pitMeshes.push(wm)
       const wb = new CANNON.Body({ mass: 0 })
       wb.addShape(new CANNON.Box(new CANNON.Vec3(w/2, PIT_WALL_H/2, d/2)))
       wb.position.set(px, PIT_WALL_H / 2, pz); physWorld.addBody(wb)
@@ -519,7 +567,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     )
     pitFloor.rotation.x = -Math.PI / 2
     pitFloor.position.set(PIT_CX, 0.005, PIT_CZ)
-    scene.add(pitFloor)
+    scene.add(pitFloor); pitMeshes.push(pitFloor)
 
     // Fill pit with 80 physics-backed balls using InstancedMesh for visuals
     const pitBallColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff, 0xff9999, 0x99ff99]
@@ -533,7 +581,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const pz    = PIT_CZ + Math.sin(angle) * rad
       const color = pitBallColors[i % pitBallColors.length]
       const mesh  = new THREE.Mesh(pitBallGeo, new THREE.MeshLambertMaterial({ color }))
-      mesh.castShadow = true; scene.add(mesh)
+      mesh.castShadow = true; scene.add(mesh); pitMeshes.push(mesh)
       const body = new CANNON.Body({ mass: 0.12, linearDamping: 0.6, angularDamping: 0.6 })
       body.addShape(new CANNON.Sphere(BALL_R))
       body.position.set(px, BALL_R + 0.4 + pitRng() * 1.2, pz)
@@ -546,6 +594,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const trampFabricMat = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 20 })
     const frameMat2 = new THREE.MeshLambertMaterial({ color: 0x888888 })
     const netMat = new THREE.MeshBasicMaterial({ color: 0x2255cc, transparent: true, opacity: 0.45, side: THREE.DoubleSide, wireframe: false })
+    const trampMeshes: THREE.Object3D[] = []
+    const trampGrp = new THREE.Group(); trampGrp.position.set(TRAMP_CX, 0, TRAMP_CZ)
 
     // Main fabric disc (dark grey)
     const trampFabric = new THREE.Mesh(
@@ -553,7 +603,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       trampFabricMat
     )
     trampFabric.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
-    trampFabric.castShadow = true; scene.add(trampFabric)
+    trampFabric.castShadow = true; scene.add(trampFabric); trampMeshes.push(trampFabric)
 
     // Frame ring (grey torus-like cylinder)
     const trampFrame = new THREE.Mesh(
@@ -562,30 +612,27 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     )
     trampFrame.rotation.x = Math.PI / 2
     trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
-    scene.add(trampFrame)
+    scene.add(trampFrame); trampMeshes.push(trampFrame)
 
     // Blue net — gap on east side (+X) where the ladder is.
-    // In Three.js CylinderGeometry: thetaStart=0 → +Z direction, thetaStart=π/2 → +X direction.
-    // Ladder is east (+X), so gap must be centred at π/2.
     const NET_GAP = Math.PI / 3.6  // ~50° gap
     const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, Math.PI / 2 + NET_GAP / 2, Math.PI * 2 - NET_GAP)
     const netMesh = new THREE.Mesh(netGeo, netMat)
     netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
-    scene.add(netMesh)
+    scene.add(netMesh); trampMeshes.push(netMesh)
 
-    // Net support poles — 12 evenly spaced, skip gap at east (+X, angle≈0 in cos/sin coords)
-    const LADDER_GAP_HALF = NET_GAP / 2 + 0.18  // skip buffer around ladder opening
+    // Net support poles — 12 evenly spaced, skip gap at east (+X)
+    const LADDER_GAP_HALF = NET_GAP / 2 + 0.18
     const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2
-      // angle 0 = east (+X) where ladder is; skip that sector
       const na = a > Math.PI ? a - Math.PI * 2 : a
       if (Math.abs(na) < LADDER_GAP_HALF) continue
       const px = TRAMP_CX + Math.cos(a) * (TRAMP_R + 0.05)
       const pz = TRAMP_CZ + Math.sin(a) * (TRAMP_R + 0.05)
       const pole = new THREE.Mesh(poleGeo, frameMat2)
       pole.position.set(px, (TRAMP_Y + 1.2) / 2, pz)
-      scene.add(pole)
+      scene.add(pole); trampMeshes.push(pole)
     }
 
     // Dense rim colliders — prevent walking under trampoline; gap left at ladder (east, a≈0)
@@ -598,15 +645,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cylCols.push({ x: px, z: pz, r: 0.42, maxY: TRAMP_Y - 0.1 })
     }
 
-    // Leg supports — 4 X-frame legs from ground up to frame
+    // Leg supports — 4 legs from ground up to frame
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4
       const lx = TRAMP_CX + Math.cos(a) * TRAMP_R * 0.8
       const lz = TRAMP_CZ + Math.sin(a) * TRAMP_R * 0.8
-      const legH = Math.sqrt(TRAMP_Y * TRAMP_Y + 0.0)
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, legH, 6), frameMat2)
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, TRAMP_Y, 6), frameMat2)
       leg.position.set(lx, TRAMP_Y / 2, lz)
-      scene.add(leg)
+      scene.add(leg); trampMeshes.push(leg)
     }
 
     // Trampoline physics platform
@@ -616,24 +662,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     physWorld.addBody(trampBody)
 
     // ── Ladder (east side of trampoline, flush against rim) ──────────────
-    // Rails separated in Z so ladder face is east-west (player approaches from +X)
     const ladderMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
     const railGeo   = new THREE.BoxGeometry(0.07, TRAMP_Y, 0.07)
-    const rungGeo   = new THREE.BoxGeometry(0.07, 0.05, 0.54)  // extends in Z
+    const rungGeo   = new THREE.BoxGeometry(0.07, 0.05, 0.54)
 
     ;[-0.27, 0.27].forEach(oz => {
       const rail = new THREE.Mesh(railGeo, ladderMat)
       rail.position.set(LADDER_X, TRAMP_Y / 2, LADDER_Z + oz)
-      scene.add(rail)
+      scene.add(rail); trampMeshes.push(rail)
     })
     const rungCount = Math.floor(TRAMP_Y / 0.30)
     for (let i = 0; i < rungCount; i++) {
       const rung = new THREE.Mesh(rungGeo, ladderMat)
       rung.position.set(LADDER_X, 0.28 + i * (TRAMP_Y / rungCount), LADDER_Z)
-      scene.add(rung)
+      scene.add(rung); trampMeshes.push(rung)
     }
 
     // ── Bowling lane ──────────────────────────────────────────────────────
+    const bowlMeshes: THREE.Object3D[] = []
+    const bowlGrp = new THREE.Group(); bowlGrp.position.set(BOWL_CX, 0, BOWL_LANE_Z)
     const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
     const laneW   = 2.6
 
@@ -661,12 +708,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const laneMat = new THREE.MeshPhongMaterial({ map: laneTex, shininess: 60 })
     const laneMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW, 0.04, laneLen), laneMat)
     laneMesh.receiveShadow = true
-    laneMesh.position.set(BOWL_CX, 0.02, BOWL_LANE_Z); scene.add(laneMesh)
+    laneMesh.position.set(BOWL_CX, 0.02, BOWL_LANE_Z); scene.add(laneMesh); bowlMeshes.push(laneMesh)
 
     // Gutters
     ;[-(laneW / 2 + 0.12), (laneW / 2 + 0.12)].forEach(ox => {
       const gutter = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, laneLen), new THREE.MeshLambertMaterial({ color: 0x6b4a1a }))
-      gutter.position.set(BOWL_CX + ox, 0.02, BOWL_LANE_Z); scene.add(gutter)
+      gutter.position.set(BOWL_CX + ox, 0.02, BOWL_LANE_Z); scene.add(gutter); bowlMeshes.push(gutter)
     })
 
     // Static lane body so balls roll on it
@@ -688,7 +735,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     ;[-1, 1].forEach(side => {
       const wx = BOWL_CX + side * (laneW / 2 + bumperThk / 2)
       const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(bumperThk, bumperH, deckLen), bumperMat)
-      wallMesh.position.set(wx, bumperH / 2, deckCtrZ); scene.add(wallMesh)
+      wallMesh.position.set(wx, bumperH / 2, deckCtrZ); scene.add(wallMesh); bowlMeshes.push(wallMesh)
       const wallBody = new CANNON.Body({ mass: 0 })
       wallBody.addShape(new CANNON.Box(new CANNON.Vec3(bumperThk / 2, bumperH / 2, deckLen / 2)))
       wallBody.position.set(wx, bumperH / 2, deckCtrZ)
@@ -697,7 +744,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // Back wall
     const backMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW + bumperThk * 2, bumperH, bumperThk), bumperMat)
-    backMesh.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2); scene.add(backMesh)
+    backMesh.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2); scene.add(backMesh); bowlMeshes.push(backMesh)
     const backBody = new CANNON.Body({ mass: 0 })
     backBody.addShape(new CANNON.Box(new CANNON.Vec3((laneW + bumperThk * 2) / 2, bumperH / 2, bumperThk / 2)))
     backBody.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2)
@@ -717,7 +764,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     PIN_POSITIONS.forEach(([px, py, pz]) => {
       const pinGeo = new THREE.CylinderGeometry(PIN_R_TOP, PIN_R_BOT, PIN_H, 12)
       const m = new THREE.Mesh(pinGeo, pinMat); m.castShadow = true; scene.add(m)
-      m.position.set(px, py, pz); pinMeshes.push(m)
+      m.position.set(px, py, pz); pinMeshes.push(m); bowlMeshes.push(m)
       const b = new CANNON.Body({ mass: 0.15 })
       b.addShape(new CANNON.Cylinder(PIN_R_TOP, PIN_R_BOT, PIN_H, 8))
       b.position.set(px, py, pz)
@@ -732,7 +779,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       new THREE.SphereGeometry(BOWL_BALL_R, 18, 14),
       new THREE.MeshPhongMaterial({ color: 0x1a1a3a, shininess: 180, specular: 0x6688cc }),
     )
-    bowlBallMesh.castShadow = true; bowlBallMesh.visible = false; scene.add(bowlBallMesh)
+    bowlBallMesh.castShadow = true; bowlBallMesh.visible = false; scene.add(bowlBallMesh); bowlMeshes.push(bowlBallMesh)
     const bowlBallBody = new CANNON.Body({ mass: 8 })
     bowlBallBody.addShape(new CANNON.Sphere(BOWL_BALL_R))
     bowlBallBody.position.set(BOWL_CX, BOWL_BALL_R, BOWL_START_Z)
@@ -742,13 +789,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     physWorld.addBody(bowlBallBody)
 
     // ── Ring toss ─────────────────────────────────────────────────────────────
+    const rtossMeshes: THREE.Object3D[] = []
+    const rtossGrp = new THREE.Group(); rtossGrp.position.set(RTOSS_CX, 0, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
     // Ground platform
     const rtossPlatMesh = new THREE.Mesh(
       new THREE.BoxGeometry(3.0, 0.06, 14.0),
       new THREE.MeshPhongMaterial({ color: 0xc8a050, shininess: 20 })
     )
     rtossPlatMesh.position.set(RTOSS_CX, 0.03, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
-    rtossPlatMesh.receiveShadow = true; scene.add(rtossPlatMesh)
+    rtossPlatMesh.receiveShadow = true; scene.add(rtossPlatMesh); rtossMeshes.push(rtossPlatMesh)
     // Physics for platform
     const rtossPlatBody = new CANNON.Body({ mass: 0 })
     rtossPlatBody.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 0.03, 7.0)))
@@ -761,7 +810,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       new THREE.MeshLambertMaterial({ color: 0x5a3010 })
     )
     rtossPostMesh.position.set(RTOSS_CX, RTOSS_POST_H / 2, RTOSS_POST_Z)
-    rtossPostMesh.castShadow = true; scene.add(rtossPostMesh)
+    rtossPostMesh.castShadow = true; scene.add(rtossPostMesh); rtossMeshes.push(rtossPostMesh)
     // Post physics body
     const rtossPostBody = new CANNON.Body({ mass: 0 })
     rtossPostBody.addShape(new CANNON.Cylinder(RTOSS_POST_R, RTOSS_POST_R, RTOSS_POST_H, 8))
@@ -777,7 +826,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         new THREE.TorusGeometry(RTOSS_RING_R, RTOSS_RING_TUBE, 10, 28),
         new THREE.MeshPhongMaterial({ color: RING_COLORS[ri], shininess: 60 })
       )
-      m.castShadow = true; m.visible = false; scene.add(m); ringMeshes.push(m)
+      m.castShadow = true; m.visible = false; scene.add(m); ringMeshes.push(m); rtossMeshes.push(m)
       const rb = new CANNON.Body({ mass: 0.08, linearDamping: 0.15, angularDamping: 0.5 })
       for (let si = 0; si < 8; si++) {
         const a = (si / 8) * Math.PI * 2
@@ -789,6 +838,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       rb.sleep()
       physWorld.addBody(rb); ringBodies.push(rb)
     }
+
+    // ── Register movable objects for debug editor ─────────────────────────────
+    movablesRef.current = [
+      ...SECTIONS.map((s, i) => ({ name: `Sign: ${s.label}`, group: signGroups[i] })),
+      { name: 'Cabin',       group: cabGrp  },
+      { name: 'Pond',        group: pondGrp },
+      { name: 'Ball Pit',    group: pitGrp,   meshes: pitMeshes   },
+      { name: 'Trampoline',  group: trampGrp, meshes: trampMeshes },
+      { name: 'Bowling',     group: bowlGrp,  meshes: bowlMeshes  },
+      { name: 'Ring Toss',   group: rtossGrp, meshes: rtossMeshes },
+    ]
 
     // Ring toss helpers
     function resetRingToss() {
@@ -836,7 +896,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     aimArrow.add(aimShaft, aimHead)
     aimArrow.position.set(BOWL_CX, 0.055, BOWL_START_Z - 0.4)
     aimArrow.visible = false
-    scene.add(aimArrow)
+    scene.add(aimArrow); bowlMeshes.push(aimArrow)
 
     // ── Bowling helpers ───────────────────────────────────────────────────
     function resetBowling() {
@@ -1168,8 +1228,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
         // Player model always faces camera forward direction
         player.rotation.y = lerpAngle(player.rotation.y, camYaw + Math.PI, 0.14)
-        player.position.x = THREE.MathUtils.clamp(player.position.x, -28, 28)
-        player.position.z = THREE.MathUtils.clamp(player.position.z, -78, 8)
+        player.position.x = THREE.MathUtils.clamp(player.position.x, -41, 41)
+        player.position.z = THREE.MathUtils.clamp(player.position.z, -91, 17)
 
         // ── Jump / gravity ────────────────────────────────────────────
         if (bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current && !climbingRef.current) {
@@ -1511,6 +1571,32 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         duck.headG.rotation.x = Math.sin(elapsed*5.5 + duck.phase) * 0.13
       })
 
+      // ── Cabin door auto-open ──────────────────────────────────────────────
+      if (doorPivotRef.current) {
+        const cx = cabGrp.position.x, cz = cabGrp.position.z
+        const doorWorldZ = cz + CD/2
+        const nearDoor = Math.hypot(player.position.x - cx, player.position.z - doorWorldZ) < 2.8
+        doorOpenRef.current = nearDoor
+        const targetRot = nearDoor ? -Math.PI * 0.72 : 0
+        doorRotRef.current = THREE.MathUtils.lerp(doorRotRef.current, targetRot, delta * 4)
+        doorPivotRef.current.rotation.y = doorRotRef.current
+      }
+
+      // ── Chimney smoke ─────────────────────────────────────────────────────
+      smokeParticles.forEach(s => {
+        s.offset += s.speed * delta
+        if (s.offset > 3.2) s.offset -= 3.2
+        const t = s.offset / 3.2
+        const cx = cabGrp.position.x + CHIM_X, cz = cabGrp.position.z + CHIM_Z
+        s.mesh.position.set(
+          cx + Math.sin(s.offset * 1.8) * s.drift * 4,
+          CHIM_TOP_Y + s.offset,
+          cz + Math.cos(s.offset * 1.4) * s.drift * 3,
+        )
+        s.mesh.scale.setScalar(0.4 + t * 1.4)
+        ;(s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
+      })
+
       // ── Debug panel live update ─────────────────────────────────────────
       if (debugModeRef.current && debugPanelRef.current) {
         const p = player.position
@@ -1632,6 +1718,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             const move = (dx: number, dz: number) => {
               const m = movablesRef.current[debugSel]
               m.group.position.x += dx; m.group.position.z += dz
+              m.meshes?.forEach(obj => { obj.position.x += dx; obj.position.z += dz })
               setSelPos({ x: m.group.position.x, z: m.group.position.z })
             }
             return (
