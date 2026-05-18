@@ -375,7 +375,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Cabin (behind spawn) ──────────────────────────────────────────────────
     const CW = 7, CD = 5.5, CH = 3.2, ROOF_PK = 1.4
-    const DOOR_W = 1.1, DOOR_H = 2.1
+    const DOOR_W = 1.1, DOOR_H = 2.55
     const cabinMat  = new THREE.MeshLambertMaterial({ color: 0x6b3a1f })
     const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d, side: THREE.DoubleSide })
 
@@ -1176,6 +1176,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     let camYaw       = 0    // horizontal orbit angle around player
     let camPitch     = 0.3  // vertical tilt (radians, positive = camera higher)
     let playerVelY   = 0    // vertical velocity for jump/gravity
+    let fpvBlend     = 0    // 0 = third-person, 1 = first-person (inside cabin)
 
     function animate() {
       animId = requestAnimationFrame(animate)
@@ -1285,22 +1286,39 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         lKnee.rotation.x = Math.max(0, -Math.sin(walkPhase)) * swingAmt * 0.40
         rKnee.rotation.x = Math.max(0,  Math.sin(walkPhase)) * swingAmt * 0.40
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
-        // Only apply walk bob when grounded
-        if (player.position.y <= 0.05) {
-          player.position.y = Math.max(0, player.position.y) + Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
-        }
 
+        // ── Camera (third-person ↔ first-person blend) ────────────────────
+        const insideCabin =
+          player.position.x > CABIN_X - CW/2 + 0.35 &&
+          player.position.x < CABIN_X + CW/2 - 0.35 &&
+          player.position.z > CABIN_Z - CD/2 + 0.35 &&
+          player.position.z < CABIN_Z + CD/2 - 0.35
+
+        fpvBlend = THREE.MathUtils.lerp(fpvBlend, insideCabin ? 1 : 0, delta * 4.5)
+        player.visible = fpvBlend < 0.5
+
+        const HEAD_H = 1.65
         const camDist = 5.2
-        // Clamp pitch so camera never dips below ground level
         const minPitch = Math.asin(Math.max(-1, (0.3 - player.position.y - 1.2) / camDist))
         camPitch = Math.max(camPitch, minPitch)
-        const camTarget = new THREE.Vector3(
+
+        const tpTarget = new THREE.Vector3(
           player.position.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
           player.position.y + Math.sin(camPitch) * camDist + 1.2,
           player.position.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist,
         )
-        camera.position.lerp(camTarget, 0.15)
-        camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z)
+        const fpTarget = new THREE.Vector3(player.position.x, player.position.y + HEAD_H, player.position.z)
+        camera.position.lerp(tpTarget.lerp(fpTarget, fpvBlend), fpvBlend > 0.5 ? 0.25 : 0.15)
+
+        if (fpvBlend < 0.8) {
+          camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z)
+        } else {
+          camera.lookAt(
+            player.position.x - Math.sin(camYaw) * 10,
+            player.position.y + HEAD_H + Math.sin(camPitch) * 0.5,
+            player.position.z - Math.cos(camYaw) * 10,
+          )
+        }
 
         // Proximity to signs (reads live group positions so editor moves work)
         let nearest: SectionId | null = null, nearDist = PROX
