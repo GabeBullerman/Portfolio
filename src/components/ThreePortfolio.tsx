@@ -625,6 +625,35 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
     cabStep.position.set(0, 0.1, CD/2+0.35); cabGrp.add(cabStep)
 
+    // ── Gaming setup inside cabin ─────────────────────────────────────────────
+    gltfLoader.load('/assets/cabin/gaming setup.gltf', gltf => {
+      const desk = gltf.scene
+      desk.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+
+      // Measure raw size then scale to fit cabin interior (~3 units wide)
+      const box = new THREE.Box3().setFromObject(desk)
+      const size = new THREE.Vector3(); box.getSize(size)
+      const center = new THREE.Vector3(); box.getCenter(center)
+      console.log(`[cabin] gaming setup raw size: x=${size.x.toFixed(2)} y=${size.y.toFixed(2)} z=${size.z.toFixed(2)}`)
+
+      const targetWidth = 3.2
+      const sc = targetWidth / size.x
+      desk.scale.setScalar(sc)
+
+      // Re-measure after scale to get floor offset
+      const box2 = new THREE.Box3().setFromObject(desk)
+      const yOff = -box2.min.y  // lift so base sits on floor
+
+      // Place against back wall (local -Z in cabGrp, which faces north in world)
+      // cabGrp is rotated 180°: local -Z = world +Z = back of cabin
+      desk.position.set(-center.x * sc, yOff, -CD/2 + size.z * sc * 0.5 + 0.15)
+      desk.rotation.y = Math.PI  // face toward door (+Z local = toward player)
+
+      cabGrp.add(desk)
+    }, undefined, err => console.error('[cabin] gaming setup failed:', err))
+
     // ── Pond ─────────────────────────────────────────────────────────────────
     const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
 
