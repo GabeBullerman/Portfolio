@@ -2,416 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
-import { experienceData } from '../data/experience'
-import { skillsData } from '../data/skills'
-import { projectsData } from '../data/projects'
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function mulberry32(seed: number) {
-  return () => {
-    seed += 0x6d2b79f5
-    let t = seed
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-// Shortest-path angle interpolation — avoids 350°→10° spinning the long way
-function lerpAngle(from: number, to: number, t: number): number {
-  const twoPi = Math.PI * 2
-  const delta = ((to - from) % twoPi + twoPi * 1.5) % twoPi - Math.PI
-  return from + delta * t
-}
-
-// ─── Bowling constants ────────────────────────────────────────────────────────
-const BOWL_CX      = 22          // lane centre X
-const BOWL_START_Z = -32         // where player throws from
-const BOWL_PINS_Z  = -48         // front pin Z
-const BOWL_LANE_Z  = -40         // lane visual centre Z
-const BOWL_PROX    = 5.5         // approach distance to start game
-const PIN_H        = 0.40        // pin height
-const PIN_R_BOT    = 0.07        // pin base radius
-const PIN_R_TOP    = 0.04        // pin neck radius
-const BOWL_BALL_R  = 0.13        // bowling ball radius
-const PIN_SPACING  = 0.48
-const PIN_ROW_D    = 0.54
-const PIN_Y = 0.04 + PIN_H / 2
-const PIN_POSITIONS: [number, number, number][] = [
-  // Row 1 (head pin)
-  [BOWL_CX,                       PIN_Y, BOWL_PINS_Z],
-  // Row 2
-  [BOWL_CX - PIN_SPACING / 2,     PIN_Y, BOWL_PINS_Z - PIN_ROW_D],
-  [BOWL_CX + PIN_SPACING / 2,     PIN_Y, BOWL_PINS_Z - PIN_ROW_D],
-  // Row 3
-  [BOWL_CX - PIN_SPACING,         PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
-  [BOWL_CX,                       PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
-  [BOWL_CX + PIN_SPACING,         PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 2],
-  // Row 4 (back)
-  [BOWL_CX - PIN_SPACING * 1.5,   PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 3],
-  [BOWL_CX - PIN_SPACING * 0.5,   PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 3],
-  [BOWL_CX + PIN_SPACING * 0.5,   PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 3],
-  [BOWL_CX + PIN_SPACING * 1.5,   PIN_Y, BOWL_PINS_Z - PIN_ROW_D * 3],
-]
-
-// ─── Bench constants ──────────────────────────────────────────────────────────
-const BENCH_POSITIONS = [
-  { x: -2.3, z: -7.8, ry: Math.PI * 0.3 },
-  { x:  2.3, z: -7.8, ry: -Math.PI * 0.3 },
-] as const
-const BENCH_PROX = 2.3
-
-// ─── Ring toss constants ──────────────────────────────────────────────────────
-const RTOSS_CX      = 14
-const RTOSS_START_Z = -32
-const RTOSS_POST_Z  = -44
-const RTOSS_PROX    = 5.5
-const RTOSS_RING_R  = 0.36
-const RTOSS_RING_TUBE = 0.048
-const RTOSS_RINGS   = 3
-const RTOSS_POST_H  = 1.5
-const RTOSS_POST_R  = 0.044
-
-// ─── Ball pit + trampoline constants ─────────────────────────────────────────
-const PIT_CX   = 18,  PIT_CZ   = -22
-const TRAMP_CX = 18,  TRAMP_CZ = -14
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
-interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
-
-const SECTIONS: SectionCfg[] = [
-  { id: 'about',          label: 'About Me',   wx: -6,  wz:  -3 },
-  { id: 'experience',     label: 'Experience', wx: -18, wz: -16 },
-  { id: 'skills',         label: 'Skills',     wx:  4,  wz: -26 },
-  { id: 'projects',       label: 'Projects',   wx: -14, wz: -40 },
-  { id: 'certifications', label: 'Certs',      wx:  6,  wz: -52 },
-  { id: 'moreonme',       label: 'More on Me', wx: -16, wz: -62 },
-  { id: 'contact',        label: 'Contact',    wx:  2,  wz: -72 },
-]
-
-const PROX = 6.5
-
-// ─── Canvas helpers ──────────────────────────────────────────────────────────
-function rrect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  c.beginPath()
-  c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r)
-  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h)
-  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r)
-  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath()
-}
-
-function asyncLoadProjectImages(c: CanvasRenderingContext2D, W: number, H: number, tex: THREE.CanvasTexture) {
-  const iw = 284, ih = 190, gap = 22
-  const sx = (W - (3*iw + 2*gap)) / 2, sy = 196 + ((H-240) - ih) / 2
-  projectsData.slice(0, 3).forEach((p, i) => {
-    const img = new Image()
-    img.onload = () => {
-      c.save(); rrect(c, sx + i*(iw+gap), sy, iw, ih, 8); c.clip()
-      c.drawImage(img, sx + i*(iw+gap), sy, iw, ih)
-      c.restore(); tex.needsUpdate = true
-    }
-    img.src = p.image
-  })
-}
-
-function asyncLoadCertImages(c: CanvasRenderingContext2D, W: number, H: number, tex: THREE.CanvasTexture) {
-  const files = ['cloudPractitionerAWS','aiPractitionerAWS','developerAWS','devopsEngineerAWS']
-  const iw = 156, ih = 156, gap = 26
-  const sx = (W - (4*iw + 3*gap)) / 2, sy = 196 + ((H-240) - ih) / 2
-  files.forEach((f, i) => {
-    const img = new Image()
-    img.onload = () => {
-      c.save(); rrect(c, sx + i*(iw+gap), sy, iw, ih, 10); c.clip()
-      c.drawImage(img, sx + i*(iw+gap), sy, iw, ih)
-      c.restore(); tex.needsUpdate = true
-    }
-    img.src = `/images/${f}.png`
-  })
-}
-
-function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, H: number) {
-  const top = 196, avail = H - top - 44
-  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = 'transparent'
-  switch (id) {
-    case 'skills': {
-      const badges = [
-        { text:'JS', bg:'#f7df1e', fg:'#1a1a1a' }, { text:'TS', bg:'#3178c6', fg:'#fff' },
-        { text:'⚛',  bg:'#20232a', fg:'#61dafb' }, { text:'Java', bg:'#e76f00', fg:'#fff' },
-      ]
-      const bw=148, bh=132, gap=26, tw=badges.length*bw+(badges.length-1)*gap
-      let x=(W-tw)/2; const y=top+(avail-bh)/2
-      badges.forEach(b => {
-        c.fillStyle=b.bg; rrect(c,x,y,bw,bh,14); c.fill()
-        c.fillStyle=b.fg; c.font=`bold ${b.text.length>2?34:50}px monospace`
-        c.fillText(b.text,x+bw/2,y+bh/2); x+=bw+gap
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('Frontend · Backend · DevOps', W/2, top + avail - 28)
-      break
-    }
-    case 'projects': {
-      const iw=284, ih=190, gap=22, sx=(W-(3*iw+2*gap))/2, sy=196+((H-240)-ih)/2
-      projectsData.slice(0,3).forEach((p,i) => {
-        c.fillStyle='rgba(255,245,224,0.10)'; rrect(c,sx+i*(iw+gap),sy,iw,ih,8); c.fill()
-        c.strokeStyle='rgba(255,245,224,0.25)'; c.lineWidth=2; rrect(c,sx+i*(iw+gap),sy,iw,ih,8); c.stroke()
-        c.fillStyle='#fff5e0'; c.font='bold 24px Georgia,serif'; c.fillText(p.title,sx+i*(iw+gap)+iw/2,sy+ih/2)
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('Full-Stack · Mobile · Web', W/2, top + avail - 28)
-      break
-    }
-    case 'experience': {
-      const entries=experienceData.slice(0,2), rowH=88, gap=14, totalH=entries.length*rowH+(entries.length-1)*gap
-      let y=top+(avail-totalH)/2
-      entries.forEach((e,i) => {
-        c.fillStyle='#f5d070'; c.beginPath(); c.arc(100,y+38,12,0,Math.PI*2); c.fill()
-        if (i<entries.length-1) {
-          c.strokeStyle='rgba(245,208,112,0.35)'; c.lineWidth=2
-          c.beginPath(); c.moveTo(100,y+50); c.lineTo(100,y+rowH+gap-12); c.stroke()
-        }
-        c.textAlign='left'; c.fillStyle='#fff5e0'; c.font='bold 26px Georgia,serif'
-        c.fillText(e.title.split(',')[0],134,y+26)
-        c.fillStyle='rgba(255,245,224,0.58)'; c.font='21px Georgia,serif'
-        c.fillText(e.company+' · '+e.period,134,y+58)
-        c.textAlign='center'; y+=rowH+gap
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('1.5 yrs · Full-Stack · DevOps', W/2, top + avail - 28)
-      break
-    }
-    case 'certifications': {
-      const iw=156, ih=156, gap=26, sx=(W-(4*iw+3*gap))/2, sy=196+((H-240)-ih)/2
-      const colors=['#d97706','#7c3aed','#16a34a','#0369a1']
-      colors.forEach((col,i) => {
-        const cx=sx+i*(iw+gap)+iw/2, cy=sy+ih/2
-        c.fillStyle=col; c.beginPath()
-        c.moveTo(cx,cy-ih*0.44); c.lineTo(cx+iw*0.44,cy-ih*0.18)
-        c.lineTo(cx+iw*0.44,cy+ih*0.12); c.lineTo(cx,cy+ih*0.44)
-        c.lineTo(cx-iw*0.44,cy+ih*0.12); c.lineTo(cx-iw*0.44,cy-ih*0.18)
-        c.closePath(); c.fill()
-        c.fillStyle='#fff'; c.font='bold 20px sans-serif'; c.fillText('AWS',cx,cy)
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('4 AWS Certifications · Cloud Ready', W/2, top + avail - 28)
-      break
-    }
-    case 'about': {
-      const cx=W/2, cy=top+avail/2
-      c.strokeStyle='rgba(245,208,112,0.55)'; c.lineWidth=4
-      c.beginPath(); c.arc(cx,cy-38,74,0,Math.PI*2); c.stroke()
-      c.fillStyle='rgba(255,245,224,0.14)'; c.beginPath(); c.arc(cx,cy-38,70,0,Math.PI*2); c.fill()
-      c.fillStyle='rgba(255,245,224,0.38)'
-      c.beginPath(); c.arc(cx,cy-60,27,0,Math.PI*2); c.fill()
-      c.beginPath(); c.arc(cx,cy-10,46,Math.PI,0); c.fill()
-      c.fillStyle='#fff5e0'; c.font='bold 30px Georgia,serif'; c.fillText('Gabriel Bullerman',cx,cy+58)
-      c.fillStyle='rgba(255,245,224,0.58)'; c.font='21px Georgia,serif'; c.fillText('CS · Iowa State University',cx,cy+94)
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('Full-Stack Developer | React · TypeScript · Java', cx, cy + 126)
-      break
-    }
-    case 'moreonme': {
-      const cats=[{icon:'🎹',label:'Hobbies'},{icon:'✈',label:'Journeys'},{icon:'💻',label:'Industry'}]
-      const bw=220, bh=178, gap=46, tw=cats.length*bw+(cats.length-1)*gap
-      let x=(W-tw)/2; const y=top+(avail-bh)/2
-      cats.forEach(cat => {
-        c.fillStyle='rgba(255,245,224,0.10)'; rrect(c,x,y,bw,bh,16); c.fill()
-        c.strokeStyle='rgba(255,245,224,0.22)'; c.lineWidth=2; rrect(c,x,y,bw,bh,16); c.stroke()
-        c.font='54px serif'; c.fillStyle='#fff5e0'; c.fillText(cat.icon,x+bw/2,y+74)
-        c.font='bold 24px Georgia,serif'; c.fillText(cat.label,x+bw/2,y+142); x+=bw+gap
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('Travel · Passion · Growth', W/2, top + avail - 28)
-      break
-    }
-    case 'contact': {
-      const items=[{icon:'✉',label:'Email',bg:'#b91c1c'},{icon:'◉',label:'GitHub',bg:'#1f2937'},{icon:'🔗',label:'LinkedIn',bg:'#0369a1'}]
-      const bw=204, bh=178, gap=58, tw=items.length*bw+(items.length-1)*gap
-      let x=(W-tw)/2; const y=top+(avail-bh)/2
-      items.forEach(item => {
-        c.fillStyle=item.bg; rrect(c,x,y,bw,bh,16); c.fill()
-        c.font='58px serif'; c.fillStyle='#fff'; c.fillText(item.icon,x+bw/2,y+82)
-        c.font='bold 24px Georgia,serif'; c.fillText(item.label,x+bw/2,y+146); x+=bw+gap
-      })
-      c.font='18px Georgia,serif'; c.fillStyle='rgba(255,245,224,0.65)'
-      c.fillText('Let\'s Connect · Get in Touch', W/2, top + avail - 28)
-      break
-    }
-  }
-  c.restore()
-}
-
-function makeSignTexture(label: string, id: SectionId): THREE.CanvasTexture {
-  const W=1024, H=512
-  const cv=document.createElement('canvas'); cv.width=W; cv.height=H
-  const c=cv.getContext('2d')!
-  const plankCols=['#c89060','#b87c4e','#cc9668','#b27248']
-  const ph=H/plankCols.length
-  plankCols.forEach((col,i) => {
-    c.fillStyle=col; c.fillRect(0,i*ph,W,ph)
-    c.fillStyle='#5a2e10'; c.fillRect(0,(i+1)*ph-5,W,10)
-  })
-  const grainRng=mulberry32(label.charCodeAt(0)*97+id.length*31+7)
-  for (let i=0;i<28;i++) {
-    const x=grainRng()*W, y=grainRng()*H
-    c.strokeStyle=`rgba(0,0,0,${0.02+grainRng()*0.04})`; c.lineWidth=0.5+grainRng()*1.5
-    c.beginPath(); c.moveTo(x,y)
-    c.quadraticCurveTo(x+(grainRng()-0.5)*50,y+(grainRng()-0.5)*30,x+(grainRng()-0.5)*30,y+grainRng()*100)
-    c.stroke()
-  }
-  c.strokeStyle='#5a2e10'; c.lineWidth=22; c.strokeRect(11,11,W-22,H-22)
-  c.strokeStyle='#8a4c24'; c.lineWidth=6; c.strokeRect(26,26,W-52,H-52)
-  ;[[36,36],[W-36,36],[36,H-36],[W-36,H-36]].forEach(([nx,ny]) => {
-    c.fillStyle='#777'; c.beginPath(); c.arc(nx,ny,9,0,Math.PI*2); c.fill()
-    c.fillStyle='#bbb'; c.beginPath(); c.arc(nx-2,ny-2,3,0,Math.PI*2); c.fill()
-  })
-  c.fillStyle='rgba(50,22,6,0.50)'; c.fillRect(30,30,W-60,138)
-  c.fillStyle='#fff5e0'; c.font=`bold ${label.length>9?68:82}px Georgia,serif`
-  c.textAlign='center'; c.textBaseline='middle'
-  c.shadowColor='rgba(0,0,0,0.55)'; c.shadowOffsetX=3; c.shadowOffsetY=3; c.shadowBlur=8
-  c.fillText(label,W/2,99); c.shadowColor='transparent'
-  c.strokeStyle='#7a4024'; c.lineWidth=3; c.beginPath(); c.moveTo(44,174); c.lineTo(W-44,174); c.stroke()
-  ;[W/2-130,W/2,W/2+130].forEach(dx => {
-    c.save(); c.translate(dx,174); c.rotate(Math.PI/4)
-    c.fillStyle='#7a4024'; c.fillRect(-8,-8,16,16)
-    c.fillStyle='#c49060'; c.fillRect(-3,-3,6,6); c.restore()
-  })
-  drawSignPreview(c,id,W,H)
-  const tex=new THREE.CanvasTexture(cv)
-  if (id==='projects') asyncLoadProjectImages(c,W,H,tex)
-  if (id==='certifications') asyncLoadCertImages(c,W,H,tex)
-  return tex
-}
-
-// ─── Overlay ─────────────────────────────────────────────────────────────────
-const WT='#fff5e0', WM='rgba(255,245,224,0.65)', WD='rgba(255,245,224,0.45)'
-
-function SectionOverlay({ id, onClose }: { id: SectionId; onClose: () => void }) {
-  const label = SECTIONS.find(s => s.id === id)?.label ?? ''
-  return (
-    <div className="absolute inset-0 flex items-center justify-center z-20">
-      <div className="absolute inset-0 bg-black/25" onClick={onClose} />
-      <div className="relative z-10 flex flex-col overflow-hidden" style={{
-        width:'min(92vw, 1100px)', maxHeight:'88vh',
-        background:'linear-gradient(180deg,#c89060 0%,#b87c4e 25%,#cc9668 50%,#b27248 75%,#c89060 100%)',
-        border:'14px solid #5a2e10', outline:'3px solid #8a4c24',
-        boxShadow:'0 32px 88px rgba(0,0,0,0.80)', borderRadius:'3px',
-      }}>
-        <div className="flex justify-between items-center px-6 py-3 flex-shrink-0" style={{background:'rgba(50,22,6,0.55)'}}>
-          <h2 className="font-bold text-lg font-serif" style={{color:WT}}>{label}</h2>
-          <button onClick={onClose} className="text-2xl leading-none hover:opacity-100" style={{color:WD}}>×</button>
-        </div>
-        <div className="flex-shrink-0 mx-5" style={{height:2,background:'#7a4024'}} />
-        <div className="overflow-y-auto flex-1 px-6 py-5"><Content id={id} /></div>
-        <div className="flex-shrink-0 text-center py-2 text-xs font-serif" style={{color:WD,background:'rgba(50,22,6,0.25)'}}>
-          Press <kbd>ESC</kbd>, move, or click outside to close
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Content({ id }: { id: SectionId }) {
-  if (id==='about') return (
-    <div>
-      <p className="font-bold text-sm mb-1" style={{color:WT}}>Gabriel John Bullerman</p>
-      <p className="text-xs mb-3" style={{color:WM}}>CS Graduate · Iowa State University</p>
-      <p className="text-xs leading-relaxed mb-4" style={{color:WM}}>Full-stack developer specializing in web and mobile applications. Passionate about building scalable, user-centered solutions with React, TypeScript, Node.js, and Java backends.</p>
-      <div className="space-y-2 text-xs mb-4" style={{color:WD}}>
-        <p><strong style={{color:WT}}>Core Stack:</strong> React · TypeScript · Node.js · Java Spring Boot · React Native</p>
-        <p><strong style={{color:WT}}>Latest:</strong> Full-stack classroom management system with real-time WebSockets &amp; CI/CD</p>
-      </div>
-      <div className="flex gap-2 flex-wrap">
-        {[['GitHub','https://github.com/GabeBullerman'],['LinkedIn','https://www.linkedin.com/in/gabe-bullerman/']].map(([l,h])=>(
-          <a key={l} href={h} target="_blank" rel="noopener noreferrer"
-            className="text-xs px-3 py-1 rounded-full font-bold hover:opacity-80"
-            style={{border:'2px solid rgba(255,245,224,0.45)',color:WT}}>{l}</a>
-        ))}
-      </div>
-    </div>
-  )
-  if (id==='experience') return (
-    <div className="space-y-5">
-      {experienceData.map((e, idx)=>(
-        <div key={e.company} className="pb-4 last:pb-0" style={{borderBottom: idx < experienceData.length - 1 ? '1px solid rgba(255,245,224,0.15)' : 'none'}}>
-          <p className="font-bold text-sm" style={{color:WT}}>{e.title}</p>
-          <p className="text-xs mb-1" style={{color:WD}}>{e.company} · {e.location}</p>
-          <p className="text-xs mb-3 font-medium" style={{color:'#f5d070'}}>{e.period}</p>
-          <ul className="text-xs list-disc pl-5 space-y-2 leading-relaxed" style={{color:WM}}>
-            {e.bullets.map((b,i)=><li key={i}><span style={{color:WM}}>{b}</span></li>)}
-          </ul>
-        </div>
-      ))}
-    </div>
-  )
-  if (id==='skills') return (
-    <div className="space-y-3">
-      {skillsData.map(cat=>(
-        <div key={cat.category}>
-          <p className="font-bold text-xs mb-1" style={{color:WT}}>{cat.category}</p>
-          <p className="text-xs leading-relaxed" style={{color:WM}}>{cat.skills.map(s=>s.name).join(', ')}</p>
-        </div>
-      ))}
-    </div>
-  )
-  if (id==='projects') return (
-    <div className="space-y-5">
-      {projectsData.map((p)=>(
-        <div key={p.title} className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 last:pb-0" style={{borderBottom:'1px solid rgba(255,245,224,0.15)'}}>
-          <div className="md:col-span-2">
-            <a href={p.link} target="_blank" rel="noopener noreferrer" className="font-bold text-sm hover:underline block" style={{color:WT}}>{p.title}</a>
-            <p className="text-xs mb-2" style={{color:WD}}>{p.subtitle}</p>
-            <p className="text-xs leading-relaxed mb-3" style={{color:WM}}>{p.description}</p>
-            <div className="flex flex-wrap gap-1">
-              {p.tags.map(t=><span key={t} className="text-xs rounded-full px-2 py-0.5" style={{border:'1px solid rgba(255,245,224,0.28)',color:WD}}>{t}</span>)}
-            </div>
-            <a href={p.link} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs hover:underline" style={{color:'#f5d070'}}>→ View on GitHub</a>
-          </div>
-          <div className="flex items-center justify-center">
-            <img src={p.image} alt={p.imageAlt} className="w-full h-auto object-contain rounded" style={{maxHeight:'160px',background:'rgba(0,0,0,0.2)'}} />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-  if (id==='certifications') return (
-    <div className="text-center">
-      <p className="text-xs mb-3" style={{color:WD}}>AWS Certification Path</p>
-      <div className="grid grid-cols-2 gap-3">
-        {[['cloudPractitionerAWS','Cloud Practitioner'],['aiPractitionerAWS','AI Practitioner'],['developerAWS','Developer'],['devopsEngineerAWS','DevOps Engineer']].map(([f,l])=>(
-          <div key={l} className="flex flex-col items-center">
-            <img src={`/images/${f}.png`} alt={l} className="w-14 h-14 object-contain"/>
-            <p className="text-xs mt-1" style={{color:WM}}>{l}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-  if (id==='moreonme') return (
-    <div className="space-y-5">
-      {[['Technical Philosophy','I believe in writing clean, maintainable code and building scalable systems. I\'m passionate about mastering new technologies — whether WebGL rendering, WebSocket architectures, or microservices design.'],
-        ['Growth Mindset','I learn something new every day about software development. From React optimization to backend design, I push my boundaries and stay current with industry best practices.'],
-        ['What Drives Me','Since age 8, I\'ve been obsessed with computers. I went from building custom PCs to discovering the power of great software. Now I\'m dedicated to creating impactful solutions.']].map(([t,p])=>(
-        <div key={t}>
-          <p className="font-bold text-xs uppercase tracking-wide mb-1" style={{color:WT}}>{t}</p>
-          <p className="text-xs leading-relaxed" style={{color:WM}}>{p}</p>
-        </div>
-      ))}
-    </div>
-  )
-  return (
-    <div className="space-y-3">
-      {[['fa-brands fa-github','GitHub','https://github.com/GabeBullerman'],
-        ['fa-brands fa-linkedin','LinkedIn','https://www.linkedin.com/in/gabe-bullerman/'],
-        ['fa-solid fa-envelope','gabebullerman1@gmail.com','mailto:gabebullerman1@gmail.com']].map(([icon,label,href])=>(
-        <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-xs hover:underline" style={{color:WM}}>
-          <i className={icon} style={{color:WT}}/>{label}
-        </a>
-      ))}
-      <div className="flex items-center gap-3 text-xs" style={{color:WM}}><i className="fa-solid fa-phone" style={{color:WT}}/>319-230-0474</div>
-    </div>
-  )
-}
+import {
+  BOWL_CX, BOWL_START_Z, BOWL_PINS_Z, BOWL_LANE_Z, BOWL_PROX,
+  PIN_H, PIN_R_BOT, PIN_R_TOP, BOWL_BALL_R, PIN_ROW_D, PIN_POSITIONS,
+  BENCH_POSITIONS, BENCH_PROX,
+  RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RING_R, RTOSS_RING_TUBE, RTOSS_RINGS, RTOSS_POST_H, RTOSS_POST_R,
+  PIT_CX, PIT_CZ, TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
+  SECTIONS, PROX,
+  SectionId, BowlState, RTossState,
+} from './three/constants'
+import { mulberry32, lerpAngle } from './three/helpers'
+import { makeSignTexture } from './three/signTextures'
+import { SectionOverlay } from './three/SectionOverlay'
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
@@ -428,7 +30,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const touchActiveRef  = useRef(false)
   const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
   // Bowling mini-game
-  type BowlState = 'idle' | 'aiming' | 'thrown' | 'result'
   const [nearBowl, setNearBowl]           = useState(false)
   const [bowlDisplay, setBowlDisplay]     = useState<{ state: BowlState; score: number; hs: number }>({ state: 'idle', score: 0, hs: 0 })
   const bowlStateRef    = useRef<BowlState>('idle')
@@ -447,7 +48,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const nearBenchRef  = useRef(false)
   const seatIdxRef    = useRef(0)
   // Ring toss
-  type RTossState = 'idle' | 'aiming' | 'thrown' | 'result'
   const [nearRToss, setNearRToss]       = useState(false)
   const [rtossDisplay, setRTossDisplay] = useState<{ state: RTossState; thrown: number; score: number; hs: number }>({ state: 'idle', thrown: 0, score: 0, hs: parseInt(localStorage.getItem('gabe-rtoss-hs') || '0') })
   const rtossStateRef    = useRef<RTossState>('idle')
@@ -532,6 +132,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     fireObstacle.addShape(new CANNON.Cylinder(0.75, 0.75, 0.3, 8))
     fireObstacle.position.set(0, 0.15, -6)
     physWorld.addBody(fireObstacle)
+
     // ── Ground ───────────────────────────────────────────────────────────
     const grassCv = document.createElement('canvas'); grassCv.width = 256; grassCv.height = 256
     const gc = grassCv.getContext('2d')!
@@ -695,6 +296,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       stone.position.set(FIRE_POS.x+Math.sin(i*Math.PI*2/9)*0.68,0.09,FIRE_POS.z+Math.cos(i*Math.PI*2/9)*0.68)
       scene.add(stone)
     }
+
     // ── Benches ──────────────────────────────────────────────────────────────
     const benchLogMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
     const benchPlankMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
@@ -733,7 +335,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ph: ffRng()*Math.PI*2, sp: 0.35+ffRng()*0.75, am: 1.0+ffRng()*2.8,
     }))
 
-    // ── Ball pit + trampoline (near minigames) ────────────────────────────
+    // ── Ball pit ──────────────────────────────────────────────────────────
     const PIT_R  = 2.2, PIT_WALL_H = 0.55
     const BALL_R = 0.14, PLAYER_R = 0.38
     interface PhysBall { mesh: THREE.Mesh; body: CANNON.Body }
@@ -753,15 +355,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       wb.addShape(new CANNON.Box(new CANNON.Vec3(w/2, PIT_WALL_H/2, d/2)))
       wb.position.set(px, PIT_WALL_H / 2, pz); physWorld.addBody(wb)
     })
-    // Pit floor (slightly sunken visual)
+    // Pit floor
     const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R - 0.18, 20), new THREE.MeshLambertMaterial({ color: 0x4a80ee }))
     pitFloor.rotation.x = -Math.PI / 2; pitFloor.position.set(PIT_CX, 0.005, PIT_CZ); scene.add(pitFloor)
 
-    // Fill pit with ~30 small balls
+    // Fill pit with 80 physics-backed balls using InstancedMesh for visuals
     const pitBallColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff, 0xff9999, 0x99ff99]
     const pitBallGeo = new THREE.SphereGeometry(BALL_R, 8, 6)
     const pitRng = mulberry32(321)
-    for (let i = 0; i < 30; i++) {
+    const BALL_COUNT = 80
+    for (let i = 0; i < BALL_COUNT; i++) {
       const angle = pitRng() * Math.PI * 2
       const rad   = pitRng() * (PIT_R - BALL_R - 0.2)
       const px    = PIT_CX + Math.cos(angle) * rad
@@ -771,27 +374,48 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       mesh.castShadow = true; scene.add(mesh)
       const body = new CANNON.Body({ mass: 0.12, linearDamping: 0.6, angularDamping: 0.6 })
       body.addShape(new CANNON.Sphere(BALL_R))
-      body.position.set(px, BALL_R + 0.4 + pitRng() * 1.0, pz)
+      body.position.set(px, BALL_R + 0.4 + pitRng() * 1.2, pz)
       physWorld.addBody(body)
       balls.push({ mesh, body })
     }
 
-    // Trampoline (flat disc platform with bounce physics)
-    const TRAMP_R  = 1.6
-    const trampMat = new THREE.MeshPhongMaterial({ color: 0x22cc55, shininess: 40 })
+    // ── Trampoline ────────────────────────────────────────────────────────
+    // Raised to y=TRAMP_Y (1.2), dark grey surface
+    const trampMat = new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 40 })
     const trampMesh = new THREE.Mesh(new THREE.CylinderGeometry(TRAMP_R, TRAMP_R, 0.12, 20), trampMat)
-    trampMesh.position.set(TRAMP_CX, 0.3, TRAMP_CZ); trampMesh.castShadow = true; scene.add(trampMesh)
+    trampMesh.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ); trampMesh.castShadow = true; scene.add(trampMesh)
+
     // Metal frame ring
     const frameMat = new THREE.MeshLambertMaterial({ color: 0x888888 })
     const frameMesh = new THREE.Mesh(new THREE.TorusGeometry(TRAMP_R + 0.08, 0.06, 8, 24), frameMat)
-    frameMesh.rotation.x = Math.PI / 2; frameMesh.position.set(TRAMP_CX, 0.38, TRAMP_CZ); scene.add(frameMesh)
-    // Trampoline legs (4 angled supports)
-    ;[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx, sz]) => {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.55, 6), frameMat)
-      leg.position.set(TRAMP_CX + sx * (TRAMP_R * 0.7), 0.06, TRAMP_CZ + sz * (TRAMP_R * 0.7))
-      leg.rotation.z = sx * 0.25; leg.rotation.x = sz * 0.25; scene.add(leg)
+    frameMesh.rotation.x = Math.PI / 2
+    frameMesh.position.set(TRAMP_CX, TRAMP_Y + 0.06, TRAMP_CZ); scene.add(frameMesh)
+
+    // 4 vertical support poles from ground to frame
+    const poleCorners: [number,number][] = [[1,1],[1,-1],[-1,1],[-1,-1]]
+    poleCorners.forEach(([sx, sz]) => {
+      const poleH = TRAMP_Y
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, poleH, 6), frameMat)
+      pole.position.set(TRAMP_CX + sx * (TRAMP_R * 0.75), poleH / 2, TRAMP_CZ + sz * (TRAMP_R * 0.75))
+      pole.castShadow = true; scene.add(pole)
     })
-    // Physics: bouncy body — player touching it gets upward impulse (handled in animate)
+
+    // Blue net around the trampoline
+    const netMat = new THREE.MeshBasicMaterial({ color: 0x2266ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+    const netMesh = new THREE.Mesh(new THREE.CylinderGeometry(TRAMP_R + 0.12, TRAMP_R + 0.12, 1.0, 24, 1, true), netMat)
+    netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.5, TRAMP_CZ); scene.add(netMesh)
+
+    // Ramp on south side: from z=TRAMP_CZ+TRAMP_R to z=TRAMP_CZ+TRAMP_R+2.0, y from 0 to TRAMP_Y
+    const RAMP_Z_BOT = TRAMP_CZ + TRAMP_R + 2.0   // bottom of ramp (ground level)
+    const RAMP_Z_TOP = TRAMP_CZ + TRAMP_R - 0.1    // top of ramp (trampoline edge)
+    const rampLen = Math.abs(RAMP_Z_BOT - RAMP_Z_TOP)
+    const rampAngle = Math.atan2(TRAMP_Y, rampLen)
+    const rampGeoLen = Math.sqrt(rampLen * rampLen + TRAMP_Y * TRAMP_Y)
+    const rampMat = new THREE.MeshLambertMaterial({ color: 0x8B5E2A })
+    const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, rampGeoLen), rampMat)
+    rampMesh.position.set(TRAMP_CX, TRAMP_Y / 2, (RAMP_Z_BOT + RAMP_Z_TOP) / 2)
+    rampMesh.rotation.x = -rampAngle
+    rampMesh.castShadow = true; scene.add(rampMesh)
 
     // ── Bowling lane ──────────────────────────────────────────────────────
     const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
@@ -836,7 +460,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     physWorld.addBody(laneBody)
 
     // ── Pin-deck bumpers ──────────────────────────────────────────────────
-    // Warm sandstone — visible but not high-contrast
     const bumperMat = new THREE.MeshLambertMaterial({ color: 0xb09a78 })
     const bumperH   = 0.42
     const bumperThk = 0.18
@@ -865,7 +488,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     physWorld.addBody(backBody)
 
     // ── Bowling pins ──────────────────────────────────────────────────────
-    // Pin canvas texture: white with two red stripes near the neck
     const pinCv = document.createElement('canvas'); pinCv.width = 64; pinCv.height = 128
     const pctx = pinCv.getContext('2d')!
     pctx.fillStyle = '#f5f0e8'; pctx.fillRect(0, 0, 64, 128)
@@ -1178,6 +800,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         return
       }
 
+      // Jump — Space when grounded and not in a mini-game
+      if (e.key === ' ' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !focusActiveRef.current) {
+        if (player.position.y <= 0.05) {
+          playerVelY = 6.0
+        }
+        return
+      }
+
       if (mapped==='e' && !focusActiveRef.current && currentSecRef.current) {
         triggerFocus(currentSecRef.current)
       }
@@ -1249,7 +879,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     let swingAmt     = 0
     let camYaw       = 0    // horizontal orbit angle around player
     let camPitch     = 0.3  // vertical tilt (radians, positive = camera higher)
-    let trampolineVel = 0   // upward velocity from trampoline bounce
+    let playerVelY   = 0    // vertical velocity for jump/gravity
 
     function animate() {
       animId = requestAnimationFrame(animate)
@@ -1299,14 +929,55 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (hasD) { rawVel.x += rt_x; rawVel.z += rt_z }
 
         const isMoving = rawVel.lengthSq() > 0
-        if (isMoving) {
+        if (isMoving && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) {
           rawVel.normalize().multiplyScalar(8.5 * delta)
-          player.position.add(rawVel)
+          player.position.x += rawVel.x
+          player.position.z += rawVel.z
         }
         // Player model always faces camera forward direction
         player.rotation.y = lerpAngle(player.rotation.y, camYaw + Math.PI, 0.14)
         player.position.x = THREE.MathUtils.clamp(player.position.x, -28, 28)
         player.position.z = THREE.MathUtils.clamp(player.position.z, -78, 8)
+
+        // ── Jump / gravity ────────────────────────────────────────────
+        if (bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) {
+          // Ramp: south side of trampoline
+          const inRampX = Math.abs(player.position.x - TRAMP_CX) < 0.8
+          const inRampZ = player.position.z >= RAMP_Z_TOP && player.position.z <= RAMP_Z_BOT
+          if (inRampX && inRampZ) {
+            const rampT = (player.position.z - RAMP_Z_BOT) / (RAMP_Z_TOP - RAMP_Z_BOT)
+            const rampY = rampT * TRAMP_Y
+            if (player.position.y < rampY) {
+              player.position.y = rampY
+              if (playerVelY < 0) playerVelY = 0
+            }
+          }
+
+          // Trampoline surface
+          const td = Math.hypot(player.position.x - TRAMP_CX, player.position.z - TRAMP_CZ)
+          const onTrampSurface = td < TRAMP_R && player.position.y >= TRAMP_Y - 0.1 && player.position.y <= TRAMP_Y + 0.2
+
+          // Apply gravity
+          playerVelY -= 18 * delta
+
+          // Update vertical position
+          player.position.y += playerVelY * delta
+
+          // Trampoline bounce
+          if (onTrampSurface && playerVelY < 0) {
+            player.position.y = TRAMP_Y
+            playerVelY = 9.0
+          }
+
+          // Ground clamp
+          if (player.position.y <= 0 && !onTrampSurface) {
+            player.position.y = 0
+            if (playerVelY < 0) playerVelY = 0
+          }
+        } else {
+          // Reset gravity state when in mini-game
+          playerVelY = 0
+        }
 
         // Walk animation with smooth ramp
         swingAmt = THREE.MathUtils.clamp(swingAmt + (isMoving ? 1 : -1) * delta * 8, 0, 1)
@@ -1317,7 +988,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         lKnee.rotation.x = Math.max(0, -Math.sin(walkPhase)) * swingAmt * 0.40
         rKnee.rotation.x = Math.max(0,  Math.sin(walkPhase)) * swingAmt * 0.40
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
-        player.position.y = Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
+        // Only apply walk bob when grounded
+        if (player.position.y <= 0.05) {
+          player.position.y = Math.max(0, player.position.y) + Math.abs(Math.sin(walkPhase * 2)) * swingAmt * 0.04
+        }
 
         const camDist = 5.2
         // Clamp pitch so camera never dips below ground level
@@ -1376,20 +1050,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             b.body.wakeUp()
           }
         })
-
-        // Trampoline bounce — give player an upward kick when on the pad
-        if (!sittingRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle') {
-          const td = Math.hypot(player.position.x - TRAMP_CX, player.position.z - TRAMP_CZ)
-          if (td < TRAMP_R && player.position.y < 0.5) {
-            player.position.y = 0
-            trampolineVel = Math.max(trampolineVel, 8.0)
-          }
-        }
-        if (trampolineVel > 0) {
-          player.position.y += trampolineVel * delta
-          trampolineVel -= 20 * delta
-          if (player.position.y <= 0) { player.position.y = 0; trampolineVel = 0 }
-        }
 
         // ── Bench proximity & sit ─────────────────────────────────────────────
         if (!sittingRef.current) {
@@ -1785,7 +1445,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
           >
-            WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> or move to close
+            WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">Space</kbd> jump &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> or move to close
           </div>
           )}
 
