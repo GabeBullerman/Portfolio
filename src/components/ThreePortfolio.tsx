@@ -694,7 +694,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           : [(child as THREE.Mesh).material as THREE.Material]
         mats.forEach(m => {
           const anyM = m as any
-          if (anyM.map) { anyM.map.flipY = true; anyM.map.needsUpdate = true }
+          if (anyM.map) {
+            anyM.map.flipY = false
+            anyM.map.repeat.set(1, -1)
+            anyM.map.offset.set(0, 1)
+            anyM.map.needsUpdate = true
+          }
           m.needsUpdate = true
         })
       })
