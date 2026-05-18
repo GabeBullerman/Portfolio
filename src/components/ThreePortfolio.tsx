@@ -165,7 +165,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     rim.rotation.x = -Math.PI/2; rim.position.y = -0.3; scene.add(rim)
 
     // ── Collision system ──────────────────────────────────────────────────
-    interface CylCol { x: number; z: number; r: number }
+    interface CylCol { x: number; z: number; r: number; maxY?: number }
     interface BoxCol { x0: number; x1: number; z0: number; z1: number; maxY: number }
     const cylCols: CylCol[] = []
     const boxCols: BoxCol[] = []
@@ -425,28 +425,38 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
     scene.add(trampFrame)
 
-    // Blue net — two arcs leaving a gap on the east side where the ladder is
-    // Ladder is at angle 0 (east, +X). Leave ~50° gap centred there.
+    // Blue net — gap on east side (+X) where the ladder is.
+    // In Three.js CylinderGeometry: thetaStart=0 → +Z direction, thetaStart=π/2 → +X direction.
+    // Ladder is east (+X), so gap must be centred at π/2.
     const NET_GAP = Math.PI / 3.6  // ~50° gap
-    ;[
-      { start: NET_GAP / 2,          length: Math.PI * 2 - NET_GAP },
-    ].forEach(({ start, length }) => {
-      const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, start, length)
-      const netMesh = new THREE.Mesh(netGeo, netMat)
-      netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
-      scene.add(netMesh)
-    })
+    const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, Math.PI / 2 + NET_GAP / 2, Math.PI * 2 - NET_GAP)
+    const netMesh = new THREE.Mesh(netGeo, netMat)
+    netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
+    scene.add(netMesh)
 
-    // Net support poles — 8 evenly spaced vertical poles + cylinder colliders
+    // Net support poles — 12 evenly spaced, skip gap at east (+X, angle≈0 in cos/sin coords)
+    const LADDER_GAP_HALF = NET_GAP / 2 + 0.18  // skip buffer around ladder opening
     const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2
+      // angle 0 = east (+X) where ladder is; skip that sector
+      const na = a > Math.PI ? a - Math.PI * 2 : a
+      if (Math.abs(na) < LADDER_GAP_HALF) continue
       const px = TRAMP_CX + Math.cos(a) * (TRAMP_R + 0.05)
       const pz = TRAMP_CZ + Math.sin(a) * (TRAMP_R + 0.05)
-      cylCols.push({ x: px, z: pz, r: 0.18 })
       const pole = new THREE.Mesh(poleGeo, frameMat2)
       pole.position.set(px, (TRAMP_Y + 1.2) / 2, pz)
       scene.add(pole)
+    }
+
+    // Dense rim colliders — prevent walking under trampoline; gap left at ladder (east, a≈0)
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2
+      const na = a > Math.PI ? a - Math.PI * 2 : a
+      if (Math.abs(na) < LADDER_GAP_HALF + 0.1) continue
+      const px = TRAMP_CX + Math.cos(a) * TRAMP_R
+      const pz = TRAMP_CZ + Math.sin(a) * TRAMP_R
+      cylCols.push({ x: px, z: pz, r: 0.42, maxY: TRAMP_Y - 0.1 })
     }
 
     // Leg supports — 4 X-frame legs from ground up to frame
@@ -1175,6 +1185,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (!sittingRef.current && !climbingRef.current) {
           const PR = PLAYER_R
           cylCols.forEach(c => {
+            if (c.maxY !== undefined && player.position.y >= c.maxY) return
             const dx = player.position.x - c.x
             const dz = player.position.z - c.z
             const dist = Math.sqrt(dx * dx + dz * dz)
