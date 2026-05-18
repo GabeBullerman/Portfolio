@@ -101,6 +101,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(true)
   const goOutsideRef    = useRef(false)
+  const goToComputerRef = useRef(false)
+  // Cinematic camera transition (Go Outside / Use Computer)
+  const cinematicRef    = useRef({
+    active: false, t: 0, duration: 2.8,
+    fromPos: new THREE.Vector3(), toPos:   new THREE.Vector3(),
+    fromLook: new THREE.Vector3(), toLook: new THREE.Vector3(),
+    onDone: null as (() => void) | null,
+  })
   // Lighting refs for dynamic cabin darkness
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null)
   const sunLightRef     = useRef<THREE.DirectionalLight | null>(null)
@@ -678,7 +686,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     gltfLoader.load('/assets/cabin/setup/gaming setup.gltf', gltf => {
       const desk = gltf.scene
       desk.traverse(child => {
-        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+        if (!(child as THREE.Mesh).isMesh) return
+        child.castShadow = true; child.receiveShadow = true
+        // GLTFLoader sets flipY=false; this model's UVs need the standard WebGL convention
+        const mats = Array.isArray((child as THREE.Mesh).material)
+          ? (child as THREE.Mesh).material as THREE.Material[]
+          : [(child as THREE.Mesh).material as THREE.Material]
+        mats.forEach(m => {
+          const anyM = m as any
+          if (anyM.map) { anyM.map.flipY = true; anyM.map.needsUpdate = true }
+          m.needsUpdate = true
+        })
       })
 
       desk.position.set(2.0, 2.8, -2.20)
@@ -1339,9 +1357,8 @@ if (
   }
 
   if (nearChairRef.current) {
-    // Press E near the computer = open the monitor/portfolio overlay
-    setMonitorMode(true)
-    document.exitPointerLock()
+    // Cinematic sweep toward the monitor, then open overlay when done
+    goToComputerRef.current = true
     return
   }
 }
@@ -1432,7 +1449,7 @@ if (
       if (document.pointerLockElement !== renderer.domElement) return
       if (focusActiveRef.current || bowlStateRef.current !== 'idle') return
       camYaw   -= e.movementX * MOUSE_SENS
-      camPitch  = THREE.MathUtils.clamp(camPitch + e.movementY * MOUSE_SENS, -0.55, 1.2)
+      camPitch  = THREE.MathUtils.clamp(camPitch + e.movementY * MOUSE_SENS, -1.3, 1.3)
     }
     const onPointerLockChange = () => {
       setPointerLocked(document.pointerLockElement === renderer.domElement)
@@ -1474,13 +1491,37 @@ if (
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now; elapsed += delta
 
-      // ── Go Outside transition ─────────────────────────────────────────
+      // ── Go Outside: sweep camera from monitor → cabin interior ───────
       if (goOutsideRef.current) {
         goOutsideRef.current = false
         player.position.set(-4.0, 2.1, 14.0)
         playerVelY = 0
-        camYaw = 1.5   // roughly facing the cabin door
-        relockRef.current?.()
+        camYaw = 1.5
+        const cs = cinematicRef.current
+        cs.active = true; cs.t = 0; cs.duration = 2.8
+        cs.fromPos.copy(cabGrp.localToWorld(new THREE.Vector3(CHAIR_LOCAL_POS.x, CHAIR_LOCAL_POS.y + 1.15, CHAIR_LOCAL_POS.z)))
+        cs.fromLook.copy(cabGrp.localToWorld(MONITOR_LOCAL_POS.clone()))
+        cs.toPos.set(-4.0, 2.1 + 1.65, 14.0)
+        cs.toLook.set(-7.5, 3.2, 14.5)   // toward cabin door
+        cs.onDone = null
+        camera.position.copy(cs.fromPos)
+        camera.lookAt(cs.fromLook)
+      }
+
+      // ── Use Computer: sweep camera from player → monitor ─────────────
+      if (goToComputerRef.current) {
+        goToComputerRef.current = false
+        const cs = cinematicRef.current
+        cs.active = true; cs.t = 0; cs.duration = 2.0
+        cs.fromPos.set(player.position.x, player.position.y + 1.65, player.position.z)
+        cs.fromLook.set(
+          player.position.x - Math.sin(camYaw) * 8,
+          player.position.y + 1.65 + Math.sin(camPitch) * 3,
+          player.position.z - Math.cos(camYaw) * 8
+        )
+        cs.toPos.copy(cabGrp.localToWorld(new THREE.Vector3(CHAIR_LOCAL_POS.x, CHAIR_LOCAL_POS.y + 1.15, CHAIR_LOCAL_POS.z)))
+        cs.toLook.copy(cabGrp.localToWorld(MONITOR_LOCAL_POS.clone()))
+        cs.onDone = () => { document.exitPointerLock(); setMonitorMode(true) }
       }
 
       // ── Cannon physics step ───────────────────────────────────────────
@@ -1507,7 +1548,21 @@ if (
 
       player.visible = !focusActiveRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle'
 
-      if (!focusActiveRef.current) {
+      // ── Cinematic transitions (Go Outside / Use Computer) ─────────────
+      if (cinematicRef.current.active) {
+        const cs = cinematicRef.current
+        cs.t = Math.min(cs.t + delta / cs.duration, 1)
+        const e3 = cs.t < 0.5 ? 4*cs.t*cs.t*cs.t : 1 - Math.pow(-2*cs.t+2, 3) / 2
+        camera.position.lerpVectors(cs.fromPos, cs.toPos, e3)
+        camera.lookAt(new THREE.Vector3().lerpVectors(cs.fromLook, cs.toLook, e3))
+        player.visible = false
+        if (cs.t >= 1) {
+          cs.active = false
+          const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd)
+          camYaw = Math.atan2(-fwd.x, -fwd.z)
+          cs.onDone?.()
+        }
+      } else if (!focusActiveRef.current) {
         // ── Camera-relative WASD movement ──────────────────────────────
         const fw_x = -Math.sin(camYaw), fw_z = -Math.cos(camYaw)
         const rt_x =  Math.cos(camYaw), rt_z = -Math.sin(camYaw)
@@ -1666,10 +1721,13 @@ if (
         if (fpvBlend < 0.8) {
           camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z)
         } else {
+          // FPV look — negate pitch so mouse-up=look-up matches the TPV convention
+          const invP = -camPitch
+          const cosP = Math.cos(invP)
           camera.lookAt(
-            player.position.x - Math.sin(camYaw) * 10,
-            player.position.y + HEAD_H + Math.sin(camPitch) * 0.5,
-            player.position.z - Math.cos(camYaw) * 10,
+            player.position.x - Math.sin(camYaw) * cosP * 10,
+            player.position.y + HEAD_H + Math.sin(invP) * 10,
+            player.position.z - Math.cos(camYaw) * cosP * 10,
           )
         }
 
@@ -2116,6 +2174,8 @@ if (
           onGoOutside={() => {
             setMonitorMode(false)
             goOutsideRef.current = true
+            // Must request pointer lock within user gesture (button click)
+            relockRef.current?.()
           }}
         />
       )}
