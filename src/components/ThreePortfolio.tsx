@@ -86,6 +86,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   // Cabin light switch
   const cabLightOnRef   = useRef(true)
   const nearSwitchRef   = useRef(false)
+  const switchNodeRef   = useRef<THREE.Object3D | null>(null)
   const [nearSwitch, setNearSwitch] = useState(false)
   const cabSpotRef      = useRef<THREE.SpotLight | null>(null)
   // Debug overlay (backtick to toggle)
@@ -597,22 +598,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
     })
     const cabHitboxEntries: typeof movablesRef.current = []
-    const addHitboxPlane = (name: string, w: number, h: number, d: number, px: number, py: number, pz: number, color: number) => {
+    const addHitboxPlane = (name: string, w: number, h: number, d: number, px: number, py: number, pz: number, color: number, ry = 0, sx = 1, sy = 1, sz = 1) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hitboxMat(color))
       mesh.position.set(px, py, pz)
+      mesh.rotation.y = ry
+      mesh.scale.set(sx, sy, sz)
       cabGrp.add(mesh)
-      const grp = new THREE.Group(); grp.position.set(px, py, pz); cabGrp.add(grp)
+      const grp = new THREE.Group(); grp.position.set(px, py, pz); grp.rotation.y = ry; cabGrp.add(grp)
       ;(grp as any).__hitMesh = mesh
       cabHitboxEntries.push({ name, group: grp, isHitbox: true })
     }
-    // Walls: red
-    addHitboxPlane('🟥 Wall: Front-L',  2.0, 2.5, 0.2,  -2.0, 1.25, -CD/2, 0xff3333)
-    addHitboxPlane('🟥 Wall: Front-R',  2.0, 2.5, 0.2,   2.0, 1.25, -CD/2, 0xff3333)
-    addHitboxPlane('🟥 Wall: Back',     5.0, 2.5, 0.2,   0.0, 1.25,  CD/2, 0xff3333)
-    addHitboxPlane('🟥 Wall: Left',     0.2, 2.5, 5.0,  -3.4, 1.25, 0.0, 0xff3333)
-    addHitboxPlane('🟥 Wall: Right',    0.2, 2.5, 5.0,   3.4, 1.25, 0.0, 0xff3333)
-    // Floor: green — 9.0×5.0 footprint baked from aligned scale(1.5,1,1)
-    addHitboxPlane('🟩 Floor',          9.0, 0.1, 5.0,  -1.50, 2.05, 0.00, 0x33ff66)
+    const P2 = Math.PI / 2
+    addHitboxPlane('🟥 Wall: Front-L', 2.0, 2.5, 0.2, -4.10, 3.92, -2.25, 0xff3333, P2, 1.25, 1.50, 1.00)
+    addHitboxPlane('🟥 Wall: Front-R', 2.0, 2.5, 0.2, -4.10, 3.92,  1.65, 0xff3333, P2, 1.25, 1.50, 1.00)
+    addHitboxPlane('🟥 Wall: Back',    5.0, 2.5, 0.2,  2.90, 4.25, -0.25, 0xff3333, P2, 1.25, 1.75, 1.00)
+    addHitboxPlane('🟥 Wall: Left',    0.2, 2.5, 5.0, -1.65, 3.70, -3.50, 0xff3333, P2, 1.00, 1.40, 1.75)
+    addHitboxPlane('🟥 Wall: Right',   0.2, 2.5, 5.0, -1.45, 3.76,  2.75, 0xff3333, P2, 1.00, 1.45, 1.75)
+    addHitboxPlane('🟩 Floor',         9.0, 0.1, 5.0, -1.50, 2.05, -0.40, 0x33ff66,  0, 1.00, 1.00, 1.20)
     // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
     // Interior ceiling light — SpotLight + lamp model at ceiling centre
@@ -630,23 +632,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       lamp.scale.setScalar(0.3)
       lamp.position.set(0, CH, 0)
       cabGrp.add(lamp)
+      movablesRef.current.push({ name: '💡 Lamp (cabin local)', group: lamp as unknown as THREE.Group, scaleObj: lamp })
     }, undefined, err => console.error('[cabin] lamp failed:', err))
 
-    // Light switch — right of door frame, on interior wall
-    // Local coords: x=DOOR_W/2+0.35 (right of door), y=CH*0.5, z=CD/2-0.06 (front wall interior face)
-    const SWITCH_LX = DOOR_W / 2 + 0.35
-    const SWITCH_LY = CH * 0.5
-    const SWITCH_LZ = CD / 2 - 0.06
     gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
       const sw = gltf.scene
       sw.traverse(child => {
-        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+        if ((child as THREE.Mesh).isMesh) {
+          child.castShadow = true; child.receiveShadow = true
+          ;(child as THREE.Mesh).visible = false
+        }
       })
       sw.scale.setScalar(3.0)
-      sw.position.set(SWITCH_LX, SWITCH_LY, SWITCH_LZ)
-      sw.rotation.y = Math.PI
+      sw.position.set(-3.90, 3.22, 0.89)
       cabGrp.add(sw)
-      movablesRef.current.push({ name: '💡 Switch (cabin local)', group: sw as unknown as THREE.Group, scaleObj: sw })
+      switchNodeRef.current = sw
+      movablesRef.current.push({ name: '🔘 Switch (cabin local)', group: sw as unknown as THREE.Group, scaleObj: sw })
     }, undefined, err => console.error('[cabin] switch failed:', err))
 
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
@@ -659,17 +660,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
 
-      const box = new THREE.Box3().setFromObject(desk)
-      const size = new THREE.Vector3(); box.getSize(size)
-      const center = new THREE.Vector3(); box.getCenter(center)
-      const targetWidth = 3.2
-      const sc = targetWidth / size.x
-      desk.scale.setScalar(sc)
-
-      const box2 = new THREE.Box3().setFromObject(desk)
-      const yOff = -box2.min.y
-
-      desk.position.set(-center.x * sc, yOff, -CD/2 + size.z * sc * 0.5 + 0.15)
+      desk.position.set(1.59, 2.93, 0.30)
       desk.rotation.y = Math.PI
 
       cabGrp.add(desk)
@@ -1754,8 +1745,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
 
         // ── Light switch proximity ────────────────────────────────────
-        {
-          const swWorld = cabGrp.localToWorld(new THREE.Vector3(SWITCH_LX, 0, SWITCH_LZ))
+        if (switchNodeRef.current) {
+          const swWorld = new THREE.Vector3()
+          switchNodeRef.current.getWorldPosition(swWorld)
           const swDist = Math.hypot(player.position.x - swWorld.x, player.position.z - swWorld.z)
           const newNear = swDist < 1.6
           if (newNear !== nearSwitchRef.current) { nearSwitchRef.current = newNear; setNearSwitch(newNear) }
