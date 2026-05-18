@@ -640,7 +640,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       sw.traverse(child => {
         if ((child as THREE.Mesh).isMesh) {
           child.castShadow = true; child.receiveShadow = true
-          ;(child as THREE.Mesh).visible = false
+          ;(child as THREE.Mesh).visible = true
         }
       })
       sw.scale.setScalar(3.0)
