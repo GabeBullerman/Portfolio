@@ -56,10 +56,13 @@ export const RTOSS_POST_R  = 0.044
 // ─── Ball pit + trampoline constants ─────────────────────────────────────────
 export const PIT_CX   = 18
 export const PIT_CZ   = -22
-export const TRAMP_CX = 18
-export const TRAMP_CZ = -14
-export const TRAMP_R  = 1.6
-export const TRAMP_Y  = 1.2   // trampoline surface height
+export const TRAMP_CX = 8
+export const TRAMP_CZ = -20
+export const TRAMP_R  = 4.8
+export const TRAMP_Y  = 2.0   // trampoline surface height
+export const LADDER_X = TRAMP_CX + TRAMP_R + 0.35   // east side of trampoline
+export const LADDER_Z = TRAMP_CZ
+export const LADDER_PROX = 1.4
 
 // ─── Sections ────────────────────────────────────────────────────────────────
 export const SECTIONS: SectionCfg[] = [

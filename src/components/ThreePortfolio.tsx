@@ -7,7 +7,7 @@ import {
   PIN_H, PIN_R_BOT, PIN_R_TOP, BOWL_BALL_R, PIN_ROW_D, PIN_POSITIONS,
   BENCH_POSITIONS, BENCH_PROX,
   RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RING_R, RTOSS_RING_TUBE, RTOSS_RINGS, RTOSS_POST_H, RTOSS_POST_R,
-  PIT_CX, PIT_CZ, TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
+  PIT_CX, PIT_CZ, TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y, LADDER_X, LADDER_Z, LADDER_PROX,
   SECTIONS, PROX,
   SectionId, BowlState, RTossState,
 } from './three/constants'
@@ -68,6 +68,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   // Prevents sign from re-triggering immediately after the player presses ESC
   const exitedRef       = useRef(false)
   const relockRef       = useRef<(() => void) | null>(null)
+  // Jump
+  const jumpPressedRef  = useRef(false)
+  // Ladder climb
+  const climbingRef     = useRef(false)
+  const [climbing, setClimbing] = useState(false)
+  const [nearLadder, setNearLadder] = useState(false)
+  const nearLadderRef   = useRef(false)
 
   function exitFocus() {
     focusActiveRef.current  = false
@@ -157,9 +164,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const rim = new THREE.Mesh(new THREE.RingGeometry(72,82,48), new THREE.MeshLambertMaterial({ color:0x3a6030, side:THREE.DoubleSide }))
     rim.rotation.x = -Math.PI/2; rim.position.y = -0.3; scene.add(rim)
 
+    // ── Collision system ──────────────────────────────────────────────────
+    interface CylCol { x: number; z: number; r: number }
+    interface BoxCol { x0: number; x1: number; z0: number; z1: number }
+    const cylCols: CylCol[] = []
+    const boxCols: BoxCol[] = []
+
     // ── Trees ────────────────────────────────────────────────────────────
     const postMat = new THREE.MeshLambertMaterial({ color:0x7a4f2d })
     function addTree(x: number, z: number, sc: number) {
+      cylCols.push({ x, z, r: 0.28 * sc })
       const g = new THREE.Group()
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18*sc,0.26*sc,1.8*sc,7), postMat)
       trunk.position.y=0.9*sc; trunk.castShadow=true; g.add(trunk)
@@ -181,7 +195,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
       if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
       if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
-      if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < 3.0) continue
+      if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
       addTree(x,z,0.7+rng()*0.65)
     }
 
@@ -217,6 +231,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Signs ────────────────────────────────────────────────────────────
     SECTIONS.forEach(({ id, label, wx, wz }) => {
+      cylCols.push({ x: wx, z: wz, r: 0.22 })
       const clear = new THREE.Mesh(new THREE.CircleGeometry(4.5,20), new THREE.MeshLambertMaterial({color:0x5a9c5a}))
       clear.rotation.x=-Math.PI/2; clear.position.set(wx,0.01,wz); scene.add(clear)
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.15,3.2,7), postMat)
@@ -301,6 +316,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const benchLogMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
     const benchPlankMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
     BENCH_POSITIONS.forEach(({ x, z, ry }) => {
+      cylCols.push({ x, z, r: 0.9 })
       const g = new THREE.Group()
       // Seat plank
       const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.42), benchPlankMat)
@@ -344,11 +360,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // Pit walls (4 sides, low box barriers)
     const pitWallMat = new THREE.MeshLambertMaterial({ color: 0x3a5faa })
     ;[
-      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,       pz: PIT_CZ - PIT_R, rx: 0 },
-      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,       pz: PIT_CZ + PIT_R, rx: 0 },
-      { w: 0.18, d: PIT_R*2,      px: PIT_CX - PIT_R, pz: PIT_CZ,      rx: 0 },
-      { w: 0.18, d: PIT_R*2,      px: PIT_CX + PIT_R, pz: PIT_CZ,      rx: 0 },
+      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,         pz: PIT_CZ - PIT_R },
+      { w: PIT_R*2+0.18, d: 0.18, px: PIT_CX,         pz: PIT_CZ + PIT_R },
+      { w: 0.18, d: PIT_R*2,      px: PIT_CX - PIT_R, pz: PIT_CZ         },
+      { w: 0.18, d: PIT_R*2,      px: PIT_CX + PIT_R, pz: PIT_CZ         },
     ].forEach(({ w, d, px, pz }) => {
+      // Box collider for player
+      boxCols.push({ x0: px - w/2, x1: px + w/2, z0: pz - d/2, z1: pz + d/2 })
       const wm = new THREE.Mesh(new THREE.BoxGeometry(w, PIT_WALL_H, d), pitWallMat)
       wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm)
       const wb = new CANNON.Body({ mass: 0 })
@@ -356,8 +374,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       wb.position.set(px, PIT_WALL_H / 2, pz); physWorld.addBody(wb)
     })
     // Pit floor
-    const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_R - 0.18, 20), new THREE.MeshLambertMaterial({ color: 0x4a80ee }))
-    pitFloor.rotation.x = -Math.PI / 2; pitFloor.position.set(PIT_CX, 0.005, PIT_CZ); scene.add(pitFloor)
+    const pitFloor = new THREE.Mesh(
+      new THREE.PlaneGeometry(PIT_R * 2, PIT_R * 2),
+      new THREE.MeshLambertMaterial({ color: 0x4a80ee })
+    )
+    pitFloor.rotation.x = -Math.PI / 2
+    pitFloor.position.set(PIT_CX, 0.005, PIT_CZ)
+    scene.add(pitFloor)
 
     // Fill pit with 80 physics-backed balls using InstancedMesh for visuals
     const pitBallColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff, 0xff9999, 0x99ff99]
@@ -379,43 +402,82 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       balls.push({ mesh, body })
     }
 
-    // ── Trampoline ────────────────────────────────────────────────────────
-    // Raised to y=TRAMP_Y (1.2), dark grey surface
-    const trampMat = new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 40 })
-    const trampMesh = new THREE.Mesh(new THREE.CylinderGeometry(TRAMP_R, TRAMP_R, 0.12, 20), trampMat)
-    trampMesh.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ); trampMesh.castShadow = true; scene.add(trampMesh)
+    // ── Trampoline ──────────────────────────────────────────────────────────────
+    const TRAMP_SEGMENTS = 32
+    const trampFabricMat = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 20 })
+    const frameMat2 = new THREE.MeshLambertMaterial({ color: 0x888888 })
+    const netMat = new THREE.MeshBasicMaterial({ color: 0x2255cc, transparent: true, opacity: 0.45, side: THREE.DoubleSide, wireframe: false })
 
-    // Metal frame ring
-    const frameMat = new THREE.MeshLambertMaterial({ color: 0x888888 })
-    const frameMesh = new THREE.Mesh(new THREE.TorusGeometry(TRAMP_R + 0.08, 0.06, 8, 24), frameMat)
-    frameMesh.rotation.x = Math.PI / 2
-    frameMesh.position.set(TRAMP_CX, TRAMP_Y + 0.06, TRAMP_CZ); scene.add(frameMesh)
+    // Main fabric disc (dark grey)
+    const trampFabric = new THREE.Mesh(
+      new THREE.CylinderGeometry(TRAMP_R - 0.15, TRAMP_R - 0.15, 0.08, TRAMP_SEGMENTS),
+      trampFabricMat
+    )
+    trampFabric.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
+    trampFabric.castShadow = true; scene.add(trampFabric)
 
-    // 4 vertical support poles from ground to frame
-    const poleCorners: [number,number][] = [[1,1],[1,-1],[-1,1],[-1,-1]]
-    poleCorners.forEach(([sx, sz]) => {
-      const poleH = TRAMP_Y
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, poleH, 6), frameMat)
-      pole.position.set(TRAMP_CX + sx * (TRAMP_R * 0.75), poleH / 2, TRAMP_CZ + sz * (TRAMP_R * 0.75))
-      pole.castShadow = true; scene.add(pole)
+    // Frame ring (grey torus-like cylinder)
+    const trampFrame = new THREE.Mesh(
+      new THREE.TorusGeometry(TRAMP_R, 0.09, 8, TRAMP_SEGMENTS),
+      frameMat2
+    )
+    trampFrame.rotation.x = Math.PI / 2
+    trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
+    scene.add(trampFrame)
+
+    // Blue net cylinder (open-ended, 1.2m tall above frame)
+    const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true)
+    const netMesh = new THREE.Mesh(netGeo, netMat)
+    netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
+    scene.add(netMesh)
+
+    // Net support poles — 8 evenly spaced vertical poles + cylinder colliders
+    const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2
+      const px = TRAMP_CX + Math.cos(a) * (TRAMP_R + 0.05)
+      const pz = TRAMP_CZ + Math.sin(a) * (TRAMP_R + 0.05)
+      cylCols.push({ x: px, z: pz, r: 0.18 })
+      const pole = new THREE.Mesh(poleGeo, frameMat2)
+      pole.position.set(px, (TRAMP_Y + 1.2) / 2, pz)
+      scene.add(pole)
+    }
+
+    // Leg supports — 4 X-frame legs from ground up to frame
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+      const lx = TRAMP_CX + Math.cos(a) * TRAMP_R * 0.8
+      const lz = TRAMP_CZ + Math.sin(a) * TRAMP_R * 0.8
+      const legH = Math.sqrt(TRAMP_Y * TRAMP_Y + 0.0)
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, legH, 6), frameMat2)
+      leg.position.set(lx, TRAMP_Y / 2, lz)
+      scene.add(leg)
+    }
+
+    // Trampoline physics platform
+    const trampBody = new CANNON.Body({ mass: 0 })
+    trampBody.addShape(new CANNON.Cylinder(TRAMP_R, TRAMP_R, 0.1, 16))
+    trampBody.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
+    physWorld.addBody(trampBody)
+
+    // ── Ladder (east side of trampoline) ─────────────────────────────────
+    const ladderMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
+    const railGeo   = new THREE.BoxGeometry(0.06, TRAMP_Y, 0.06)
+    const rungGeo   = new THREE.BoxGeometry(0.5, 0.05, 0.06)
+
+    // Two vertical rails
+    ;[-0.25, 0.25].forEach(ox => {
+      const rail = new THREE.Mesh(railGeo, ladderMat)
+      rail.position.set(LADDER_X + ox, TRAMP_Y / 2, LADDER_Z)
+      scene.add(rail)
     })
-
-    // Blue net around the trampoline
-    const netMat = new THREE.MeshBasicMaterial({ color: 0x2266ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
-    const netMesh = new THREE.Mesh(new THREE.CylinderGeometry(TRAMP_R + 0.12, TRAMP_R + 0.12, 1.0, 24, 1, true), netMat)
-    netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.5, TRAMP_CZ); scene.add(netMesh)
-
-    // Ramp on south side: from z=TRAMP_CZ+TRAMP_R to z=TRAMP_CZ+TRAMP_R+2.0, y from 0 to TRAMP_Y
-    const RAMP_Z_BOT = TRAMP_CZ + TRAMP_R + 2.0   // bottom of ramp (ground level)
-    const RAMP_Z_TOP = TRAMP_CZ + TRAMP_R - 0.1    // top of ramp (trampoline edge)
-    const rampLen = Math.abs(RAMP_Z_BOT - RAMP_Z_TOP)
-    const rampAngle = Math.atan2(TRAMP_Y, rampLen)
-    const rampGeoLen = Math.sqrt(rampLen * rampLen + TRAMP_Y * TRAMP_Y)
-    const rampMat = new THREE.MeshLambertMaterial({ color: 0x8B5E2A })
-    const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, rampGeoLen), rampMat)
-    rampMesh.position.set(TRAMP_CX, TRAMP_Y / 2, (RAMP_Z_BOT + RAMP_Z_TOP) / 2)
-    rampMesh.rotation.x = -rampAngle
-    rampMesh.castShadow = true; scene.add(rampMesh)
+    // Rungs
+    const rungCount = Math.floor(TRAMP_Y / 0.32)
+    for (let i = 0; i < rungCount; i++) {
+      const rung = new THREE.Mesh(rungGeo, ladderMat)
+      rung.position.set(LADDER_X, 0.25 + i * (TRAMP_Y / rungCount), LADDER_Z)
+      scene.add(rung)
+    }
 
     // ── Bowling lane ──────────────────────────────────────────────────────
     const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
@@ -774,6 +836,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         return
       }
 
+      // Ladder dismount
+      if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) {
+        climbingRef.current = false; setClimbing(false); nearLadderRef.current = false; setNearLadder(false)
+      }
+      // Ladder mount — if near ladder and pressing W
+      if (!climbingRef.current && nearLadderRef.current && mapped === 'w' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) {
+        climbingRef.current = true; setClimbing(true)
+      }
+
       // Ring toss start
       if (rtossStateRef.current === 'idle' && mapped === 'e' && nearRTossRef.current) {
         e.preventDefault()
@@ -801,10 +872,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       }
 
       // Jump — Space when grounded and not in a mini-game
-      if (e.key === ' ' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !focusActiveRef.current) {
-        if (player.position.y <= 0.05) {
-          playerVelY = 6.0
-        }
+      if (e.key === ' ' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !focusActiveRef.current && !sittingRef.current) {
+        jumpPressedRef.current = true
         return
       }
 
@@ -940,22 +1009,18 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         player.position.z = THREE.MathUtils.clamp(player.position.z, -78, 8)
 
         // ── Jump / gravity ────────────────────────────────────────────
-        if (bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) {
-          // Ramp: south side of trampoline
-          const inRampX = Math.abs(player.position.x - TRAMP_CX) < 0.8
-          const inRampZ = player.position.z >= RAMP_Z_TOP && player.position.z <= RAMP_Z_BOT
-          if (inRampX && inRampZ) {
-            const rampT = (player.position.z - RAMP_Z_BOT) / (RAMP_Z_TOP - RAMP_Z_BOT)
-            const rampY = rampT * TRAMP_Y
-            if (player.position.y < rampY) {
-              player.position.y = rampY
-              if (playerVelY < 0) playerVelY = 0
-            }
-          }
-
+        if (bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current && !climbingRef.current) {
           // Trampoline surface
           const td = Math.hypot(player.position.x - TRAMP_CX, player.position.z - TRAMP_CZ)
-          const onTrampSurface = td < TRAMP_R && player.position.y >= TRAMP_Y - 0.1 && player.position.y <= TRAMP_Y + 0.2
+          const onTrampSurface = td < TRAMP_R - 0.2 && player.position.y >= TRAMP_Y - 0.15 && player.position.y <= TRAMP_Y + 0.3
+
+          // Process jump input
+          if (jumpPressedRef.current) {
+            jumpPressedRef.current = false
+            if (player.position.y <= 0.15) {
+              playerVelY = 6.5
+            }
+          }
 
           // Apply gravity
           playerVelY -= 18 * delta
@@ -966,15 +1031,20 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           // Trampoline bounce
           if (onTrampSurface && playerVelY < 0) {
             player.position.y = TRAMP_Y
-            playerVelY = 9.0
+            playerVelY = 10.0  // strong bounce
           }
 
-          // Ground clamp
+          // Player standing still on trampoline (not bouncing)
+          if (onTrampSurface && playerVelY >= 0 && player.position.y < TRAMP_Y + 0.05) {
+            player.position.y = TRAMP_Y
+          }
+
+          // Ground clamp (only when not on trampoline)
           if (player.position.y <= 0 && !onTrampSurface) {
             player.position.y = 0
             if (playerVelY < 0) playerVelY = 0
           }
-        } else {
+        } else if (!climbingRef.current) {
           // Reset gravity state when in mini-game
           playerVelY = 0
         }
@@ -1076,6 +1146,54 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           const bCamPos   = new THREE.Vector3(s.x - (FIRE_POS.x - s.x) * 0.5, 1.8, s.z - (FIRE_POS.z - s.z) * 0.5)
           camera.position.lerp(bCamPos, 0.07)
           camera.lookAt(bFireLook)
+        }
+
+        // ── Ladder proximity & climb ─────────────────────────────────────────
+        const ladderDist = Math.hypot(player.position.x - LADDER_X, player.position.z - LADDER_Z)
+        if (!climbingRef.current) {
+          const nearL = ladderDist < LADDER_PROX && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current
+          if (nearL !== nearLadderRef.current) { nearLadderRef.current = nearL; setNearLadder(nearL) }
+        } else {
+          player.position.x = THREE.MathUtils.lerp(player.position.x, LADDER_X, 0.2)
+          player.position.z = THREE.MathUtils.lerp(player.position.z, LADDER_Z, 0.2)
+          playerVelY = 0
+          if (keys.has('w')) player.position.y = Math.min(TRAMP_Y + 0.1, player.position.y + 3.0 * delta)
+          if (keys.has('s')) player.position.y = Math.max(0, player.position.y - 3.0 * delta)
+          if (player.position.y >= TRAMP_Y) {
+            climbingRef.current = false; setClimbing(false)
+            player.position.x = TRAMP_CX; player.position.z = TRAMP_CZ
+          }
+          if (player.position.y <= 0) { climbingRef.current = false; setClimbing(false) }
+        }
+
+        // ── Player collision resolution ───────────────────────────────────────
+        if (!sittingRef.current && !climbingRef.current) {
+          const PR = PLAYER_R
+          cylCols.forEach(c => {
+            const dx = player.position.x - c.x
+            const dz = player.position.z - c.z
+            const dist = Math.sqrt(dx * dx + dz * dz)
+            const minD = PR + c.r
+            if (dist < minD && dist > 0.001) {
+              const nx = dx / dist, nz = dz / dist
+              player.position.x = c.x + nx * minD
+              player.position.z = c.z + nz * minD
+            }
+          })
+          boxCols.forEach(b => {
+            const cx = THREE.MathUtils.clamp(player.position.x, b.x0, b.x1)
+            const cz = THREE.MathUtils.clamp(player.position.z, b.z0, b.z1)
+            const dx = player.position.x - cx
+            const dz = player.position.z - cz
+            const dist = Math.sqrt(dx * dx + dz * dz)
+            if (dist < PR && dist > 0.001) {
+              const nx = dx / dist, nz = dz / dist
+              player.position.x = cx + nx * PR
+              player.position.z = cz + nz * PR
+            } else if (dist === 0) {
+              player.position.x += PR
+            }
+          })
         }
 
         // ── Ring toss proximity & state machine ───────────────────────────────
@@ -1426,6 +1544,20 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
               <kbd className="font-bold mx-1">E</kbd> or move to stand
+            </div>
+          )}
+
+          {/* Ladder hints */}
+          {nearLadder && !climbing && !sitting && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+              Press <kbd className="font-bold mx-1">W</kbd> to climb
+            </div>
+          )}
+          {climbing && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+              <kbd className="font-bold mx-1">W</kbd>/<kbd className="font-bold mx-1">S</kbd> climb &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> dismount
             </div>
           )}
 
