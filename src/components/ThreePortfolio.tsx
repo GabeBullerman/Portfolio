@@ -75,6 +75,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [climbing, setClimbing] = useState(false)
   const [nearLadder, setNearLadder] = useState(false)
   const nearLadderRef   = useRef(false)
+  // Debug overlay (backtick to toggle)
+  const debugModeRef    = useRef(false)
+  const debugPanelRef   = useRef<HTMLPreElement>(null)
+  // Object editor
+  const movablesRef     = useRef<{ name: string; group: THREE.Group }[]>([])
+  const [debugOpen, setDebugOpen]   = useState(false)
+  const [debugSel,  setDebugSel]    = useState(-1)
+  const [debugStep, setDebugStep]   = useState(1)
+  const [selPos,    setSelPos]      = useState<{ x: number; z: number } | null>(null)
 
   function exitFocus() {
     focusActiveRef.current  = false
@@ -188,12 +197,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // Cabin and pond positions (defined early for tree exclusion)
     const CABIN_X = -7, CABIN_Z = 19
-    const POND_X = 9,  POND_Z = 15, POND_R = 3.2
+    const POND_X = -25, POND_Z = -35, POND_R = 3.2
 
     const rng = mulberry32(42)
-    for (let i=0; i<175; i++) {
-      const x=(rng()-0.5)*130, z=rng()*110-82
-      if (Math.hypot(x,z)>74) continue
+    for (let i=0; i<220; i++) {
+      const x=(rng()-0.5)*160, z=rng()*130-95
+      if (Math.hypot(x,z)>90) continue
       if (SECTIONS.some(s=>Math.hypot(x-s.wx,z-s.wz)<6.5)) continue
       if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
       if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
@@ -230,20 +239,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
       }
     }
-    addFenceSide('z',   8, -28,  28, 18)   // North
-    addFenceSide('z', -78, -28,  28, 18)   // South
-    addFenceSide('x', -28, -78,   8, 27)   // West
-    addFenceSide('x',  28, -78,   8, 27)   // East
+    addFenceSide('z',  18, -42,  42, 28)   // North
+    addFenceSide('z', -92, -42,  42, 28)   // South
+    addFenceSide('x', -42, -92,  18, 37)   // West
+    addFenceSide('x',  42, -92,  18, 37)   // East
 
     // ── Signs ────────────────────────────────────────────────────────────
+    const signGroups: THREE.Group[] = []
     SECTIONS.forEach(({ id, label, wx, wz }) => {
+      const g = new THREE.Group(); g.position.set(wx, 0, wz); scene.add(g)
+      signGroups.push(g)
       cylCols.push({ x: wx, z: wz, r: 0.22 })
       const clear = new THREE.Mesh(new THREE.CircleGeometry(4.5,20), new THREE.MeshLambertMaterial({color:0x5a9c5a}))
-      clear.rotation.x=-Math.PI/2; clear.position.set(wx,0.01,wz); scene.add(clear)
+      clear.rotation.x=-Math.PI/2; clear.position.set(0,0.01,0); g.add(clear)
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.15,3.2,7), postMat)
-      post.position.set(wx,1.6,wz); post.castShadow=true; scene.add(post)
+      post.position.set(0,1.6,0); post.castShadow=true; g.add(post)
       const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
-      sign.position.set(wx,3.8,wz); sign.castShadow=true; scene.add(sign)
+      sign.position.set(0,3.8,0); sign.castShadow=true; g.add(sign)
     })
 
     // ── Stone paths between signs ─────────────────────────────────────────
@@ -363,92 +375,85 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const cabinMat  = new THREE.MeshLambertMaterial({ color: 0x6b3a1f })
     const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d })
 
-    // Foundation
-    const cabFound = new THREE.Mesh(new THREE.BoxGeometry(CW+0.4, 0.2, CD+0.4), new THREE.MeshLambertMaterial({ color: 0x999999 }))
-    cabFound.position.set(CABIN_X, 0.1, CABIN_Z); cabFound.receiveShadow = true; scene.add(cabFound)
-    // Back wall
-    const cabBack = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, 0.3), cabinMat)
-    cabBack.position.set(CABIN_X, CH/2, CABIN_Z - CD/2); cabBack.castShadow = true; scene.add(cabBack)
+    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); scene.add(cabGrp)
     boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
-    // Left wall
-    const cabLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
-    cabLeft.position.set(CABIN_X-CW/2, CH/2, CABIN_Z); cabLeft.castShadow = true; scene.add(cabLeft)
     boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    // Right wall
-    const cabRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
-    cabRight.position.set(CABIN_X+CW/2, CH/2, CABIN_Z); cabRight.castShadow = true; scene.add(cabRight)
     boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    // Front wall — left/right of door + strip above door
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+
+    // All cabin geometry is relative to cabGrp origin = (CABIN_X, 0, CABIN_Z)
+    const cabFound = new THREE.Mesh(new THREE.BoxGeometry(CW+0.4, 0.2, CD+0.4), new THREE.MeshLambertMaterial({ color: 0x999999 }))
+    cabFound.position.set(0, 0.1, 0); cabFound.receiveShadow = true; cabGrp.add(cabFound)
+    const cabBack = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, 0.3), cabinMat)
+    cabBack.position.set(0, CH/2, -CD/2); cabBack.castShadow = true; cabGrp.add(cabBack)
+    const cabLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
+    cabLeft.position.set(-CW/2, CH/2, 0); cabLeft.castShadow = true; cabGrp.add(cabLeft)
+    const cabRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
+    cabRight.position.set(CW/2, CH/2, 0); cabRight.castShadow = true; cabGrp.add(cabRight)
     const fwSeg = (CW - DOOR_W) / 2
     const cabFrontL = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
-    cabFrontL.position.set(CABIN_X - (DOOR_W + fwSeg)/2, CH/2, CABIN_Z+CD/2); cabFrontL.castShadow = true; scene.add(cabFrontL)
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    cabFrontL.position.set(-(DOOR_W + fwSeg)/2, CH/2, CD/2); cabFrontL.castShadow = true; cabGrp.add(cabFrontL)
     const cabFrontR = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
-    cabFrontR.position.set(CABIN_X + (DOOR_W + fwSeg)/2, CH/2, CABIN_Z+CD/2); cabFrontR.castShadow = true; scene.add(cabFrontR)
-    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    cabFrontR.position.set((DOOR_W + fwSeg)/2, CH/2, CD/2); cabFrontR.castShadow = true; cabGrp.add(cabFrontR)
     const cabFrontTop = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, CH-DOOR_H, 0.3), cabinMat)
-    cabFrontTop.position.set(CABIN_X, DOOR_H+(CH-DOOR_H)/2, CABIN_Z+CD/2); scene.add(cabFrontTop)
-    // Door (dark wood)
+    cabFrontTop.position.set(0, DOOR_H+(CH-DOOR_H)/2, CD/2); cabGrp.add(cabFrontTop)
     const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-0.1, DOOR_H, 0.1), new THREE.MeshLambertMaterial({ color: 0x3d1a00 }))
-    cabDoor.position.set(CABIN_X, DOOR_H/2, CABIN_Z+CD/2+0.06); scene.add(cabDoor)
-    // Windows (left & right walls)
+    cabDoor.position.set(0, DOOR_H/2, CD/2+0.06); cabGrp.add(cabDoor)
     ;[-1, 1].forEach(side => {
       const win = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.62, 0.62), new THREE.MeshBasicMaterial({ color: 0x1a3a5c }))
-      win.position.set(CABIN_X + side*(CW/2+0.05), CH*0.6, CABIN_Z+0.5); scene.add(win)
+      win.position.set(side*(CW/2+0.05), CH*0.6, 0.5); cabGrp.add(win)
       const wf = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.70, 0.70), new THREE.MeshLambertMaterial({ color: 0x8b5e2a }))
-      wf.position.copy(win.position); scene.add(wf)
+      wf.position.copy(win.position); cabGrp.add(wf)
     })
-    // Roof — two angled halves
     const halfRun = CW/2
     const roofHalfLen = Math.sqrt(halfRun*halfRun + ROOF_PK*ROOF_PK) + 0.35
     const roofAng = Math.atan2(ROOF_PK, halfRun)
     ;[-1, 1].forEach(side => {
       const rh = new THREE.Mesh(new THREE.BoxGeometry(roofHalfLen, 0.24, CD+0.9), roofMat2)
       rh.rotation.z = -side * roofAng
-      rh.position.set(CABIN_X + side*halfRun/2, CH + ROOF_PK/2, CABIN_Z)
-      rh.castShadow = true; scene.add(rh)
+      rh.position.set(side*halfRun/2, CH + ROOF_PK/2, 0)
+      rh.castShadow = true; cabGrp.add(rh)
     })
-    // Chimney
     const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.0, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
-    chim.position.set(CABIN_X+CW/4, CH+ROOF_PK*0.55, CABIN_Z-CD/4); scene.add(chim)
+    chim.position.set(CW/4, CH+ROOF_PK*0.55, -CD/4); cabGrp.add(chim)
     const chimCap = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.14, 0.80), new THREE.MeshLambertMaterial({ color: 0x666666 }))
-    chimCap.position.set(CABIN_X+CW/4, CH+ROOF_PK*0.55+1.1, CABIN_Z-CD/4); scene.add(chimCap)
-    // Porch step
+    chimCap.position.set(CW/4, CH+ROOF_PK*0.55+1.1, -CD/4); cabGrp.add(chimCap)
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
-    cabStep.position.set(CABIN_X, 0.1, CABIN_Z+CD/2+0.35); scene.add(cabStep)
+    cabStep.position.set(0, 0.1, CD/2+0.35); cabGrp.add(cabStep)
 
-    // ── Pond (near cabin) ─────────────────────────────────────────────────────
+    // ── Pond ─────────────────────────────────────────────────────────────────
+    const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
+
+    // All pond geometry is relative to pondGrp origin = (POND_X, 0, POND_Z)
     const pondMesh = new THREE.Mesh(
       new THREE.CircleGeometry(POND_R, 28),
       new THREE.MeshLambertMaterial({ color: 0x2255aa, transparent: true, opacity: 0.88 })
     )
-    pondMesh.rotation.x = -Math.PI/2; pondMesh.position.set(POND_X, 0.02, POND_Z); scene.add(pondMesh)
-    // Muddy rim ring
+    pondMesh.rotation.x = -Math.PI/2; pondMesh.position.set(0, 0.02, 0); pondGrp.add(pondMesh)
     const pondRim = new THREE.Mesh(
       new THREE.RingGeometry(POND_R, POND_R+0.55, 28),
       new THREE.MeshLambertMaterial({ color: 0x4a6b30, side: THREE.DoubleSide })
     )
-    pondRim.rotation.x = -Math.PI/2; pondRim.position.set(POND_X, 0.01, POND_Z); scene.add(pondRim)
-    // Reeds
+    pondRim.rotation.x = -Math.PI/2; pondRim.position.set(0, 0.01, 0); pondGrp.add(pondRim)
     const reedMat  = new THREE.MeshLambertMaterial({ color: 0x5a7a2a })
     const reedTopMat = new THREE.MeshLambertMaterial({ color: 0x5a3a10 })
     const reedRng  = mulberry32(555)
     for (let r = 0; r < 16; r++) {
       const ra = reedRng()*Math.PI*2, rr = POND_R*0.78 + reedRng()*POND_R*0.38
-      const rx = POND_X+Math.cos(ra)*rr, rz2 = POND_Z+Math.sin(ra)*rr
+      const rx = Math.cos(ra)*rr, rz2 = Math.sin(ra)*rr  // relative to pond center
       const rh = 0.75+reedRng()*0.65
       const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, rh, 4), reedMat)
-      reed.position.set(rx, rh/2, rz2); scene.add(reed)
+      reed.position.set(rx, rh/2, rz2); pondGrp.add(reed)
       const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.06, 0.18, 6), reedTopMat)
-      tip.position.set(rx, rh+0.09, rz2); scene.add(tip)
+      tip.position.set(rx, rh+0.09, rz2); pondGrp.add(tip)
     }
-    // Lily pads
     const lilyMat = new THREE.MeshLambertMaterial({ color: 0x2d6622 })
     for (let l = 0; l < 6; l++) {
       const la = (l/6)*Math.PI*2+0.5, lr = POND_R*0.45
       const lily = new THREE.Mesh(new THREE.CircleGeometry(0.26, 8), lilyMat)
-      lily.rotation.x = -Math.PI/2; lily.position.set(POND_X+Math.cos(la)*lr, 0.03, POND_Z+Math.sin(la)*lr)
-      scene.add(lily)
+      lily.rotation.x = -Math.PI/2; lily.position.set(Math.cos(la)*lr, 0.03, Math.sin(la)*lr)
+      pondGrp.add(lily)
     }
 
     // ── Ducks ─────────────────────────────────────────────────────────────────
@@ -472,11 +477,18 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const bill = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.16), duckBillMat)
       bill.position.set(0, -0.04, 0.16); headG.add(bill)
       const sa = (d/5)*Math.PI*2, sr = 1.0+duckRng()*1.8
-      const sx = POND_X+Math.cos(sa)*sr, sz = POND_Z+Math.sin(sa)*sr
+      const sx = pondGrp.position.x+Math.cos(sa)*sr, sz = pondGrp.position.z+Math.sin(sa)*sr
       g.position.set(sx, DUCK_Y, sz)
       scene.add(g)
       ducks.push({ group: g, headG, x: sx, z: sz, angle: duckRng()*Math.PI*2, timer: duckRng()*2.5, phase: d*1.26 })
     }
+
+    // ── Register movable objects for debug editor ─────────────────────────────
+    movablesRef.current = [
+      ...SECTIONS.map((s, i) => ({ name: `Sign: ${s.label}`, group: signGroups[i] })),
+      { name: 'Cabin', group: cabGrp },
+      { name: 'Pond',  group: pondGrp },
+    ]
 
     // ── Ball pit ──────────────────────────────────────────────────────────
     const PIT_R  = 2.2, PIT_WALL_H = 0.55
@@ -913,9 +925,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     relockRef.current = () => renderer.domElement.requestPointerLock()
 
     function triggerFocus(id: SectionId) {
-      const s = SECTIONS.find(sec=>sec.id===id)!
-      focusPosRef.current.set(s.wx,3.8,s.wz+7.0)
-      focusLookRef.current.set(s.wx,3.8,s.wz)
+      const si = SECTIONS.findIndex(sec=>sec.id===id)
+      const sg = signGroups[si]
+      focusPosRef.current.set(sg.position.x, 3.8, sg.position.z+7.0)
+      focusLookRef.current.set(sg.position.x, 3.8, sg.position.z)
       focusActiveRef.current=true; overlayShownRef.current=false; proxTimerRef.current=0
       document.exitPointerLock()
     }
@@ -928,6 +941,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Backtick toggles debug overlay + object editor
+      if (e.key === '`') {
+        debugModeRef.current = !debugModeRef.current
+        if (debugPanelRef.current) debugPanelRef.current.style.display = debugModeRef.current ? 'block' : 'none'
+        setDebugOpen(d => !d)
+        return
+      }
+
       const mapped = keyToWASD(e.key.toLowerCase())
       keys.add(mapped)
 
@@ -1217,10 +1238,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         camera.position.lerp(camTarget, 0.15)
         camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z)
 
-        // Proximity to signs
+        // Proximity to signs (reads live group positions so editor moves work)
         let nearest: SectionId | null = null, nearDist = PROX
-        SECTIONS.forEach(({ id, wx, wz }) => {
-          const d = Math.hypot(player.position.x - wx, player.position.z - wz)
+        SECTIONS.forEach(({ id }, si) => {
+          const sg = signGroups[si]
+          const d = Math.hypot(player.position.x - sg.position.x, player.position.z - sg.position.z)
           if (d < nearDist) { nearDist = d; nearest = id }
         })
 
@@ -1240,8 +1262,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
         // Progress ring — follows current sign, fills over 2.2 s
         if (nearest && !exitedRef.current && proxTimerRef.current > 0) {
-          const sec = SECTIONS.find(s => s.id === nearest)!
-          ringLine.position.set(sec.wx, 0, sec.wz)
+          const si = SECTIONS.findIndex(s => s.id === nearest)
+          ringLine.position.set(signGroups[si].position.x, 0, signGroups[si].position.z)
           ringLine.visible = true
           ringGeo.setDrawRange(0, Math.ceil((RING_SEGS + 1) * Math.min(proxTimerRef.current / 2.2, 1)))
         } else {
@@ -1469,7 +1491,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ducks.forEach(duck => {
         duck.timer -= delta
         if (duck.timer <= 0) {
-          const ddx = POND_X - duck.x, ddz = POND_Z - duck.z
+          const ddx = pondGrp.position.x - duck.x, ddz = pondGrp.position.z - duck.z
           if (Math.hypot(ddx, ddz) > 4.8) {
             // Steer back toward pond
             duck.angle = Math.atan2(ddz, ddx) + (Math.random()-0.5)*0.7
@@ -1488,6 +1510,34 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         // Head nod
         duck.headG.rotation.x = Math.sin(elapsed*5.5 + duck.phase) * 0.13
       })
+
+      // ── Debug panel live update ─────────────────────────────────────────
+      if (debugModeRef.current && debugPanelRef.current) {
+        const p = player.position
+        const yawDeg = ((camYaw * 180 / Math.PI) % 360).toFixed(1)
+        debugPanelRef.current.textContent = [
+          '=== DEBUG (` to close) ===',
+          `Player:      (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})  yaw: ${yawDeg}°`,
+          '',
+          'GAMES',
+          `  Bowling:      center(${BOWL_CX}, 0, ${BOWL_LANE_Z})  z: ${BOWL_START_Z}..${BOWL_PINS_Z}`,
+          `  Ring Toss:    center(${RTOSS_CX}, 0, ${(RTOSS_START_Z+RTOSS_POST_Z)/2})  z: ${RTOSS_START_Z}..${RTOSS_POST_Z}`,
+          `  Ball Pit:     center(${PIT_CX}, 0, ${PIT_CZ})  r: 2.2  wall h: 0.55`,
+          `  Trampoline:   center(${TRAMP_CX}, ${TRAMP_Y}, ${TRAMP_CZ})  r: ${TRAMP_R}  surface y: ${TRAMP_Y}`,
+          `  Ladder:       (${LADDER_X.toFixed(2)}, 0, ${LADDER_Z})  prox: ${LADDER_PROX}`,
+          '',
+          'STRUCTURES',
+          `  Cabin:        center(${CABIN_X}, 0, ${CABIN_Z})  w:7 d:5.5 h:3.2`,
+          `  Pond:         center(${POND_X}, 0, ${POND_Z})  r: ${POND_R}`,
+          `  Campfire:     (${FIRE_POS.x}, 0, ${FIRE_POS.z})`,
+          '',
+          'SIGNS  (prox: ${PROX})',
+          ...SECTIONS.map(s => `  ${s.label.padEnd(14)} (${s.wx}, ${s.wz})`),
+          '',
+          'WORLD BOUNDS',
+          '  x: -42 .. 42   z: -92 .. 18',
+        ].join('\n')
+      }
 
       renderer.render(scene, camera)
     }
@@ -1546,6 +1596,100 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       >
         ← 2D View
       </button>
+
+      {/* Player-position debug pre — updated directly in animate loop */}
+      <pre
+        ref={debugPanelRef}
+        style={{ display: 'none' }}
+        className="absolute z-20 left-4 bottom-4 text-xs text-green-300 bg-black/80 rounded-lg p-3 leading-5 pointer-events-none font-mono whitespace-pre"
+      />
+
+      {/* Object editor panel */}
+      {debugOpen && (
+        <div className="absolute z-20 right-4 top-4 bottom-4 w-64 bg-black/90 backdrop-blur-sm rounded-xl border border-white/20 text-white text-sm flex flex-col overflow-hidden select-none">
+          <div className="px-3 py-2 border-b border-white/10 flex justify-between items-center shrink-0">
+            <span className="font-bold text-xs tracking-wide">OBJECT EDITOR  <span className="text-white/40 font-normal">(` to close)</span></span>
+          </div>
+
+          {/* Object list */}
+          <div className="overflow-y-auto flex-1 p-2 flex flex-col gap-1">
+            {movablesRef.current.map((m, i) => (
+              <button
+                key={i}
+                onClick={() => { setDebugSel(i); setSelPos({ x: m.group.position.x, z: m.group.position.z }) }}
+                className={`text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${debugSel === i ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}
+              >
+                <span className="font-medium">{m.name}</span>
+                <span className="block text-white/50 font-mono">
+                  x={m.group.position.x.toFixed(1)}  z={m.group.position.z.toFixed(1)}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Move controls */}
+          {debugSel >= 0 && movablesRef.current[debugSel] && (() => {
+            const move = (dx: number, dz: number) => {
+              const m = movablesRef.current[debugSel]
+              m.group.position.x += dx; m.group.position.z += dz
+              setSelPos({ x: m.group.position.x, z: m.group.position.z })
+            }
+            return (
+              <div className="p-3 border-t border-white/10 shrink-0">
+                <div className="text-xs text-white/50 mb-1 font-mono">
+                  {selPos ? `x=${selPos.x.toFixed(2)}  z=${selPos.z.toFixed(2)}` : ''}
+                </div>
+                {/* Step size */}
+                <div className="flex gap-1 mb-2">
+                  {[0.5, 1, 2, 5].map(s => (
+                    <button key={s} onClick={() => setDebugStep(s)}
+                      className={`flex-1 text-xs py-0.5 rounded ${debugStep === s ? 'bg-blue-500' : 'bg-white/15 hover:bg-white/30'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                {/* Direction grid */}
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    ['↖',-1,-1],['↑',0,-1],['↗',1,-1],
+                    ['←',-1, 0],['·',0, 0],['→',1, 0],
+                    ['↙',-1, 1],['↓',0, 1],['↘',1, 1],
+                  ] as [string,number,number][]).map(([lbl,dx,dz],i) => (
+                    <button key={i} onClick={() => lbl !== '·' && move(dx*debugStep, dz*debugStep)}
+                      className={`py-1 text-sm rounded ${lbl==='·' ? 'opacity-0 pointer-events-none' : 'bg-white/15 hover:bg-white/35 active:bg-white/60'}`}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Copy button */}
+          <div className="p-3 border-t border-white/10 shrink-0">
+            <button
+              onClick={() => {
+                const lines = [
+                  '// Object positions',
+                  ...movablesRef.current.map(m =>
+                    `${m.name}: x=${m.group.position.x.toFixed(1)}, z=${m.group.position.z.toFixed(1)}`
+                  ),
+                  '',
+                  '// Fixed (constants.ts):',
+                  `TRAMP_CX=${TRAMP_CX}, TRAMP_CZ=${TRAMP_CZ}`,
+                  `PIT_CX=${PIT_CX}, PIT_CZ=${PIT_CZ}`,
+                  `BOWL_CX=${BOWL_CX}`,
+                  `RTOSS_CX=${RTOSS_CX}`,
+                ]
+                navigator.clipboard.writeText(lines.join('\n'))
+              }}
+              className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-500 rounded-lg text-xs font-semibold transition-colors"
+            >
+              📋 Copy All Positions
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Music mute toggle */}
       <button
