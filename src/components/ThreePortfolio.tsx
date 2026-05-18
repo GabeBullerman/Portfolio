@@ -269,14 +269,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           .map(r => r.value)
         const trees = [t1, t2, t3, ...fbxTrees]
         const treeNames = ['Tree1.3.glb', 'Tree2.3.glb', 'Tree3.3.glb', 'Tree low.FBX']
+        // Per-model base scale (user-tuned) + ground Y offset computed from bounding box
+        const baseScales = [0.950, 0.725, 1.075, 0.050]
+        const treeConfigs = trees.map((t, i) => {
+          const box = new THREE.Box3().setFromObject(t)
+          const yOff = box.min.y < -0.05 ? -box.min.y : 0  // lift model so base sits at y=0
+          const scale = baseScales[i] ?? 0.6
+          console.log(`[trees] variant ${i} (${treeNames[i] ?? 'FBX'}): baseScale=${scale}  yOff=${yOff.toFixed(3)}  raw min.y=${box.min.y.toFixed(3)}`)
+          return { scale, yOff }
+        })
         console.log(`[nature] Tree pool: ${trees.length} variants (${fbxTrees.length} FBX loaded)`)
 
         // Showcase — one of each tree at x=-24..x=-24+n*7, z=8 for debug scaling
-        const INIT_SC = 0.35 + 0.25 / 2
         trees.forEach((template, i) => {
+          const cfg = treeConfigs[i]
           const showcase = template.clone(true)
-          showcase.scale.setScalar(INIT_SC)
-          showcase.position.set(-24 + i * 7, 0, 8)
+          showcase.scale.setScalar(cfg.scale)
+          showcase.position.set(-24 + i * 7, cfg.yOff * cfg.scale, 8)
           scene.add(showcase)
           const g = new THREE.Group()
           g.position.set(showcase.position.x, 0, showcase.position.z)
@@ -317,7 +326,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         const tRng = mulberry32(42)
         for (let i = 0; i < 220; i++) {
           const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
-          const sc = 0.35 + tRng() * 0.25
+          const variation = 0.85 + tRng() * 0.30   // ±15% random size variation
           const yr = tRng() * Math.PI * 2
           const vi = Math.floor(tRng() * trees.length)
           if (Math.hypot(x, z) > 90) continue
@@ -330,9 +339,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
           if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
           if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
+          const cfg = treeConfigs[vi] ?? { scale: 0.6, yOff: 0 }
+          const sc = cfg.scale * variation
           cylCols.push({ x, z, r: 0.3 * sc })
           const obj = trees[vi].clone(true)
-          obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
+          obj.position.set(x, cfg.yOff * sc, z); obj.scale.setScalar(sc); obj.rotation.y = yr
           scene.add(obj)
         }
 
