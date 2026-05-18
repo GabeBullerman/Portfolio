@@ -660,8 +660,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
 
-      desk.position.set(1.59, 2.93, 0.30)
-      desk.rotation.y = Math.PI
+      desk.position.set(1.6, 2.93, 0.1)
+      desk.rotation.y = Math.PI/2
 
       cabGrp.add(desk)
       movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
