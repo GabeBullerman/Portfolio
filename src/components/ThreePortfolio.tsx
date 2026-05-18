@@ -28,7 +28,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   // Background music
   const audioRef      = useRef<HTMLAudioElement | null>(null)
   const [musicMuted, setMusicMuted] = useState(false)
+  const musicMutedRef = useRef(false)
   const musicStarted  = useRef(false)
+  // Radio proximity
+  const radioGroupRef = useRef<THREE.Group | null>(null)
+  const [nearRadio, setNearRadio] = useState(false)
+  const nearRadioRef  = useRef(false)
+  const RADIO_PROX    = 1.4
   const touchMoveRef    = useRef({ x: 0, y: 0 })
   const touchActiveRef  = useRef(false)
   const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
@@ -365,7 +371,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         function getYOffs(pool: THREE.Group[]): number[] {
           return pool.map(g => {
             const box = new THREE.Box3().setFromObject(g)
-            return box.min.y < -0.05 ? -box.min.y : 0
+            return -box.min.y  // always ground the object regardless of where its origin is
           })
         }
         const bushYOffs   = getYOffs(bushes)
@@ -392,6 +398,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
             if (Math.abs(x - BOWL_CX) < 4.0 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
             if (Math.abs(x - RTOSS_CX) < 3.5 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
+            if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 5.0) continue
+            if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2) continue
             if (extraChecks && extraChecks(x, z)) continue
             const obj = pool[vi].clone(true)
             const yOff = (yOffs?.[vi] ?? 0) * sc
@@ -430,9 +438,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         scatter(bushes,  77,  120, 0.8, 1.4, 5.0, (x, z) =>
           nearPath(x, z) ||
           Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
-          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
-          Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
-          Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2,
+          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5,
           bushYOffs
         )
         scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
@@ -734,7 +740,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
 
-      chair.position.set(2.2, 2.085, -1.8)
+      chair.position.set(1.8, 2.085, -1.8)
       chair.rotation.set(0, Math.PI, 0)
       chair.scale.set(0.85,0.85,0.85)
 
@@ -805,6 +811,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       radioGroup.position.set(-3.4, 2.9, -2.3)
       radioGroup.rotation.set(0,82,0)
       cabGrp.add(radioGroup)
+      radioGroupRef.current = radioGroup
 
       movablesRef.current.push({
         name: '📻 Radio (cabin local)',
@@ -1457,6 +1464,13 @@ if (
     sleepStateRef.current = 'closing'
     return
   }
+
+  if (nearRadioRef.current && audioRef.current) {
+    audioRef.current.muted = !audioRef.current.muted
+    musicMutedRef.current = audioRef.current.muted
+    setMusicMuted(audioRef.current.muted)
+    return
+  }
 }
 
       // Ladder dismount
@@ -1929,6 +1943,17 @@ if (
           if (nearBedVal !== nearBedRef.current) {
             nearBedRef.current = nearBedVal
             setNearBed(nearBedVal)
+          }
+
+          if (radioGroupRef.current) {
+            const radioWorld = new THREE.Vector3()
+            radioGroupRef.current.getWorldPosition(radioWorld)
+            const nearRadioVal =
+              Math.hypot(player.position.x - radioWorld.x, player.position.z - radioWorld.z) < RADIO_PROX
+            if (nearRadioVal !== nearRadioRef.current) {
+              nearRadioRef.current = nearRadioVal
+              setNearRadio(nearRadioVal)
+            }
           }
         } else if (sittingAtRef.current === 'bench') {
           const s = BENCH_POSITIONS[seatIdxRef.current]
@@ -2548,20 +2573,25 @@ if (
         </div>
       )}
 
-      {/* Music mute toggle */}
-      <button
-        onClick={() => {
-          if (audioRef.current) {
-            audioRef.current.muted = !audioRef.current.muted
-            setMusicMuted(audioRef.current.muted)
-          }
-        }}
-        className="absolute z-10 px-3 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full text-sm hover:bg-white hover:text-black transition-colors duration-300"
-        style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', right: '1rem' }}
-        title={musicMuted ? 'Unmute music' : 'Mute music'}
-      >
-        {musicMuted ? '🔇' : '🎵'}
-      </button>
+      {/* Muted indicator — small, unobtrusive, always visible when music is off */}
+      {musicMuted && (
+        <div
+          className="absolute z-10 px-3 py-1.5 bg-black/60 backdrop-blur-sm text-white/70 rounded-full text-xs pointer-events-none select-none"
+          style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', right: '1rem' }}
+        >
+          🔇 muted
+        </div>
+      )}
+
+      {/* Radio interaction prompt */}
+      {!monitorMode && nearRadio && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
+            <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
+            {musicMuted ? 'Unmute Music' : 'Mute Music'}
+          </div>
+        </div>
+      )}
 
       {/* Bowling overlay — shown when actively bowling */}
       {!activeSection && bowlDisplay.state !== 'idle' && (

@@ -1,0 +1,10 @@
+========================================= FEATURES TO IMPLEMENT ===================================
+- Hitboxes to new trees
+- Lower rocks, some of them float
+- Nature scatter bounding to ball pit
+- Swing integration maybe
+- Jukebox + table
+- Outdoor lighting and nightime lighting config (trees and some objects are lit because of their files, but the general lighting is dark)
+- Time of day indicator inside cabin
+- Music to auto-mute when using computer and viewing the 2D version of the portfolio (more professional)
+- I'm going to make a drawing of myself and I want him to show up on the right edge of the 2D portfolio and point at the go outside button after like 10 seconds with a speech bubble saying to look at it, maybe use a stick figure for now
