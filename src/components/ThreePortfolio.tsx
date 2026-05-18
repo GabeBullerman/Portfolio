@@ -81,6 +81,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const doorOpenRef     = useRef(false)
   const doorRotRef      = useRef(0)
   const doorPivotRef    = useRef<THREE.Group | null>(null)
+  // Cabin light switch
+  const cabLightOnRef   = useRef(true)
+  const nearSwitchRef   = useRef(false)
+  const [nearSwitch, setNearSwitch] = useState(false)
+  const cabSpotRef      = useRef<THREE.SpotLight | null>(null)
   // Debug overlay (backtick to toggle)
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
@@ -297,6 +302,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           })
         })
 
+        // Path corridor exclusion — keeps nature off the stone path between signs
+        const PATH_WP: [number, number][] = [
+          [FIRE_POS.x, FIRE_POS.z],
+          ...SECTIONS.map(s => [s.wx, s.wz] as [number, number]),
+        ]
+        function nearPath(px: number, pz: number, halfW = 1.6): boolean {
+          for (let i = 0; i < PATH_WP.length - 1; i++) {
+            const [x1, z1] = PATH_WP[i], [x2, z2] = PATH_WP[i + 1]
+            const dx = x2 - x1, dz = z2 - z1
+            const len2 = dx * dx + dz * dz
+            const t = len2 < 0.001 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (pz - z1) * dz) / len2))
+            if (Math.hypot(px - (x1 + t * dx), pz - (z1 + t * dz)) < halfW) return true
+          }
+          return false
+        }
+
         // Pre-compute ground Y offsets for each pool variant
         function getYOffs(pool: THREE.Group[]): number[] {
           return pool.map(g => {
@@ -364,6 +385,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
 
         scatter(bushes,  77,  120, 0.8, 1.4, 5.0, (x, z) =>
+          nearPath(x, z) ||
           Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
           Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
@@ -371,11 +393,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           bushYOffs
         )
         scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
+          nearPath(x, z) ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0,
           stoneYOffs
         )
-        scatter(flowers, 123, 160, 4.0, 7.0, 3.5, undefined, flowerYOffs)
-        scatter(mushs,    55,  60, 3.0, 5.5, 4.0, undefined, mushYOffs)
+        scatter(flowers, 123, 160, 2.0, 3.5, 3.5, (x, z) => nearPath(x, z), flowerYOffs)
+        scatter(mushs,    55,  60, 1.2, 2.2, 4.0, (x, z) => nearPath(x, z), mushYOffs)
         console.log('[nature] All assets scattered successfully')
       })
     }).catch(err => {
@@ -639,23 +662,43 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       return { mesh: m, offset: t * 3.2, speed: 0.5 + Math.random()*0.4, drift: (Math.random()-0.5)*0.06 }
     })
 
-    // Interior ceiling light — load lamp model, mount at ceiling centre, SpotLight from same point
+    // Interior ceiling light — SpotLight + lamp model at ceiling centre
     const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
     cabLight.position.set(0, CH - 0.05, 0)
     cabLight.target.position.set(0, 0, 0)
     cabGrp.add(cabLight); cabGrp.add(cabLight.target)
+    cabSpotRef.current = cabLight
 
-    gltfLoader.load('/assets/cabin/light/scene.gltf', gltf => {
+    gltfLoader.load('/assets/cabin/light/light.gltf', gltf => {
       const lamp = gltf.scene
       lamp.traverse(child => {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
-      // Raw model is ~2 units wide; scale to fit ceiling (0.6 units wide)
       lamp.scale.setScalar(0.3)
-      // Hang at ceiling centre — bottom of pyramid base (y=CH in cabGrp local space)
       lamp.position.set(0, CH, 0)
       cabGrp.add(lamp)
     }, undefined, err => console.error('[cabin] lamp failed:', err))
+
+    // Light switch — right of door frame, on interior wall
+    // Local coords: x=DOOR_W/2+0.35 (right of door), y=CH*0.5, z=CD/2-0.06 (front wall interior face)
+    const SWITCH_LX = DOOR_W / 2 + 0.35
+    const SWITCH_LY = CH * 0.5
+    const SWITCH_LZ = CD / 2 - 0.06
+    let switchToggleNode: THREE.Object3D | null = null
+    gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
+      const sw = gltf.scene
+      sw.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      // Raw plate is ~0.07 tall × 0.114 wide at scale 1; scale up to be visible (~0.22 tall)
+      sw.scale.setScalar(3.0)
+      sw.position.set(SWITCH_LX, SWITCH_LY, SWITCH_LZ)
+      // Face into the cabin (-Z local direction)
+      sw.rotation.y = Math.PI
+      cabGrp.add(sw)
+      switchToggleNode = sw.getObjectByName('Switch.001') ?? sw
+      console.log('[cabin] switch loaded, toggle node:', switchToggleNode?.name)
+    }, undefined, err => console.error('[cabin] switch failed:', err))
 
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
     cabStep.position.set(0, 0.1, CD/2+0.35); cabGrp.add(cabStep)
@@ -671,22 +714,27 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const box = new THREE.Box3().setFromObject(desk)
       const size = new THREE.Vector3(); box.getSize(size)
       const center = new THREE.Vector3(); box.getCenter(center)
-      console.log(`[cabin] gaming setup raw size: x=${size.x.toFixed(2)} y=${size.y.toFixed(2)} z=${size.z.toFixed(2)}`)
-
       const targetWidth = 3.2
       const sc = targetWidth / size.x
       desk.scale.setScalar(sc)
 
       // Re-measure after scale to get floor offset
       const box2 = new THREE.Box3().setFromObject(desk)
-      const yOff = -box2.min.y  // lift so base sits on floor
+      const yOff = -box2.min.y
 
-      // Place against back wall (local -Z in cabGrp, which faces north in world)
-      // cabGrp is rotated 180°: local -Z = world +Z = back of cabin
       desk.position.set(-center.x * sc, yOff, -CD/2 + size.z * sc * 0.5 + 0.15)
-      desk.rotation.y = Math.PI  // face toward door (+Z local = toward player)
+      desk.rotation.y = Math.PI
 
       cabGrp.add(desk)
+
+      // Debugging — tune targetWidth / position from these numbers
+      const box3 = new THREE.Box3().setFromObject(desk)
+      const scaledSize = new THREE.Vector3(); box3.getSize(scaledSize)
+      const scaledCenter = new THREE.Vector3(); box3.getCenter(scaledCenter)
+      console.log(`[desk] sc=${sc.toFixed(3)}  scaledSize x=${scaledSize.x.toFixed(2)} y=${scaledSize.y.toFixed(2)} z=${scaledSize.z.toFixed(2)}`)
+      console.log(`[desk] localPos x=${desk.position.x.toFixed(2)} y=${desk.position.y.toFixed(2)} z=${desk.position.z.toFixed(2)}  rotY=${desk.rotation.y.toFixed(2)}`)
+      console.log(`[desk] scaledCenter x=${scaledCenter.x.toFixed(2)} y=${scaledCenter.y.toFixed(2)} z=${scaledCenter.z.toFixed(2)}`)
+      console.log(`[desk] cabin interior: x ∈ [${(-CW/2+0.2).toFixed(2)}, ${(CW/2-0.2).toFixed(2)}]  z ∈ [${(-CD/2+0.2).toFixed(2)}, ${(CD/2-0.2).toFixed(2)}]`)
     }, undefined, err => console.error('[cabin] gaming setup failed:', err))
 
     // ── Pond ─────────────────────────────────────────────────────────────────
@@ -1314,6 +1362,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         return
       }
 
+      // Light switch toggle
+      if (mapped === 'e' && nearSwitchRef.current) {
+        cabLightOnRef.current = !cabLightOnRef.current
+        if (cabSpotRef.current) cabSpotRef.current.visible = cabLightOnRef.current
+        return
+      }
+
       if (mapped==='e' && !focusActiveRef.current && currentSecRef.current) {
         triggerFocus(currentSecRef.current)
       }
@@ -1698,6 +1753,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           }
           player.position.set(RTOSS_CX, 0, RTOSS_START_Z + 1.5)
           player.rotation.y = Math.PI
+        }
+
+        // ── Light switch proximity ────────────────────────────────────
+        // Switch is at cabGrp local (SWITCH_LX, _, SWITCH_LZ); world = (CABIN_X - SWITCH_LX, _, CABIN_Z - SWITCH_LZ)
+        {
+          const swWX = CABIN_X - (DOOR_W / 2 + 0.35)
+          const swWZ = CABIN_Z - (CD / 2 - 0.06)
+          const swDist = Math.hypot(player.position.x - swWX, player.position.z - swWZ)
+          const newNear = swDist < 1.6
+          if (newNear !== nearSwitchRef.current) { nearSwitchRef.current = newNear; setNearSwitch(newNear) }
         }
 
         // ── Bowling proximity & state machine ──────────────────────────
@@ -2217,8 +2282,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             </div>
           )}
 
+          {/* Light switch hint */}
+          {nearSwitch && !nearBowl && !nearRToss && !nearBench && !sitting && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+              Press <kbd className="font-bold mx-1">E</kbd> to toggle light
+            </div>
+          )}
+
           {/* Desktop: near-sign hint (above controls bar) */}
-          {!nearBowl && !nearRToss && !nearBench && !sitting && nearSign && (
+          {!nearSwitch && !nearBowl && !nearRToss && !nearBench && !sitting && nearSign && (
             <div
               className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}

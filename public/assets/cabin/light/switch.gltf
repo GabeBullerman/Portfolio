@@ -1,0 +1,846 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 1740,
+      "max": [
+        0.002500000409781933,
+        0.03500000387430191,
+        0.05700000748038292
+      ],
+      "min": [
+        -0.0025000006426125765,
+        -0.03500000387430191,
+        -0.05700000748038292
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 20880,
+      "componentType": 5126,
+      "count": 1740,
+      "max": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "min": [
+        0.0,
+        -1.0,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 1740,
+      "max": [
+        1.0,
+        0.5387279391288757,
+        2.5872932383208536e-06,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -0.5387258529663086,
+        -1.0,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 1740,
+      "max": [
+        0.9603102207183838,
+        0.9567776322364807
+      ],
+      "min": [
+        0.009149368852376938,
+        0.009149368852376938
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 13920,
+      "componentType": 5126,
+      "count": 1740,
+      "max": [
+        0.9603102207183838,
+        0.9567776322364807
+      ],
+      "min": [
+        0.009149368852376938,
+        0.009149368852376938
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 8256,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 41760,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.0009493253892287612,
+        0.0038926287088543177,
+        0.003892399836331606
+      ],
+      "min": [
+        -0.0006015321705490351,
+        -0.0038926282431930304,
+        -0.0038924808613955975
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 44784,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        1.0,
+        0.990693211555481,
+        1.0
+      ],
+      "min": [
+        -2.700453933357494e-06,
+        -0.990693211555481,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 27840,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        1.0,
+        0.5820785760879517,
+        6.727159416186623e-06,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -0.5829924941062927,
+        -1.0,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 27840,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.3279396593570709,
+        0.33223283290863037
+      ],
+      "min": [
+        0.25874602794647217,
+        0.2769020199775696
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 29856,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.3279396593570709,
+        0.33223283290863037
+      ],
+      "min": [
+        0.25874602794647217,
+        0.2769020199775696
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 33024,
+      "componentType": 5125,
+      "count": 702,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 47808,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.0009493252728134394,
+        0.0038926287088543177,
+        0.003892473876476288
+      ],
+      "min": [
+        -0.0006015322869643569,
+        -0.0038926282431930304,
+        -0.0038924068212509155
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 50832,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        1.0,
+        0.990693211555481,
+        1.0
+      ],
+      "min": [
+        -2.7004541607311694e-06,
+        -0.990693211555481,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 31872,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        1.0,
+        0.5829920172691345,
+        4.974025614501443e-06,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -0.5820894241333008,
+        -1.0,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 31872,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.5456509590148926,
+        0.24478624761104584
+      ],
+      "min": [
+        0.4764573872089386,
+        0.18945543467998505
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 33888,
+      "componentType": 5126,
+      "count": 252,
+      "max": [
+        0.5456509590148926,
+        0.24478624761104584
+      ],
+      "min": [
+        0.4764573872089386,
+        0.18945543467998505
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 35832,
+      "componentType": 5125,
+      "count": 702,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 53856,
+      "componentType": 5126,
+      "count": 109,
+      "max": [
+        0.010532902553677559,
+        0.013707548379898071,
+        0.029432307928800583
+      ],
+      "min": [
+        -0.004729951731860638,
+        -0.013707548379898071,
+        -0.03143046051263809
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 55164,
+      "componentType": 5126,
+      "count": 109,
+      "max": [
+        0.999916672706604,
+        1.0,
+        1.0
+      ],
+      "min": [
+        0.0,
+        -1.0,
+        -0.9955891370773315
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 35904,
+      "componentType": 5126,
+      "count": 109,
+      "max": [
+        1.0,
+        0.7264724373817444,
+        -0.00018043079762719572,
+        1.0
+      ],
+      "min": [
+        -0.9955891966819763,
+        -0.7266501784324646,
+        -0.9999807476997375,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 35904,
+      "componentType": 5126,
+      "count": 109,
+      "max": [
+        0.6515527963638306,
+        0.9915351271629333
+      ],
+      "min": [
+        0.24788300693035126,
+        0.752312421798706
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 36776,
+      "componentType": 5126,
+      "count": 109,
+      "max": [
+        0.6515527963638306,
+        0.9915351271629333
+      ],
+      "min": [
+        0.24788300693035126,
+        0.752312421798706
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 38640,
+      "componentType": 5125,
+      "count": 480,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 56472,
+      "componentType": 5126,
+      "count": 340,
+      "max": [
+        0.003504423424601555,
+        0.016479820013046265,
+        0.03320273384451866
+      ],
+      "min": [
+        -0.0024999999441206455,
+        -0.016479820013046265,
+        -0.03320273384451866
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 60552,
+      "componentType": 5126,
+      "count": 340,
+      "max": [
+        1.0,
+        0.9987959265708923,
+        0.9987958669662476
+      ],
+      "min": [
+        -8.469426688861859e-07,
+        -0.9987959265708923,
+        -0.9987958669662476
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 37648,
+      "componentType": 5126,
+      "count": 340,
+      "max": [
+        1.0,
+        1.0,
+        0.15837135910987854,
+        1.0
+      ],
+      "min": [
+        -0.7301851511001587,
+        -6.516053872474004e-06,
+        -0.15835782885551453,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 37648,
+      "componentType": 5126,
+      "count": 340,
+      "max": [
+        0.950076162815094,
+        0.9536300301551819
+      ],
+      "min": [
+        0.009149368852376938,
+        0.009149368852376938
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 40368,
+      "componentType": 5126,
+      "count": 340,
+      "max": [
+        0.950076162815094,
+        0.9536300301551819
+      ],
+      "min": [
+        0.009149368852376938,
+        0.009149368852376938
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 40560,
+      "componentType": 5125,
+      "count": 864,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "Avot (https://sketchfab.com/avot)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/light-switch-808c3de4dd874fc1b67ff15cd2645555",
+      "title": "Light Switch"
+    },
+    "generator": "Sketchfab-13.42.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 44016,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 43088,
+      "byteOffset": 44016,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 64632,
+      "byteOffset": 87104,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 43088,
+      "byteOffset": 151736,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 194824,
+      "uri": "switch.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "textures/lightswitch_baseColor.png"
+    },
+    {
+      "uri": "textures/lightswitch_metallicRoughness.png"
+    },
+    {
+      "uri": "textures/lightswitch_normal.png"
+    }
+  ],
+  "materials": [
+    {
+      "name": "lightswitch",
+      "normalTexture": {
+        "index": 2
+      },
+      "occlusionTexture": {
+        "index": 1
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 1
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "CoverPlate.001_lightswitch_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TANGENT": 2,
+            "TEXCOORD_0": 3,
+            "TEXCOORD_1": 4
+          },
+          "indices": 5,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "ScrewBottom.001_lightswitch_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 7,
+            "POSITION": 6,
+            "TANGENT": 8,
+            "TEXCOORD_0": 9,
+            "TEXCOORD_1": 10
+          },
+          "indices": 11,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "ScrewTop.001_lightswitch_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 13,
+            "POSITION": 12,
+            "TANGENT": 14,
+            "TEXCOORD_0": 15,
+            "TEXCOORD_1": 16
+          },
+          "indices": 17,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "Switch.001_lightswitch_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 19,
+            "POSITION": 18,
+            "TANGENT": 20,
+            "TEXCOORD_0": 21,
+            "TEXCOORD_1": 22
+          },
+          "indices": 23,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "SwitchHolder.001_lightswitch_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 25,
+            "POSITION": 24,
+            "TANGENT": 26,
+            "TEXCOORD_0": 27,
+            "TEXCOORD_1": 28
+          },
+          "indices": 29,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.220446049250313e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.009999999776482582,
+        0.0,
+        0.0,
+        -0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "lightswitch.fbx"
+    },
+    {
+      "children": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4
+      ],
+      "matrix": [
+        100.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.629206793918314e-05,
+        -99.99999999999868,
+        0.0,
+        0.0,
+        99.99999999999868,
+        -1.629206793918314e-05,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "CoverPlate.001"
+    },
+    {
+      "mesh": 0,
+      "name": "CoverPlate.001_lightswitch_0"
+    },
+    {
+      "children": [
+        6
+      ],
+      "matrix": [
+        100.0,
+        2.1675476505541993e-14,
+        -1.738659135156886e-14,
+        0.0,
+        1.7386586320381712e-14,
+        -97.61765288440563,
+        -21.697784341717785,
+        0.0,
+        -2.1675480541216785e-14,
+        21.697784341717785,
+        -97.61765288440563,
+        0.0,
+        0.21015289425849915,
+        -4.688732147216797,
+        0.010166800580918789,
+        1.0
+      ],
+      "name": "ScrewBottom.001"
+    },
+    {
+      "mesh": 1,
+      "name": "ScrewBottom.001_lightswitch_0"
+    },
+    {
+      "children": [
+        8
+      ],
+      "matrix": [
+        100.0,
+        -1.0547992104316942e-14,
+        -2.6653230063587683e-15,
+        0.0,
+        2.6653216946707533e-15,
+        47.50393433742741,
+        -87.99644706797278,
+        0.0,
+        1.0547991579630223e-14,
+        87.99644706797278,
+        47.50393433742741,
+        0.0,
+        0.21015290915966034,
+        4.688732624053955,
+        0.010166803374886513,
+        1.0
+      ],
+      "name": "ScrewTop.001"
+    },
+    {
+      "mesh": 2,
+      "name": "ScrewTop.001_lightswitch_0"
+    },
+    {
+      "children": [
+        10
+      ],
+      "matrix": [
+        99.99999987195999,
+        0.005060435066866634,
+        7.717318971367515e-10,
+        0.0,
+        1.5961814162757494e-09,
+        -1.629206789477422e-05,
+        -99.99999999999869,
+        0.0,
+        -0.0050604350668664415,
+        99.99999987195866,
+        -1.6292067961387602e-05,
+        0.0,
+        -0.2500000298023224,
+        0.09999999403953552,
+        0.0,
+        1.0
+      ],
+      "name": "Switch.001"
+    },
+    {
+      "mesh": 3,
+      "name": "Switch.001_lightswitch_0"
+    },
+    {
+      "children": [
+        12
+      ],
+      "matrix": [
+        100.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.629206793918314e-05,
+        -99.99999999999868,
+        0.0,
+        0.0,
+        99.99999999999868,
+        -1.629206793918314e-05,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "SwitchHolder.001"
+    },
+    {
+      "mesh": 4,
+      "name": "SwitchHolder.001_lightswitch_0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ]
+}
