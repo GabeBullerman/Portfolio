@@ -217,7 +217,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         )
       })
     }
-    function loadFBX(path: string): Promise<THREE.Group> {
+    function loadFBX(path: string, normalizeHeight = 6): Promise<THREE.Group> {
       return new Promise((resolve, reject) => {
         fbxLoader.load(
           path,
@@ -225,6 +225,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             grp.traverse(child => {
               if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
             })
+            // Normalize oversized FBX models (Blender often exports in cm = 100× scale)
+            const box = new THREE.Box3().setFromObject(grp)
+            const h = new THREE.Vector3(); box.getSize(h)
+            if (h.y > 10) grp.scale.setScalar(normalizeHeight / h.y)
             logSize(path.split('/').pop()!, grp)
             resolve(grp)
           },
@@ -320,8 +324,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0
         )
-        scatter(flowers, 123, 160, 0.6, 1.0, 3.5)
-        scatter(mushs,    55,  60, 0.4, 0.8, 4.0)
+        scatter(flowers, 123, 160, 4.0, 7.0, 3.5)
+        scatter(mushs,    55,  60, 3.0, 5.5, 4.0)
         console.log('[nature] All assets scattered successfully')
       })
     }).catch(err => {
