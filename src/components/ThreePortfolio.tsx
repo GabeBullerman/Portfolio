@@ -73,6 +73,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   // Jump
   const jumpPressedRef  = useRef(false)
   const onRampRef       = useRef(false)
+  const onFloorRef      = useRef(false)
   // Ladder climb
   const climbingRef     = useRef(false)
   const [climbing, setClimbing] = useState(false)
@@ -1445,7 +1446,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           // Process jump input
           if (jumpPressedRef.current) {
             jumpPressedRef.current = false
-            if (player.position.y <= 0.15 || onRampRef.current) {
+            if (player.position.y <= 0.15 || onRampRef.current || onFloorRef.current) {
               playerVelY = 6.5
             }
           }
@@ -1495,6 +1496,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
               }
             }
           }
+
+          // Elevated cabin floor — surface support (like ground clamp but at floor height)
+          onFloorRef.current = false
+          movablesRef.current.forEach(m => {
+            if (!m.isHitbox || !m.name.includes('Floor')) return
+            const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
+            if (!mesh) return
+            mesh.updateMatrixWorld(true)
+            const wb = new THREE.Box3().setFromObject(mesh)
+            const inXZ = player.position.x > wb.min.x && player.position.x < wb.max.x &&
+                         player.position.z > wb.min.z && player.position.z < wb.max.z
+            if (inXZ && player.position.y <= wb.max.y && player.position.y > wb.max.y - 1.2) {
+              player.position.y = wb.max.y
+              if (playerVelY < 0) playerVelY = 0
+              onFloorRef.current = true
+            }
+          })
 
           // Ground clamp (only when not on trampoline)
           if (player.position.y <= 0 && !onTrampSurface) {
