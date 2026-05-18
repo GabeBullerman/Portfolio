@@ -57,7 +57,7 @@ export const RTOSS_POST_R  = 0.044
 export const PIT_CX   = 18
 export const PIT_CZ   = -22
 export const TRAMP_CX = 8
-export const TRAMP_CZ = -20
+export const TRAMP_CZ = -58
 export const TRAMP_R  = 4.8
 export const TRAMP_Y  = 2.0   // trampoline surface height
 export const LADDER_X = TRAMP_CX + TRAMP_R + 0.35   // east side of trampoline
@@ -75,4 +75,4 @@ export const SECTIONS: SectionCfg[] = [
   { id: 'contact',        label: 'Contact',    wx:  2,  wz: -72 },
 ]
 
-export const PROX = 6.5
+export const PROX = 4.5

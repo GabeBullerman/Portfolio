@@ -166,7 +166,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Collision system ──────────────────────────────────────────────────
     interface CylCol { x: number; z: number; r: number }
-    interface BoxCol { x0: number; x1: number; z0: number; z1: number }
+    interface BoxCol { x0: number; x1: number; z0: number; z1: number; maxY: number }
     const cylCols: CylCol[] = []
     const boxCols: BoxCol[] = []
 
@@ -366,7 +366,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       { w: 0.18, d: PIT_R*2,      px: PIT_CX + PIT_R, pz: PIT_CZ         },
     ].forEach(({ w, d, px, pz }) => {
       // Box collider for player
-      boxCols.push({ x0: px - w/2, x1: px + w/2, z0: pz - d/2, z1: pz + d/2 })
+      boxCols.push({ x0: px - w/2, x1: px + w/2, z0: pz - d/2, z1: pz + d/2, maxY: PIT_WALL_H })
       const wm = new THREE.Mesh(new THREE.BoxGeometry(w, PIT_WALL_H, d), pitWallMat)
       wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm)
       const wb = new CANNON.Body({ mass: 0 })
@@ -425,11 +425,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
     scene.add(trampFrame)
 
-    // Blue net cylinder (open-ended, 1.2m tall above frame)
-    const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true)
-    const netMesh = new THREE.Mesh(netGeo, netMat)
-    netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
-    scene.add(netMesh)
+    // Blue net — two arcs leaving a gap on the east side where the ladder is
+    // Ladder is at angle 0 (east, +X). Leave ~50° gap centred there.
+    const NET_GAP = Math.PI / 3.6  // ~50° gap
+    ;[
+      { start: NET_GAP / 2,          length: Math.PI * 2 - NET_GAP },
+    ].forEach(({ start, length }) => {
+      const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, start, length)
+      const netMesh = new THREE.Mesh(netGeo, netMat)
+      netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
+      scene.add(netMesh)
+    })
 
     // Net support poles — 8 evenly spaced vertical poles + cylinder colliders
     const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
@@ -460,22 +466,21 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     trampBody.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
     physWorld.addBody(trampBody)
 
-    // ── Ladder (east side of trampoline) ─────────────────────────────────
+    // ── Ladder (east side of trampoline, flush against rim) ──────────────
+    // Rails separated in Z so ladder face is east-west (player approaches from +X)
     const ladderMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
-    const railGeo   = new THREE.BoxGeometry(0.06, TRAMP_Y, 0.06)
-    const rungGeo   = new THREE.BoxGeometry(0.5, 0.05, 0.06)
+    const railGeo   = new THREE.BoxGeometry(0.07, TRAMP_Y, 0.07)
+    const rungGeo   = new THREE.BoxGeometry(0.07, 0.05, 0.54)  // extends in Z
 
-    // Two vertical rails
-    ;[-0.25, 0.25].forEach(ox => {
+    ;[-0.27, 0.27].forEach(oz => {
       const rail = new THREE.Mesh(railGeo, ladderMat)
-      rail.position.set(LADDER_X + ox, TRAMP_Y / 2, LADDER_Z)
+      rail.position.set(LADDER_X, TRAMP_Y / 2, LADDER_Z + oz)
       scene.add(rail)
     })
-    // Rungs
-    const rungCount = Math.floor(TRAMP_Y / 0.32)
+    const rungCount = Math.floor(TRAMP_Y / 0.30)
     for (let i = 0; i < rungCount; i++) {
       const rung = new THREE.Mesh(rungGeo, ladderMat)
-      rung.position.set(LADDER_X, 0.25 + i * (TRAMP_Y / rungCount), LADDER_Z)
+      rung.position.set(LADDER_X, 0.28 + i * (TRAMP_Y / rungCount), LADDER_Z)
       scene.add(rung)
     }
 
@@ -1181,6 +1186,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             }
           })
           boxCols.forEach(b => {
+            if (player.position.y >= b.maxY) return  // player jumped over the wall
             const cx = THREE.MathUtils.clamp(player.position.x, b.x0, b.x1)
             const cz = THREE.MathUtils.clamp(player.position.z, b.z0, b.z1)
             const dx = player.position.x - cx
