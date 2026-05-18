@@ -630,7 +630,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
       lamp.scale.setScalar(0.3)
-      lamp.position.set(0, CH, 0)
+      lamp.position.set(1.6, 2.9, 0.1)
+      lamp.rotation.set(90, 180, 90)
       cabGrp.add(lamp)
       movablesRef.current.push({ name: '💡 Lamp (cabin local)', group: lamp as unknown as THREE.Group, scaleObj: lamp })
     }, undefined, err => console.error('[cabin] lamp failed:', err))
@@ -661,7 +662,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
 
       desk.position.set(1.6, 2.93, 0.1)
-      desk.rotation.y = Math.PI/2
+      desk.rotation.y = Math.PI/4
 
       cabGrp.add(desk)
       movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
