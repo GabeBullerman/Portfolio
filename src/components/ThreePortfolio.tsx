@@ -197,23 +197,35 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const fbxLoader  = new FBXLoader()
 
     function loadGLB(path: string): Promise<THREE.Group> {
-      return new Promise(resolve => {
-        gltfLoader.load(path, gltf => {
-          gltf.scene.traverse(child => {
-            if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
-          })
-          resolve(gltf.scene)
-        })
+      return new Promise((resolve, reject) => {
+        gltfLoader.load(
+          path,
+          gltf => {
+            console.log('[nature] GLB loaded:', path, gltf.scene)
+            gltf.scene.traverse(child => {
+              if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+            })
+            resolve(gltf.scene)
+          },
+          undefined,
+          err => { console.error('[nature] GLB FAILED:', path, err); reject(err) }
+        )
       })
     }
     function loadFBX(path: string): Promise<THREE.Group> {
-      return new Promise(resolve => {
-        fbxLoader.load(path, grp => {
-          grp.traverse(child => {
-            if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
-          })
-          resolve(grp)
-        })
+      return new Promise((resolve, reject) => {
+        fbxLoader.load(
+          path,
+          grp => {
+            console.log('[nature] FBX loaded:', path, grp)
+            grp.traverse(child => {
+              if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+            })
+            resolve(grp)
+          },
+          undefined,
+          err => { console.error('[nature] FBX FAILED:', path, err); reject(err) }
+        )
       })
     }
 
@@ -304,6 +316,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
       // Mushrooms
       scatter(mushs, 55, 60, 0.4, 0.8, 4.0)
+      console.log('[nature] All assets scattered successfully')
+    }).catch(err => {
+      console.error('[nature] Promise.all failed — one or more assets did not load:', err)
     })
 
     // ── World border fence ──────────────────────────────────────────────────────
