@@ -90,11 +90,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   // Object editor
-  const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D }[]>([])
+  const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D; isHitbox?: boolean }[]>([])
   const [debugOpen, setDebugOpen]   = useState(false)
   const [debugSel,  setDebugSel]    = useState(-1)
   const [debugStep, setDebugStep]   = useState(1)
   const [selPos,    setSelPos]      = useState<{ x: number; y: number; z: number } | null>(null)
+  const [selRot,    setSelRot]      = useState<{ x: number; y: number; z: number } | null>(null)
 
   function exitFocus() {
     focusActiveRef.current  = false
@@ -295,11 +296,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           const g = new THREE.Group()
           g.position.set(showcase.position.x, 0, showcase.position.z)
           scene.add(g)
-          movablesRef.current.push({
-            name: `🌲 Tree ${i + 1}: ${treeNames[i] ?? 'FBX'}`,
-            group: g,
-            scaleObj: showcase,
-          })
         })
 
         // Path corridor exclusion — keeps nature off the stone path between signs
@@ -564,7 +560,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const CD = 5.5, CH = 3.2
     const DOOR_W = 1.1
 
-    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI / 2; scene.add(cabGrp)
+    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI * 1.5; scene.add(cabGrp)
 
     // GLB cabin shell — scaled to match CW × CH footprint; interactive elements added separately below
     gltfLoader.load('/assets/cabin/cabin/Untitled.glb', gltf => {
@@ -594,9 +590,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       boxCols.push({ x0: wBox.min.x, x1: doorCX - doorHalfW, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
       boxCols.push({ x0: doorCX + doorHalfW, x1: wBox.max.x, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
 
-      // Position ramp at front of cabin (door face)
-      rampGrp.position.set(0, 0, -(wBox.max.z - CABIN_Z) - 0.5)
-
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
@@ -607,10 +600,34 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       new THREE.BoxGeometry(1.8, 0.05, 2.0),
       new THREE.MeshBasicMaterial({ visible: false })
     )
-    rampMesh.position.set(0, 0, CD / 2 + 1.0)  // default: in front of door, tune in debugger
+    rampMesh.position.set(0, 0, CD / 2 + 1.0)
     cabGrp.add(rampMesh)
     const rampGrp = new THREE.Group(); rampGrp.position.copy(rampMesh.position); cabGrp.add(rampGrp)
     movablesRef.current.push({ name: '🪜 Ramp hitbox (cabin local)', group: rampGrp })
+
+    // ── Visible hitbox planes (semi-transparent, align in debugger) ───────────
+    const hitboxMat = (color: number) => new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+    })
+    const addHitboxPlane = (name: string, w: number, h: number, d: number, px: number, py: number, pz: number, color: number) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hitboxMat(color))
+      mesh.position.set(px, py, pz)
+      cabGrp.add(mesh)
+      const grp = new THREE.Group(); grp.position.set(px, py, pz); cabGrp.add(grp)
+      movablesRef.current.push({ name, group: grp, isHitbox: true })
+      // keep mesh in sync with group position/rotation each frame via reference
+      ;(grp as any).__hitMesh = mesh
+    }
+    // Walls: red — tweak positions in debugger to match GLB geometry
+    addHitboxPlane('🟥 Wall: Front-L',  2.0, 2.5, 0.2,  -2.0, 1.25, -CD/2, 0xff3333)
+    addHitboxPlane('🟥 Wall: Front-R',  2.0, 2.5, 0.2,   2.0, 1.25, -CD/2, 0xff3333)
+    addHitboxPlane('🟥 Wall: Back',     5.0, 2.5, 0.2,   0.0, 1.25,  CD/2, 0xff3333)
+    addHitboxPlane('🟥 Wall: Left',     0.2, 2.5, 5.0,  -3.4, 1.25, 0.0, 0xff3333)
+    addHitboxPlane('🟥 Wall: Right',    0.2, 2.5, 5.0,   3.4, 1.25, 0.0, 0xff3333)
+    // Floor: green
+    addHitboxPlane('🟩 Floor',          6.0, 0.1, 5.0,   0.0, 0.05, 0.0, 0x33ff66)
+    // Stairs: orange
+    addHitboxPlane('🟧 Stairs',         1.8, 0.1, 2.0,   0.0, 0.0, -CD/2 - 1.0, 0xff8800)
 
     // Interior ceiling light — SpotLight + lamp model at ceiling centre
     const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
@@ -1948,23 +1965,39 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             const snap = () => {
               const m = movablesRef.current[debugSel]
               setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z })
+              setSelRot({ x: m.group.rotation.x, y: m.group.rotation.y, z: m.group.rotation.z })
+            }
+            const syncHitMesh = (m: typeof movablesRef.current[0]) => {
+              const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
+              if (mesh) {
+                mesh.position.copy(m.group.position)
+                mesh.rotation.copy(m.group.rotation)
+              }
             }
             const move = (dx: number, dz: number) => {
               const m = movablesRef.current[debugSel]
               m.group.position.x += dx; m.group.position.z += dz
               m.meshes?.forEach(obj => { obj.position.x += dx; obj.position.z += dz })
-              snap()
+              syncHitMesh(m); snap()
             }
             const moveY = (dy: number) => {
               const m = movablesRef.current[debugSel]
               m.group.position.y += dy
               m.meshes?.forEach(obj => { obj.position.y += dy })
-              snap()
+              syncHitMesh(m); snap()
+            }
+            const rotate = (axis: 'x' | 'y' | 'z', deg: number) => {
+              const m = movablesRef.current[debugSel]
+              m.group.rotation[axis] += deg * Math.PI / 180
+              syncHitMesh(m); snap()
             }
             return (
-              <div className="p-3 border-t border-white/10 shrink-0">
-                <div className="text-xs text-white/50 mb-1 font-mono">
-                  {selPos ? `x=${selPos.x.toFixed(2)}  y=${selPos.y.toFixed(2)}  z=${selPos.z.toFixed(2)}` : ''}
+              <div className="p-3 border-t border-white/10 shrink-0 overflow-y-auto">
+                <div className="text-xs text-white/50 mb-1 font-mono leading-tight">
+                  {selPos ? `pos  x=${selPos.x.toFixed(2)} y=${selPos.y.toFixed(2)} z=${selPos.z.toFixed(2)}` : ''}
+                </div>
+                <div className="text-xs text-white/40 mb-2 font-mono leading-tight">
+                  {selRot ? `rot  x=${(selRot.x*180/Math.PI).toFixed(1)}° y=${(selRot.y*180/Math.PI).toFixed(1)}° z=${(selRot.z*180/Math.PI).toFixed(1)}°` : ''}
                 </div>
                 {/* Step size */}
                 <div className="flex gap-1 mb-2">
@@ -1975,7 +2008,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                     </button>
                   ))}
                 </div>
-                {/* Y axis (up/down) */}
+                {/* Y axis */}
                 <div className="flex gap-1 mb-1">
                   {[-1, -0.25, +0.25, +1].map(d => (
                     <button key={d} onClick={() => moveY(d * debugStep)}
@@ -1984,8 +2017,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                     </button>
                   ))}
                 </div>
-                {/* Direction grid (X/Z) */}
-                <div className="grid grid-cols-3 gap-1">
+                {/* XZ direction grid */}
+                <div className="grid grid-cols-3 gap-1 mb-2">
                   {([
                     ['↖',-1,-1],['↑',0,-1],['↗',1,-1],
                     ['←',-1, 0],['·',0, 0],['→',1, 0],
@@ -1998,13 +2031,28 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                   ))}
                 </div>
 
+                {/* Rotation controls */}
+                <div className="mt-1 pt-2 border-t border-white/10">
+                  <div className="text-xs text-white/50 mb-1">Rotation (°)</div>
+                  {(['x','y','z'] as const).map(axis => (
+                    <div key={axis} className="flex gap-1 mb-1 items-center">
+                      <span className="text-xs text-white/50 w-4 font-mono uppercase">{axis}</span>
+                      {[-45, -15, -5, +5, +15, +45].map(d => (
+                        <button key={d} onClick={() => rotate(axis, d)}
+                          className="flex-1 text-xs py-0.5 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
+                          {d > 0 ? `+${d}` : d}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
                 {/* Scale controls */}
                 {movablesRef.current[debugSel]?.scaleObj && (() => {
                   const sc = movablesRef.current[debugSel].scaleObj!
                   const applyScale = (delta: number) => {
                     const next = Math.max(0.05, parseFloat((sc.scale.x + delta).toFixed(3)))
                     sc.scale.setScalar(next)
-                    console.log(`[scale] ${movablesRef.current[debugSel].name}: ${next.toFixed(3)}`)
                     setSelPos(p => p ? { ...p } : { x: 0, y: 0, z: 0 })
                   }
                   return (
@@ -2031,18 +2079,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           <div className="p-3 border-t border-white/10 shrink-0">
             <button
               onClick={() => {
-                const lines = [
-                  '// Object positions',
-                  ...movablesRef.current.map(m =>
-                    `${m.name}: x=${m.group.position.x.toFixed(2)}, y=${m.group.position.y.toFixed(2)}, z=${m.group.position.z.toFixed(2)}`
-                  ),
-                  '',
-                  '// Fixed (constants.ts):',
-                  `TRAMP_CX=${TRAMP_CX}, TRAMP_CZ=${TRAMP_CZ}`,
-                  `PIT_CX=${PIT_CX}, PIT_CZ=${PIT_CZ}`,
-                  `BOWL_CX=${BOWL_CX}`,
-                  `RTOSS_CX=${RTOSS_CX}`,
-                ]
+                const r2d = (r: number) => (r * 180 / Math.PI).toFixed(1)
+                const lines = movablesRef.current.map(m => {
+                  const p = m.group.position, rot = m.group.rotation
+                  const base = `${m.name}: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`
+                  const rotStr = `rot(${r2d(rot.x)}°, ${r2d(rot.y)}°, ${r2d(rot.z)}°)`
+                  return m.isHitbox ? `${base}  ${rotStr}` : base
+                })
                 navigator.clipboard.writeText(lines.join('\n'))
               }}
               className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-500 rounded-lg text-xs font-semibold transition-colors"
