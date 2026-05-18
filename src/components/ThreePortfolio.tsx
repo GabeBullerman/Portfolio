@@ -577,16 +577,19 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
-    // Invisible stair ramp — add to movablesRef for positioning in debug editor
-    // Adjust position/scale in debugger to align with GLB cabin stairs
-    const RAMP_H = 0.65   // height at top of stairs
+    // Stair ramp — visible orange plane, aligned to cabin stairs
     const rampMesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.8, 0.05, 2.0),
       new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })
     )
-    rampMesh.position.set(0, 0, CD / 2 + 1.0)
+    rampMesh.position.set(-7.50, 0.75, -0.25)
+    rampMesh.rotation.z = Math.PI / 4
+    rampMesh.scale.set(2.0, 0.05, 1.0)
     cabGrp.add(rampMesh)
-    const rampGrp = new THREE.Group(); rampGrp.position.copy(rampMesh.position); cabGrp.add(rampGrp)
+    const rampGrp = new THREE.Group()
+    rampGrp.position.copy(rampMesh.position)
+    rampGrp.rotation.copy(rampMesh.rotation)
+    cabGrp.add(rampGrp)
     ;(rampGrp as any).__hitMesh = rampMesh
 
     // ── Visible hitbox planes (semi-transparent, align in debugger) ───────────
@@ -608,8 +611,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addHitboxPlane('🟥 Wall: Back',     5.0, 2.5, 0.2,   0.0, 1.25,  CD/2, 0xff3333)
     addHitboxPlane('🟥 Wall: Left',     0.2, 2.5, 5.0,  -3.4, 1.25, 0.0, 0xff3333)
     addHitboxPlane('🟥 Wall: Right',    0.2, 2.5, 5.0,   3.4, 1.25, 0.0, 0xff3333)
-    // Floor: green
-    addHitboxPlane('🟩 Floor',          6.0, 0.1, 5.0,   0.0, 0.05, 0.0, 0x33ff66)
+    // Floor: green — 9.0×5.0 footprint baked from aligned scale(1.5,1,1)
+    addHitboxPlane('🟩 Floor',          9.0, 0.1, 5.0,  -1.50, 2.05, 0.00, 0x33ff66)
     // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
     // Interior ceiling light — SpotLight + lamp model at ceiling centre
@@ -1465,21 +1468,30 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             player.position.y = TRAMP_Y
           }
 
-          // Cabin stair ramp — rampGrp.position is in cabGrp local space; convert to world
+          // Cabin stair ramp — world position via getWorldPosition, slope from rotation.z
           {
-            const rp = rampGrp.position
-            // cabGrp rotation.y=0 so local = world offset + cabGrp origin
-            const rwx = CABIN_X + rp.x, rwz = CABIN_Z + rp.z, rwy = rampGrp.position.y
-            const rHalfW = 0.9, rHalfD = 1.0
-            if (
-              player.position.x >= rwx - rHalfW && player.position.x <= rwx + rHalfW &&
-              player.position.z >= rwz - rHalfD && player.position.z <= rwz + rHalfD
-            ) {
-              const t = Math.max(0, Math.min(1, (player.position.z - (rwz - rHalfD)) / (rHalfD * 2)))
-              const rampFloor = rwy + t * RAMP_H
-              if (player.position.y < rampFloor) {
-                player.position.y = rampFloor
-                if (playerVelY < 0) playerVelY = 0
+            const rMesh = (rampGrp as any).__hitMesh as THREE.Mesh | undefined
+            if (rMesh) {
+              const rc = new THREE.Vector3(); rampGrp.getWorldPosition(rc)
+              // BoxGeometry(1.8, 0.05, 2.0): width=1.8 (slope axis), depth=2.0 (width axis)
+              // cabGrp.rotation.y=1.5π maps local-X → world-Z, local-Z → world-X
+              const halfLen = 0.9 * rMesh.scale.x   // half-length along slope (world Z)
+              const halfW   = 1.0 * rMesh.scale.z   // half-width perpendicular (world X)
+              const slope   = Math.tan(Math.abs(rampGrp.rotation.z))
+              const yHigh   = rc.y + halfLen * slope  // Y at near-cabin end (small Z)
+              const yLow    = rc.y - halfLen * slope  // Y at far end (large Z)
+              const zNear   = rc.z - halfLen
+              const zFar    = rc.z + halfLen
+              if (
+                player.position.x > rc.x - halfW && player.position.x < rc.x + halfW &&
+                player.position.z > zNear && player.position.z < zFar
+              ) {
+                const t = (player.position.z - zNear) / (zFar - zNear)
+                const surfaceY = yHigh + t * (yLow - yHigh)
+                if (surfaceY > -0.1 && player.position.y < surfaceY) {
+                  player.position.y = surfaceY
+                  if (playerVelY < 0) playerVelY = 0
+                }
               }
             }
           }
@@ -1653,9 +1665,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
               player.position.x += PR
             }
           })
-          // Dynamic collision from visible hitbox planes
+          // Dynamic collision from visible hitbox planes (walls only — ramp/floor handled separately)
           movablesRef.current.forEach(m => {
             if (!m.isHitbox) return
+            if (m.name.includes('Ramp') || m.name.includes('Floor')) return
             const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
             if (!mesh) return
             mesh.updateMatrixWorld(true)
