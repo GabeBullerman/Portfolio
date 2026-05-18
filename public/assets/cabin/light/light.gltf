@@ -122,16 +122,16 @@
   ],
   "images": [
     {
-      "uri": "textures/lamp_01_baseColor.jpeg"
+      "uri": "light textures/lamp_01_baseColor.jpeg"
     },
     {
-      "uri": "textures/lamp_01_metallicRoughness.png"
+      "uri": "light textures/lamp_01_metallicRoughness.png"
     },
     {
-      "uri": "textures/lamp_01_emissive.jpeg"
+      "uri": "light textures/lamp_01_emissive.jpeg"
     },
     {
-      "uri": "textures/lamp_01_normal.png"
+      "uri": "light textures/lamp_01_normal.png"
     }
   ],
   "materials": [

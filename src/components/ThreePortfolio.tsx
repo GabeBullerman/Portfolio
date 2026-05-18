@@ -581,7 +581,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // Stair ramp — visible orange plane, aligned to cabin stairs
     const rampMesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.8, 0.05, 2.0),
-      new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
     )
     rampMesh.position.set(-7.50, 0.75, -0.25)
     rampMesh.rotation.z = Math.PI / 4
@@ -595,7 +595,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Visible hitbox planes (semi-transparent, align in debugger) ───────────
     const hitboxMat = (color: number) => new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+      color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
     })
     const cabHitboxEntries: typeof movablesRef.current = []
     const addHitboxPlane = (name: string, w: number, h: number, d: number, px: number, py: number, pz: number, color: number, ry = 0, sx = 1, sy = 1, sz = 1) => {
@@ -617,10 +617,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addHitboxPlane('🟩 Floor',         9.0, 0.1, 5.0, -1.50, 2.05, -0.40, 0x33ff66,  0, 1.00, 1.00, 1.20)
     // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
-    // Interior ceiling light — SpotLight + lamp model at ceiling centre
-    const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
-    cabLight.position.set(0, CH - 0.05, 0)
-    cabLight.target.position.set(0, 0, 0)
+    // Wall light — SpotLight + lamp model mounted on back wall pointing inward
+    const cabLight = new THREE.SpotLight(0xffd080, 2.8, 12, Math.PI * 0.45, 0.40, 1.2)
+    cabLight.position.set(2.60, 3.80, -0.25)
+    cabLight.target.position.set(-1.50, 2.20, -0.25)
     cabGrp.add(cabLight); cabGrp.add(cabLight.target)
     cabSpotRef.current = cabLight
 
@@ -630,8 +630,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
       lamp.scale.setScalar(0.3)
-      lamp.position.set(1.6, 2.9, 0.1)
-      lamp.rotation.set(90, 180, 90)
+      // Mount on back wall (local +X face), rotated so emitter faces -X into cabin
+      lamp.rotation.set(0, 0, -Math.PI / 2)
+      lamp.position.set(2.80, 3.80, -0.25)
       cabGrp.add(lamp)
       movablesRef.current.push({ name: '💡 Lamp (cabin local)', group: lamp as unknown as THREE.Group, scaleObj: lamp })
     }, undefined, err => console.error('[cabin] lamp failed:', err))
