@@ -560,7 +560,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }))
 
     // ── Cabin (behind spawn) ──────────────────────────────────────────────────
-    const CD = 5.5, CH = 3.2
+    const CD = 5.5
     const DOOR_W = 1.1
 
     const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI * 1.5; scene.add(cabGrp)
