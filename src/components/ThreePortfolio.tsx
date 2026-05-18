@@ -619,7 +619,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // Wall light — SpotLight + lamp model mounted on back wall pointing inward
     const cabLight = new THREE.SpotLight(0xffd080, 2.8, 12, Math.PI * 0.45, 0.40, 1.2)
-    cabLight.position.set(2.60, 3.80, -0.25)
+    cabLight.position.set(2.60, 4.50, -0.25)
     cabLight.target.position.set(-1.50, 2.20, -0.25)
     cabGrp.add(cabLight); cabGrp.add(cabLight.target)
     cabSpotRef.current = cabLight
@@ -631,8 +631,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
       lamp.scale.setScalar(0.3)
       // Mount on back wall (local +X face), rotated so emitter faces -X into cabin
-      lamp.rotation.set(0, 0, -Math.PI / 2)
-      lamp.position.set(2.80, 3.80, -0.25)
+      lamp.rotation.set(0, Math.PI/2, -Math.PI / 2)
+      lamp.position.set(1.70, 3.80, -3.1)
       cabGrp.add(lamp)
       movablesRef.current.push({ name: '💡 Lamp (cabin local)', group: lamp as unknown as THREE.Group, scaleObj: lamp })
     }, undefined, err => console.error('[cabin] lamp failed:', err))
@@ -662,8 +662,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
 
-      desk.position.set(1.6, 2.93, 0.1)
-      desk.rotation.y = Math.PI/4
+      desk.position.set(2.0, 2.8, -2.20)
 
       cabGrp.add(desk)
       movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
