@@ -85,7 +85,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   // Object editor
-  const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[] }[]>([])
+  const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D }[]>([])
   const [debugOpen, setDebugOpen]   = useState(false)
   const [debugSel,  setDebugSel]    = useState(-1)
   const [debugStep, setDebugStep]   = useState(1)
@@ -268,7 +268,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           .filter((r): r is PromiseFulfilledResult<THREE.Group> => r.status === 'fulfilled')
           .map(r => r.value)
         const trees = [t1, t2, t3, ...fbxTrees]
+        const treeNames = ['Tree1.3.glb', 'Tree2.3.glb', 'Tree3.3.glb', 'Tree low.FBX']
         console.log(`[nature] Tree pool: ${trees.length} variants (${fbxTrees.length} FBX loaded)`)
+
+        // Showcase — one of each tree at x=-24..x=-24+n*7, z=8 for debug scaling
+        const INIT_SC = 0.35 + 0.25 / 2
+        trees.forEach((template, i) => {
+          const showcase = template.clone(true)
+          showcase.scale.setScalar(INIT_SC)
+          showcase.position.set(-24 + i * 7, 0, 8)
+          scene.add(showcase)
+          const g = new THREE.Group()
+          g.position.set(showcase.position.x, 0, showcase.position.z)
+          scene.add(g)
+          movablesRef.current.push({
+            name: `🌲 Tree ${i + 1}: ${treeNames[i] ?? 'FBX'}`,
+            group: g,
+            scaleObj: showcase,
+          })
+        })
 
         function scatter(
           pool: THREE.Group[], seed: number, count: number,
@@ -1887,6 +1905,32 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                     </button>
                   ))}
                 </div>
+
+                {/* Scale controls — only for tree showcase entries */}
+                {movablesRef.current[debugSel]?.scaleObj && (() => {
+                  const sc = movablesRef.current[debugSel].scaleObj!
+                  const applyScale = (delta: number) => {
+                    const next = Math.max(0.05, parseFloat((sc.scale.x + delta).toFixed(3)))
+                    sc.scale.setScalar(next)
+                    console.log(`[scale] ${movablesRef.current[debugSel].name}: ${next.toFixed(3)}`)
+                    setSelPos(p => p ? { ...p } : { x: 0, z: 0 }) // force re-render
+                  }
+                  return (
+                    <div className="mt-2 pt-2 border-t border-white/10">
+                      <div className="text-xs text-white/50 mb-1">
+                        Scale: <span className="text-white font-mono">{sc.scale.x.toFixed(3)}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {[-0.1, -0.05, +0.05, +0.1].map(d => (
+                          <button key={d} onClick={() => applyScale(d)}
+                            className="flex-1 text-xs py-1 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
+                            {d > 0 ? `+${d}` : d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })()}
