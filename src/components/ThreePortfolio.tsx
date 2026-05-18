@@ -377,14 +377,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const CW = 7, CD = 5.5, CH = 3.2, ROOF_PK = 1.4
     const DOOR_W = 1.1, DOOR_H = 2.1
     const cabinMat  = new THREE.MeshLambertMaterial({ color: 0x6b3a1f })
-    const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d })
+    const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d, side: THREE.DoubleSide })
 
-    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); scene.add(cabGrp)
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
+    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI; scene.add(cabGrp)
+    // Rotated 180°: local +Z → world -Z, so door (local +Z) faces south (CABIN_Z - CD/2)
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })  // back wall
     boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
     boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })  // front-left
+    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })  // front-right
 
     // All cabin geometry is relative to cabGrp origin = (CABIN_X, 0, CABIN_Z)
     const cabFound = new THREE.Mesh(new THREE.BoxGeometry(CW+0.4, 0.2, CD+0.4), new THREE.MeshLambertMaterial({ color: 0x999999 }))
@@ -445,6 +446,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     pyGeo.computeVertexNormals()
     const pyRoof = new THREE.Mesh(pyGeo, roofMat2)
     pyRoof.position.set(0, CH, 0); pyRoof.castShadow = true; cabGrp.add(pyRoof)
+    // Solid base cap seals the bottom of the pyramid (covers the chimney entry)
+    const pyCap = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), roofMat2)
+    pyCap.rotation.x = Math.PI / 2; pyCap.position.set(0, CH + 0.01, 0); cabGrp.add(pyCap)
 
     // Chimney (pokes through pyramid roof)
     const CHIM_X = CW/4, CHIM_Z = -CD/4
@@ -614,20 +618,20 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
     scene.add(trampFrame); trampMeshes.push(trampFrame)
 
-    // Blue net — gap on east side (+X) where the ladder is.
+    // Blue net — gap on south side (+Z) where the ladder is.
     const NET_GAP = Math.PI / 3.6  // ~50° gap
-    const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, Math.PI / 2 + NET_GAP / 2, Math.PI * 2 - NET_GAP)
+    const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, NET_GAP / 2, Math.PI * 2 - NET_GAP)
     const netMesh = new THREE.Mesh(netGeo, netMat)
     netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
     scene.add(netMesh); trampMeshes.push(netMesh)
 
-    // Net support poles — 12 evenly spaced, skip gap at east (+X)
+    // Net support poles — 12 evenly spaced, skip gap at south (+Z, math-angle π/2)
     const LADDER_GAP_HALF = NET_GAP / 2 + 0.18
     const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2
       const na = a > Math.PI ? a - Math.PI * 2 : a
-      if (Math.abs(na) < LADDER_GAP_HALF) continue
+      if (Math.abs(na - Math.PI / 2) < LADDER_GAP_HALF) continue
       const px = TRAMP_CX + Math.cos(a) * (TRAMP_R + 0.05)
       const pz = TRAMP_CZ + Math.sin(a) * (TRAMP_R + 0.05)
       const pole = new THREE.Mesh(poleGeo, frameMat2)
@@ -635,11 +639,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       scene.add(pole); trampMeshes.push(pole)
     }
 
-    // Dense rim colliders — prevent walking under trampoline; gap left at ladder (east, a≈0)
+    // Dense rim colliders — prevent walking under trampoline; gap left at ladder (south, a≈π/2)
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
       const na = a > Math.PI ? a - Math.PI * 2 : a
-      if (Math.abs(na) < LADDER_GAP_HALF + 0.1) continue
+      if (Math.abs(na - Math.PI / 2) < LADDER_GAP_HALF + 0.1) continue
       const px = TRAMP_CX + Math.cos(a) * TRAMP_R
       const pz = TRAMP_CZ + Math.sin(a) * TRAMP_R
       cylCols.push({ x: px, z: pz, r: 0.42, maxY: TRAMP_Y - 0.1 })
@@ -661,14 +665,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     trampBody.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
     physWorld.addBody(trampBody)
 
-    // ── Ladder (east side of trampoline, flush against rim) ──────────────
+    // ── Ladder (south side of trampoline, flush against rim) ──────────────
     const ladderMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
     const railGeo   = new THREE.BoxGeometry(0.07, TRAMP_Y, 0.07)
-    const rungGeo   = new THREE.BoxGeometry(0.07, 0.05, 0.54)
+    const rungGeo   = new THREE.BoxGeometry(0.54, 0.05, 0.07)
 
-    ;[-0.27, 0.27].forEach(oz => {
+    ;[-0.27, 0.27].forEach(ox => {
       const rail = new THREE.Mesh(railGeo, ladderMat)
-      rail.position.set(LADDER_X, TRAMP_Y / 2, LADDER_Z + oz)
+      rail.position.set(LADDER_X + ox, TRAMP_Y / 2, LADDER_Z)
       scene.add(rail); trampMeshes.push(rail)
     })
     const rungCount = Math.floor(TRAMP_Y / 0.30)
@@ -1574,7 +1578,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       // ── Cabin door auto-open ──────────────────────────────────────────────
       if (doorPivotRef.current) {
         const cx = cabGrp.position.x, cz = cabGrp.position.z
-        const doorWorldZ = cz + CD/2
+        const doorWorldZ = cz - CD/2   // door faces south after 180° rotation
         const nearDoor = Math.hypot(player.position.x - cx, player.position.z - doorWorldZ) < 2.8
         doorOpenRef.current = nearDoor
         const targetRot = nearDoor ? -Math.PI * 0.72 : 0

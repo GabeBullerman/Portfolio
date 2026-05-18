@@ -6,7 +6,7 @@ export type BowlState = 'idle' | 'aiming' | 'thrown' | 'result'
 export type RTossState = 'idle' | 'aiming' | 'thrown' | 'result'
 
 // ─── Bowling constants ────────────────────────────────────────────────────────
-export const BOWL_CX      = 22          // lane centre X
+export const BOWL_CX      = 30          // lane centre X
 export const BOWL_START_Z = -32         // where player throws from
 export const BOWL_PINS_Z  = -48         // front pin Z
 export const BOWL_LANE_Z  = -40         // lane visual centre Z
@@ -43,7 +43,7 @@ export const BENCH_POSITIONS = [
 export const BENCH_PROX = 2.3
 
 // ─── Ring toss constants ──────────────────────────────────────────────────────
-export const RTOSS_CX      = 14
+export const RTOSS_CX      = 23
 export const RTOSS_START_Z = -32
 export const RTOSS_POST_Z  = -44
 export const RTOSS_PROX    = 5.5
@@ -54,14 +54,14 @@ export const RTOSS_POST_H  = 1.5
 export const RTOSS_POST_R  = 0.044
 
 // ─── Ball pit + trampoline constants ─────────────────────────────────────────
-export const PIT_CX   = 18
-export const PIT_CZ   = -22
-export const TRAMP_CX = 20
-export const TRAMP_CZ = -58
+export const PIT_CX   = -10
+export const PIT_CZ   = -51
+export const TRAMP_CX = 25
+export const TRAMP_CZ = -63
 export const TRAMP_R  = 4.8
 export const TRAMP_Y  = 2.0   // trampoline surface height
-export const LADDER_X = TRAMP_CX + TRAMP_R + 0.12   // east side of trampoline, flush with rim
-export const LADDER_Z = TRAMP_CZ
+export const LADDER_X = TRAMP_CX                       // south side — centered in X
+export const LADDER_Z = TRAMP_CZ + TRAMP_R + 0.12     // flush with south rim
 export const LADDER_PROX = 2.2
 
 // ─── Sections ────────────────────────────────────────────────────────────────
