@@ -2033,7 +2033,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                 </div>
                 {/* Step size */}
                 <div className="flex gap-1 mb-2">
-                  {[0.5, 1, 2, 5].map(s => (
+                  {[0.1, 0.25, 0.5, 1, 2, 5].map(s => (
                     <button key={s} onClick={() => setDebugStep(s)}
                       className={`flex-1 text-xs py-0.5 rounded ${debugStep === s ? 'bg-blue-500' : 'bg-white/15 hover:bg-white/30'}`}>
                       {s}
