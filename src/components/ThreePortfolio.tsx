@@ -229,6 +229,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
     }
 
+    // GLBs first — all confirmed working
     Promise.all([
       '/assets/nature/Tree1.3.glb',
       '/assets/nature/Tree2.3.glb',
@@ -244,81 +245,82 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       '/assets/nature/Flower3.3.glb',
       '/assets/nature/Mushroom1.2.glb',
       '/assets/nature/Mushroom2.2.glb',
-    ].map(loadGLB).concat([
-      loadFBX('/assets/nature/cartoon_lowpoly_trees_fbx.FBX'),
-      loadFBX('/assets/nature/Lowpoly_tree_sample.fbx'),
-      loadFBX('/assets/nature/Tree low.FBX'),
-    ])).then(([t1, t2, t3, b1, b2, b3, s1, s2, s3, fl1, fl2, fl3, m1, m2, ft1, ft2, ft3]) => {
-      const trees   = [t1, t2, t3, ft1, ft2, ft3]
+    ].map(loadGLB)).then(([t1, t2, t3, b1, b2, b3, s1, s2, s3, fl1, fl2, fl3, m1, m2]) => {
       const bushes  = [b1, b2, b3]
       const stones  = [s1, s2, s3]
       const flowers = [fl1, fl2, fl3]
       const mushs   = [m1, m2]
 
-      function scatter(
-        pool: THREE.Group[], seed: number, count: number,
-        scMin: number, scMax: number, clearR: number,
-        extraChecks?: (x: number, z: number) => boolean
-      ) {
-        const r = mulberry32(seed)
-        for (let i = 0; i < count; i++) {
-          const x = (r() - 0.5) * 160, z = r() * 130 - 95
-          const sc = scMin + r() * (scMax - scMin)
-          const yr = r() * Math.PI * 2
-          const vi = Math.floor(r() * pool.length)
-          if (Math.hypot(x, z) > 88) continue
-          if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
-          if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
-          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
-          if (extraChecks && extraChecks(x, z)) continue
-          const obj = pool[vi].clone(true)
+      // FBX files loaded separately — failures are non-fatal
+      Promise.allSettled([
+        loadFBX('/assets/nature/cartoon_lowpoly_trees_fbx.FBX'),
+        loadFBX('/assets/nature/Lowpoly_tree_sample.fbx'),
+        loadFBX('/assets/nature/Tree low.FBX'),
+      ]).then(fbxResults => {
+        const fbxTrees = fbxResults
+          .filter((r): r is PromiseFulfilledResult<THREE.Group> => r.status === 'fulfilled')
+          .map(r => r.value)
+        const trees = [t1, t2, t3, ...fbxTrees]
+        console.log(`[nature] Tree pool: ${trees.length} variants (${fbxTrees.length} FBX loaded)`)
+
+        function scatter(
+          pool: THREE.Group[], seed: number, count: number,
+          scMin: number, scMax: number, clearR: number,
+          extraChecks?: (x: number, z: number) => boolean
+        ) {
+          const r = mulberry32(seed)
+          for (let i = 0; i < count; i++) {
+            const x = (r() - 0.5) * 160, z = r() * 130 - 95
+            const sc = scMin + r() * (scMax - scMin)
+            const yr = r() * Math.PI * 2
+            const vi = Math.floor(r() * pool.length)
+            if (Math.hypot(x, z) > 88) continue
+            if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
+            if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
+            if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
+            if (extraChecks && extraChecks(x, z)) continue
+            const obj = pool[vi].clone(true)
+            obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
+            scene.add(obj)
+          }
+        }
+
+        // Trees — also push cylinder colliders
+        const tRng = mulberry32(42)
+        for (let i = 0; i < 220; i++) {
+          const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
+          const sc = 1.0 + tRng() * 0.5
+          const yr = tRng() * Math.PI * 2
+          const vi = Math.floor(tRng() * trees.length)
+          if (Math.hypot(x, z) > 90) continue
+          if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < 6.5)) continue
+          if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
+          if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
+          if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
+          if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
+          if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
+          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
+          if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
+          cylCols.push({ x, z, r: 0.3 * sc })
+          const obj = trees[vi].clone(true)
           obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
           scene.add(obj)
         }
-      }
 
-      // Trees — also push cylinder colliders
-      const tRng = mulberry32(42)
-      for (let i = 0; i < 220; i++) {
-        const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
-        const sc = 1.0 + tRng() * 0.5
-        const yr = tRng() * Math.PI * 2
-        const vi = Math.floor(tRng() * 3)
-        if (Math.hypot(x, z) > 90) continue
-        if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < 6.5)) continue
-        if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
-        if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
-        if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
-        if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
-        if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
-        if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
-        if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
-        cylCols.push({ x, z, r: 0.3 * sc })
-        const obj = trees[vi].clone(true)
-        obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
-        scene.add(obj)
-      }
-
-      // Bushes
-      scatter(bushes, 77, 120, 0.8, 1.4, 5.0, (x, z) =>
-        Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
-        Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
-        Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2
-      )
-
-      // Stones
-      scatter(stones, 99, 80, 0.5, 1.2, 4.5, (x, z) =>
-        Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0
-      )
-
-      // Flowers
-      scatter(flowers, 123, 160, 0.6, 1.0, 3.5)
-
-      // Mushrooms
-      scatter(mushs, 55, 60, 0.4, 0.8, 4.0)
-      console.log('[nature] All assets scattered successfully')
+        scatter(bushes,  77,  120, 0.8, 1.4, 5.0, (x, z) =>
+          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
+          Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
+          Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2
+        )
+        scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
+          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0
+        )
+        scatter(flowers, 123, 160, 0.6, 1.0, 3.5)
+        scatter(mushs,    55,  60, 0.4, 0.8, 4.0)
+        console.log('[nature] All assets scattered successfully')
+      })
     }).catch(err => {
-      console.error('[nature] Promise.all failed — one or more assets did not load:', err)
+      console.error('[nature] GLB load failed:', err)
     })
 
     // ── World border fence ──────────────────────────────────────────────────────
