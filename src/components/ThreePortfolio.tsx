@@ -282,6 +282,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             const yr = r() * Math.PI * 2
             const vi = Math.floor(r() * pool.length)
             if (Math.hypot(x, z) > 88) continue
+            if (Math.hypot(x, z) < SPAWN_CLEAR - 4) continue
             if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
             if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
             if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
@@ -292,14 +293,17 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           }
         }
 
+        const SPAWN_CLEAR = 12  // keep trees away from player spawn (0, 0)
+
         // Trees — also push cylinder colliders
         const tRng = mulberry32(42)
         for (let i = 0; i < 220; i++) {
           const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
-          const sc = 1.0 + tRng() * 0.5
+          const sc = 0.35 + tRng() * 0.25
           const yr = tRng() * Math.PI * 2
           const vi = Math.floor(tRng() * trees.length)
           if (Math.hypot(x, z) > 90) continue
+          if (Math.hypot(x, z) < SPAWN_CLEAR) continue
           if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < 6.5)) continue
           if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
           if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
@@ -315,6 +319,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
 
         scatter(bushes,  77,  120, 0.8, 1.4, 5.0, (x, z) =>
+          Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
           Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
           Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2
