@@ -270,7 +270,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         const trees = [t1, t2, t3, ...fbxTrees]
         const treeNames = ['Tree1.3.glb', 'Tree2.3.glb', 'Tree3.3.glb', 'Tree low.FBX']
         // Per-model base scale (user-tuned) + ground Y offset computed from bounding box
-        const baseScales = [0.950, 0.725, 1.075, 0.050]
+        const baseScales = [0.950, 0.725, 0.625, 0.050]
         const treeConfigs = trees.map((t, i) => {
           const box = new THREE.Box3().setFromObject(t)
           const yOff = box.min.y < -0.05 ? -box.min.y : 0  // lift model so base sits at y=0
@@ -297,10 +297,23 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           })
         })
 
+        // Pre-compute ground Y offsets for each pool variant
+        function getYOffs(pool: THREE.Group[]): number[] {
+          return pool.map(g => {
+            const box = new THREE.Box3().setFromObject(g)
+            return box.min.y < -0.05 ? -box.min.y : 0
+          })
+        }
+        const bushYOffs   = getYOffs(bushes)
+        const stoneYOffs  = getYOffs(stones)
+        const flowerYOffs = getYOffs(flowers)
+        const mushYOffs   = getYOffs(mushs)
+
         function scatter(
           pool: THREE.Group[], seed: number, count: number,
           scMin: number, scMax: number, clearR: number,
-          extraChecks?: (x: number, z: number) => boolean
+          extraChecks?: (x: number, z: number) => boolean,
+          yOffs?: number[]
         ) {
           const r = mulberry32(seed)
           for (let i = 0; i < count; i++) {
@@ -313,9 +326,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
             if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
             if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
+            if (Math.abs(x - BOWL_CX) < 4.0 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
+            if (Math.abs(x - RTOSS_CX) < 3.5 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
             if (extraChecks && extraChecks(x, z)) continue
             const obj = pool[vi].clone(true)
-            obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
+            const yOff = (yOffs?.[vi] ?? 0) * sc
+            obj.position.set(x, yOff, z); obj.scale.setScalar(sc); obj.rotation.y = yr
             scene.add(obj)
           }
         }
@@ -351,13 +367,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
           Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
-          Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2
+          Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2,
+          bushYOffs
         )
         scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
-          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0
+          Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0,
+          stoneYOffs
         )
-        scatter(flowers, 123, 160, 4.0, 7.0, 3.5)
-        scatter(mushs,    55,  60, 3.0, 5.5, 4.0)
+        scatter(flowers, 123, 160, 4.0, 7.0, 3.5, undefined, flowerYOffs)
+        scatter(mushs,    55,  60, 3.0, 5.5, 4.0, undefined, mushYOffs)
         console.log('[nature] All assets scattered successfully')
       })
     }).catch(err => {
@@ -596,37 +614,54 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const pyCap = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), roofMat2)
     pyCap.rotation.x = Math.PI / 2; pyCap.position.set(0, CH + 0.01, 0); cabGrp.add(pyCap)
 
-    // Chimney (pokes through pyramid roof)
+    // Chimney + smoke — all in one group so they track cabin position/rotation
     const CHIM_X = CW/4, CHIM_Z = -CD/4
     const CHIM_TOP_Y = CH + ROOF_PK * 1.15
+    const chimGrp = new THREE.Group()
+    chimGrp.position.set(CHIM_X, 0, CHIM_Z)
+    cabGrp.add(chimGrp)
     const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.2, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
-    chim.position.set(CHIM_X, CH + 1.1, CHIM_Z); cabGrp.add(chim)
+    chim.position.set(0, CH + 1.1, 0); chimGrp.add(chim)
     const chimCap = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.14, 0.80), new THREE.MeshLambertMaterial({ color: 0x666666 }))
-    chimCap.position.set(CHIM_X, CHIM_TOP_Y, CHIM_Z); cabGrp.add(chimCap)
+    chimCap.position.set(0, CHIM_TOP_Y, 0); chimGrp.add(chimCap)
 
-    // Smoke particles
+    // Smoke particles — children of chimGrp so positions are in chimney-local space
     const SMOKE_COUNT = 10
     const smokeGeo = new THREE.SphereGeometry(0.18, 6, 4)
     const smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.55 })
     const smokeParticles = Array.from({ length: SMOKE_COUNT }, (_, i) => {
       const m = new THREE.Mesh(smokeGeo, smokeMat.clone())
       const t = i / SMOKE_COUNT
-      m.position.set(
-        CABIN_X + CHIM_X + (Math.random()-0.5)*0.15,
-        CHIM_TOP_Y + t * 3.2,
-        CABIN_Z + CHIM_Z + (Math.random()-0.5)*0.15
-      )
+      m.position.set((Math.random()-0.5)*0.15, CHIM_TOP_Y + t * 3.2, (Math.random()-0.5)*0.15)
       m.scale.setScalar(0.4 + t * 1.4)
       ;(m.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
-      scene.add(m)
+      chimGrp.add(m)
       return { mesh: m, offset: t * 3.2, speed: 0.5 + Math.random()*0.4, drift: (Math.random()-0.5)*0.06 }
     })
+
+    // Interior ceiling light — load lamp model, mount at ceiling centre, SpotLight from same point
+    const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
+    cabLight.position.set(0, CH - 0.05, 0)
+    cabLight.target.position.set(0, 0, 0)
+    cabGrp.add(cabLight); cabGrp.add(cabLight.target)
+
+    gltfLoader.load('/assets/cabin/light/scene.gltf', gltf => {
+      const lamp = gltf.scene
+      lamp.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      // Raw model is ~2 units wide; scale to fit ceiling (0.6 units wide)
+      lamp.scale.setScalar(0.3)
+      // Hang at ceiling centre — bottom of pyramid base (y=CH in cabGrp local space)
+      lamp.position.set(0, CH, 0)
+      cabGrp.add(lamp)
+    }, undefined, err => console.error('[cabin] lamp failed:', err))
 
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
     cabStep.position.set(0, 0.1, CD/2+0.35); cabGrp.add(cabStep)
 
     // ── Gaming setup inside cabin ─────────────────────────────────────────────
-    gltfLoader.load('/assets/cabin/gaming setup.gltf', gltf => {
+    gltfLoader.load('/assets/cabin/setup/gaming setup.gltf', gltf => {
       const desk = gltf.scene
       desk.traverse(child => {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
@@ -1779,16 +1814,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         doorPivotRef.current.rotation.y = doorRotRef.current
       }
 
-      // ── Chimney smoke ─────────────────────────────────────────────────────
+      // ── Chimney smoke (local to chimGrp — no world-coord math needed) ──────
       smokeParticles.forEach(s => {
         s.offset += s.speed * delta
         if (s.offset > 3.2) s.offset -= 3.2
         const t = s.offset / 3.2
-        const cx = cabGrp.position.x + CHIM_X, cz = cabGrp.position.z + CHIM_Z
         s.mesh.position.set(
-          cx + Math.sin(s.offset * 1.8) * s.drift * 4,
+          Math.sin(s.offset * 1.8) * s.drift * 4,
           CHIM_TOP_Y + s.offset,
-          cz + Math.cos(s.offset * 1.4) * s.drift * 3,
+          Math.cos(s.offset * 1.4) * s.drift * 3,
         )
         s.mesh.scale.setScalar(0.4 + t * 1.4)
         ;(s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
