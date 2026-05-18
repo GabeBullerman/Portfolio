@@ -94,7 +94,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [debugOpen, setDebugOpen]   = useState(false)
   const [debugSel,  setDebugSel]    = useState(-1)
   const [debugStep, setDebugStep]   = useState(1)
-  const [selPos,    setSelPos]      = useState<{ x: number; z: number } | null>(null)
+  const [selPos,    setSelPos]      = useState<{ x: number; y: number; z: number } | null>(null)
 
   function exitFocus() {
     focusActiveRef.current  = false
@@ -561,11 +561,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }))
 
     // ── Cabin (behind spawn) ──────────────────────────────────────────────────
-    const CW = 7, CD = 5.5, CH = 3.2, ROOF_PK = 1.4
-    const DOOR_W = 1.1, DOOR_H = 2.55
+    const CW = 7, CD = 5.5, CH = 3.2
+    const DOOR_W = 1.1
 
-    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI; scene.add(cabGrp)
-    // Rotated 180°: local +Z → world -Z, so door (local +Z) faces south (CABIN_Z - CD/2)
+    const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = 0; scene.add(cabGrp)
     boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
     boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
     boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
@@ -580,49 +579,36 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
       const box = new THREE.Box3().setFromObject(cabMesh)
       const size = new THREE.Vector3(); box.getSize(size)
-      const sc = CW / size.x
-      cabMesh.scale.setScalar(sc)
+      cabMesh.scale.setScalar(0.600)
       const box2 = new THREE.Box3().setFromObject(cabMesh)
       const center2 = new THREE.Vector3(); box2.getCenter(center2)
       cabMesh.position.set(-center2.x, -box2.min.y, -center2.z)
+
+      // Sink the built-in brown ground plane below world ground so it's hidden
+      cabMesh.traverse(child => {
+        if (!(child as THREE.Mesh).isMesh) return
+        const b = new THREE.Box3().setFromObject(child)
+        const s = new THREE.Vector3(); b.getSize(s)
+        if (s.y < 0.25 * s.x && s.y < 0.25 * s.z && s.x > 0.5 && s.z > 0.5) {
+          child.position.y -= 0.35  // flat ground plane — push below y=0
+        }
+      })
+
       cabGrp.add(cabMesh)
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
-    // Procedural door (interactive — swings open on approach)
-    const doorPivot = new THREE.Group()
-    doorPivot.position.set(-DOOR_W/2, 0, CD/2)
-    cabGrp.add(doorPivot)
-    doorPivotRef.current = doorPivot
-    const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-0.1, DOOR_H, 0.1), new THREE.MeshLambertMaterial({ color: 0x3d1a00 }))
-    cabDoor.position.set(DOOR_W/2, DOOR_H/2, 0.06); doorPivot.add(cabDoor)
-    const dHandle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshLambertMaterial({ color: 0xccaa00 }))
-    dHandle.position.set(DOOR_W-0.18, DOOR_H*0.46, 0.12); doorPivot.add(dHandle)
-
-    // Chimney + smoke — all in one group so they track cabin position/rotation
-    const CHIM_X = CW/4, CHIM_Z = -CD/4
-    const CHIM_TOP_Y = CH + ROOF_PK * 1.15
-    const chimGrp = new THREE.Group()
-    chimGrp.position.set(CHIM_X, 0, CHIM_Z)
-    cabGrp.add(chimGrp)
-    const chim = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.2, 0.65), new THREE.MeshLambertMaterial({ color: 0x8a7560 }))
-    chim.position.set(0, CH + 1.1, 0); chimGrp.add(chim)
-    const chimCap = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.14, 0.80), new THREE.MeshLambertMaterial({ color: 0x666666 }))
-    chimCap.position.set(0, CHIM_TOP_Y, 0); chimGrp.add(chimCap)
-
-    // Smoke particles — children of chimGrp so positions are in chimney-local space
-    const SMOKE_COUNT = 10
-    const smokeGeo = new THREE.SphereGeometry(0.18, 6, 4)
-    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.55 })
-    const smokeParticles = Array.from({ length: SMOKE_COUNT }, (_, i) => {
-      const m = new THREE.Mesh(smokeGeo, smokeMat.clone())
-      const t = i / SMOKE_COUNT
-      m.position.set((Math.random()-0.5)*0.15, CHIM_TOP_Y + t * 3.2, (Math.random()-0.5)*0.15)
-      m.scale.setScalar(0.4 + t * 1.4)
-      ;(m.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
-      chimGrp.add(m)
-      return { mesh: m, offset: t * 3.2, speed: 0.5 + Math.random()*0.4, drift: (Math.random()-0.5)*0.06 }
-    })
+    // Invisible stair ramp — add to movablesRef for positioning in debug editor
+    // Adjust position/scale in debugger to align with GLB cabin stairs
+    const RAMP_H = 0.65   // height at top of stairs
+    const rampMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.05, 2.0),
+      new THREE.MeshBasicMaterial({ visible: false })
+    )
+    rampMesh.position.set(0, 0, CD / 2 + 1.0)  // default: in front of door, tune in debugger
+    cabGrp.add(rampMesh)
+    const rampGrp = new THREE.Group(); rampGrp.position.copy(rampMesh.position); cabGrp.add(rampGrp)
+    movablesRef.current.push({ name: '🪜 Ramp hitbox (cabin local)', group: rampGrp })
 
     // Interior ceiling light — SpotLight + lamp model at ceiling centre
     const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
@@ -1480,6 +1466,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             player.position.y = TRAMP_Y
           }
 
+          // Cabin stair ramp — rampGrp.position is in cabGrp local space; convert to world
+          {
+            const rp = rampGrp.position
+            // cabGrp rotation.y=0 so local = world offset + cabGrp origin
+            const rwx = CABIN_X + rp.x, rwz = CABIN_Z + rp.z, rwy = rampGrp.position.y
+            const rHalfW = 0.9, rHalfD = 1.0
+            if (
+              player.position.x >= rwx - rHalfW && player.position.x <= rwx + rHalfW &&
+              player.position.z >= rwz - rHalfD && player.position.z <= rwz + rHalfD
+            ) {
+              const t = Math.max(0, Math.min(1, (player.position.z - (rwz - rHalfD)) / (rHalfD * 2)))
+              const rampFloor = rwy + t * RAMP_H
+              if (player.position.y < rampFloor) {
+                player.position.y = rampFloor
+                if (playerVelY < 0) playerVelY = 0
+              }
+            }
+          }
+
           // Ground clamp (only when not on trampoline)
           if (player.position.y <= 0 && !onTrampSurface) {
             player.position.y = 0
@@ -1827,19 +1832,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         doorPivotRef.current.rotation.y = doorRotRef.current
       }
 
-      // ── Chimney smoke (local to chimGrp — no world-coord math needed) ──────
-      smokeParticles.forEach(s => {
-        s.offset += s.speed * delta
-        if (s.offset > 3.2) s.offset -= 3.2
-        const t = s.offset / 3.2
-        s.mesh.position.set(
-          Math.sin(s.offset * 1.8) * s.drift * 4,
-          CHIM_TOP_Y + s.offset,
-          Math.cos(s.offset * 1.4) * s.drift * 3,
-        )
-        s.mesh.scale.setScalar(0.4 + t * 1.4)
-        ;(s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)
-      })
 
       // ── Debug panel live update ─────────────────────────────────────────
       if (debugModeRef.current && debugPanelRef.current) {
@@ -1946,12 +1938,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             {movablesRef.current.map((m, i) => (
               <button
                 key={i}
-                onClick={() => { setDebugSel(i); setSelPos({ x: m.group.position.x, z: m.group.position.z }) }}
+                onClick={() => { setDebugSel(i); setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z }) }}
                 className={`text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${debugSel === i ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}
               >
                 <span className="font-medium">{m.name}</span>
                 <span className="block text-white/50 font-mono">
-                  x={m.group.position.x.toFixed(1)}  z={m.group.position.z.toFixed(1)}
+                  x={m.group.position.x.toFixed(1)}  y={m.group.position.y.toFixed(1)}  z={m.group.position.z.toFixed(1)}
                 </span>
               </button>
             ))}
@@ -1959,16 +1951,26 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
           {/* Move controls */}
           {debugSel >= 0 && movablesRef.current[debugSel] && (() => {
+            const snap = () => {
+              const m = movablesRef.current[debugSel]
+              setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z })
+            }
             const move = (dx: number, dz: number) => {
               const m = movablesRef.current[debugSel]
               m.group.position.x += dx; m.group.position.z += dz
               m.meshes?.forEach(obj => { obj.position.x += dx; obj.position.z += dz })
-              setSelPos({ x: m.group.position.x, z: m.group.position.z })
+              snap()
+            }
+            const moveY = (dy: number) => {
+              const m = movablesRef.current[debugSel]
+              m.group.position.y += dy
+              m.meshes?.forEach(obj => { obj.position.y += dy })
+              snap()
             }
             return (
               <div className="p-3 border-t border-white/10 shrink-0">
                 <div className="text-xs text-white/50 mb-1 font-mono">
-                  {selPos ? `x=${selPos.x.toFixed(2)}  z=${selPos.z.toFixed(2)}` : ''}
+                  {selPos ? `x=${selPos.x.toFixed(2)}  y=${selPos.y.toFixed(2)}  z=${selPos.z.toFixed(2)}` : ''}
                 </div>
                 {/* Step size */}
                 <div className="flex gap-1 mb-2">
@@ -1979,7 +1981,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                     </button>
                   ))}
                 </div>
-                {/* Direction grid */}
+                {/* Y axis (up/down) */}
+                <div className="flex gap-1 mb-1">
+                  {[-1, -0.25, +0.25, +1].map(d => (
+                    <button key={d} onClick={() => moveY(d * debugStep)}
+                      className="flex-1 text-xs py-1 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
+                      Y{d > 0 ? `+${d}` : d}
+                    </button>
+                  ))}
+                </div>
+                {/* Direction grid (X/Z) */}
                 <div className="grid grid-cols-3 gap-1">
                   {([
                     ['↖',-1,-1],['↑',0,-1],['↗',1,-1],
@@ -1993,14 +2004,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                   ))}
                 </div>
 
-                {/* Scale controls — only for tree showcase entries */}
+                {/* Scale controls */}
                 {movablesRef.current[debugSel]?.scaleObj && (() => {
                   const sc = movablesRef.current[debugSel].scaleObj!
                   const applyScale = (delta: number) => {
                     const next = Math.max(0.05, parseFloat((sc.scale.x + delta).toFixed(3)))
                     sc.scale.setScalar(next)
                     console.log(`[scale] ${movablesRef.current[debugSel].name}: ${next.toFixed(3)}`)
-                    setSelPos(p => p ? { ...p } : { x: 0, z: 0 }) // force re-render
+                    setSelPos(p => p ? { ...p } : { x: 0, y: 0, z: 0 })
                   }
                   return (
                     <div className="mt-2 pt-2 border-t border-white/10">
@@ -2029,7 +2040,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
                 const lines = [
                   '// Object positions',
                   ...movablesRef.current.map(m =>
-                    `${m.name}: x=${m.group.position.x.toFixed(1)}, z=${m.group.position.z.toFixed(1)}`
+                    `${m.name}: x=${m.group.position.x.toFixed(2)}, y=${m.group.position.y.toFixed(2)}, z=${m.group.position.z.toFixed(2)}`
                   ),
                   '',
                   '// Fixed (constants.ts):',
