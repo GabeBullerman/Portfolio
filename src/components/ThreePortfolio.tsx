@@ -72,6 +72,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const relockRef       = useRef<(() => void) | null>(null)
   // Jump
   const jumpPressedRef  = useRef(false)
+  const onRampRef       = useRef(false)
   // Ladder climb
   const climbingRef     = useRef(false)
   const [climbing, setClimbing] = useState(false)
@@ -569,9 +570,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
       cabMesh.scale.setScalar(0.600)
-      const box2 = new THREE.Box3().setFromObject(cabMesh)
-      const center2 = new THREE.Vector3(); box2.getCenter(center2)
-      cabMesh.position.set(-center2.x, -0.50, -center2.z)
+      cabMesh.position.set(-1.93, -0.50, 1.21)
 
       cabGrp.add(cabMesh)
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
@@ -1446,7 +1445,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           // Process jump input
           if (jumpPressedRef.current) {
             jumpPressedRef.current = false
-            if (player.position.y <= 0.15) {
+            if (player.position.y <= 0.15 || onRampRef.current) {
               playerVelY = 6.5
             }
           }
@@ -1469,28 +1468,29 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           }
 
           // Cabin stair ramp — world position via getWorldPosition, slope from rotation.z
+          // cabGrp.rotation.y=1.5π maps local+X → world+Z, so high end is at larger world Z
+          onRampRef.current = false
           {
             const rMesh = (rampGrp as any).__hitMesh as THREE.Mesh | undefined
             if (rMesh) {
               const rc = new THREE.Vector3(); rampGrp.getWorldPosition(rc)
-              // BoxGeometry(1.8, 0.05, 2.0): width=1.8 (slope axis), depth=2.0 (width axis)
-              // cabGrp.rotation.y=1.5π maps local-X → world-Z, local-Z → world-X
-              const halfLen = 0.9 * rMesh.scale.x   // half-length along slope (world Z)
-              const halfW   = 1.0 * rMesh.scale.z   // half-width perpendicular (world X)
+              const halfLen = 0.9 * rMesh.scale.x   // half of 1.8 width, along world Z
+              const halfW   = 1.0 * rMesh.scale.z   // half of 2.0 depth, along world X
               const slope   = Math.tan(Math.abs(rampGrp.rotation.z))
-              const yHigh   = rc.y + halfLen * slope  // Y at near-cabin end (small Z)
-              const yLow    = rc.y - halfLen * slope  // Y at far end (large Z)
-              const zNear   = rc.z - halfLen
-              const zFar    = rc.z + halfLen
+              const zNear   = rc.z - halfLen         // small Z — low end (away from cabin)
+              const zFar    = rc.z + halfLen         // large Z — high end (toward cabin floor)
+              const yLow    = rc.y - halfLen * slope
+              const yHigh   = rc.y + halfLen * slope
               if (
                 player.position.x > rc.x - halfW && player.position.x < rc.x + halfW &&
                 player.position.z > zNear && player.position.z < zFar
               ) {
                 const t = (player.position.z - zNear) / (zFar - zNear)
-                const surfaceY = yHigh + t * (yLow - yHigh)
+                const surfaceY = yLow + t * (yHigh - yLow)
                 if (surfaceY > -0.1 && player.position.y < surfaceY) {
                   player.position.y = surfaceY
                   if (playerVelY < 0) playerVelY = 0
+                  onRampRef.current = true
                 }
               }
             }
