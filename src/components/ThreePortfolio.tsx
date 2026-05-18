@@ -16,6 +16,7 @@ import {
 import { mulberry32, lerpAngle } from './three/helpers'
 import { makeSignTexture } from './three/signTextures'
 import { SectionOverlay } from './three/SectionOverlay'
+import MonitorOverlay from './MonitorOverlay'
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
@@ -49,6 +50,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const sittingRef    = useRef(false)
   const nearBenchRef  = useRef(false)
   const seatIdxRef    = useRef(0)
+  // Chair sit
+  const [nearChair, setNearChair] = useState(false)
+  const nearChairRef = useRef(false)
+  const sittingAtRef = useRef<'bench' | 'chair' | null>(null)
+  const CHAIR_LOCAL_POS = new THREE.Vector3(2.2, 2.085, -1.8)
+  // adjust these if monitor center is slightly off
+  const MONITOR_LOCAL_POS = new THREE.Vector3(2.0, 3.35, -2.20)
+  const CHAIR_PROX = 1.25
   // Ring toss
   const [nearRToss, setNearRToss]       = useState(false)
   const [rtossDisplay, setRTossDisplay] = useState<{ state: RTossState; thrown: number; score: number; hs: number }>({ state: 'idle', thrown: 0, score: 0, hs: parseInt(localStorage.getItem('gabe-rtoss-hs') || '0') })
@@ -89,6 +98,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const switchNodeRef   = useRef<THREE.Object3D | null>(null)
   const [nearSwitch, setNearSwitch] = useState(false)
   const cabSpotRef      = useRef<THREE.SpotLight | null>(null)
+  // Monitor / go-outside
+  const [monitorMode, setMonitorMode] = useState(true)
+  const goOutsideRef    = useRef(false)
+  // Lighting refs for dynamic cabin darkness
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null)
+  const sunLightRef     = useRef<THREE.DirectionalLight | null>(null)
   // Debug overlay (backtick to toggle)
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
@@ -140,8 +155,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       pmremGen.dispose()
     })
 
-    scene.add(new THREE.AmbientLight(0xffeedd, 1.2))
+    const ambientLight = new THREE.AmbientLight(0xffeedd, 1.2)
+    scene.add(ambientLight)
+    ambientLightRef.current = ambientLight
+
     const sun = new THREE.DirectionalLight(0xfff0d0, 1.4)
+    sunLightRef.current = sun
     sun.position.set(20, 40, 15); sun.castShadow = true
     sun.shadow.mapSize.set(2048,2048)
     sun.shadow.camera.left=-80; sun.shadow.camera.right=80
@@ -668,17 +687,30 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
     }, undefined, err => console.error('[cabin] gaming setup failed:', err))
 
-     // ── Bed inside cabin ─────────────────────────────────────────────
-gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
-  const bedMesh = gltf.scene
+    // ── Chair inside cabin ─────────────────────────────────────────────
+    gltfLoader.load('/assets/cabin/chair/scene.gltf', gltf => {
+      const chair = gltf.scene
+      chair.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
 
-  bedMesh.traverse(child => {
-    if ((child as THREE.Mesh).isMesh) {
-      child.castShadow = true
-      child.receiveShadow = true
-      ;(child as THREE.Mesh).visible = true
-    }
-  })
+      chair.position.set(2.2, 2.085, -1.8)
+      chair.rotation.set(0, Math.PI, 0)
+      chair.scale.set(0.85,0.85,0.85)
+
+      cabGrp.add(chair)
+      movablesRef.current.push({ name: '🖥 Chair (cabin local)', group: chair as unknown as THREE.Group, scaleObj: chair })
+    }, undefined, err => console.error('[cabin] gaming setup failed:', err))
+    // ── Bed inside cabin ─────────────────────────────────────────────
+    gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
+      const bedMesh = gltf.scene
+      bedMesh.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+        ;(child as THREE.Mesh).visible = true
+        }
+      })
 
   // Normalize weird Blender/export origins
   const box = new THREE.Box3().setFromObject(bedMesh)
@@ -695,7 +727,7 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
   const maxDim = Math.max(size.x, size.y, size.z)
   normalizedBed.scale.setScalar(2.85 / maxDim)
 
-  normalizedBed.position.set(1.9, 2.525, 1.05)
+  normalizedBed.position.set(1.9, 2.625, 1.05)
 
   cabGrp.add(normalizedBed)
 
@@ -1205,7 +1237,8 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
     const { pivot:lLegPivot, knee:lKnee } = makeLeg(-1)
     const { pivot:rLegPivot, knee:rKnee } = makeLeg(1)
     player.add(lLegPivot, rLegPivot)
-    player.position.set(0,0,6); scene.add(player)
+    // Spawn inside cabin (monitor room) — monitorMode overlay covers the 3D view initially
+    player.position.set(-4.0, 2.1, 14.0); scene.add(player)
 
     // ── Input ────────────────────────────────────────────────────────────
     const keys = new Set<string>()
@@ -1277,15 +1310,41 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
 
       // Bench sit/stand
       if (sittingRef.current && (mapped === 'e' || ['w','a','s','d'].includes(mapped))) {
-        sittingRef.current = false; setSitting(false); nearBenchRef.current = false; setNearBench(false)
-        relockRef.current?.()
-        if (mapped === 'e') return
-      }
-      if (mapped === 'e' && nearBenchRef.current && !sittingRef.current && bowlStateRef.current === 'idle') {
-        sittingRef.current = true; setSitting(true)
-        document.exitPointerLock()
-        return
-      }
+  sittingRef.current = false
+  sittingAtRef.current = null
+  setSitting(false)
+
+  nearBenchRef.current = false
+  setNearBench(false)
+
+  nearChairRef.current = false
+  setNearChair(false)
+
+  relockRef.current?.()
+  if (mapped === 'e') return
+}
+
+if (
+  mapped === 'e' &&
+  !sittingRef.current &&
+  bowlStateRef.current === 'idle' &&
+  rtossStateRef.current === 'idle'
+) {
+  if (nearBenchRef.current) {
+    sittingRef.current = true
+    sittingAtRef.current = 'bench'
+    setSitting(true)
+    document.exitPointerLock()
+    return
+  }
+
+  if (nearChairRef.current) {
+    // Press E near the computer = open the monitor/portfolio overlay
+    setMonitorMode(true)
+    document.exitPointerLock()
+    return
+  }
+}
 
       // Ladder dismount
       if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) {
@@ -1414,6 +1473,15 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
       const now = performance.now()
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now; elapsed += delta
+
+      // ── Go Outside transition ─────────────────────────────────────────
+      if (goOutsideRef.current) {
+        goOutsideRef.current = false
+        player.position.set(-4.0, 2.1, 14.0)
+        playerVelY = 0
+        camYaw = 1.5   // roughly facing the cabin door
+        relockRef.current?.()
+      }
 
       // ── Cannon physics step ───────────────────────────────────────────
       physWorld.step(1 / 60, delta, 3)
@@ -1564,9 +1632,23 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
         rKnee.rotation.x = Math.max(0,  Math.sin(walkPhase)) * swingAmt * 0.40
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
 
-        // ── Camera (third-person) ─────────────────────────────────────────
-        fpvBlend = 0
-        player.visible = true
+        // ── Camera: auto FPV inside cabin, TPV outside ────────────────────
+        // Cabin interior world bounds (derived from cabGrp pos/rotation)
+        const inCabin =
+          player.position.x > -8.2 && player.position.x < -1.5 &&
+          player.position.z > 9.0  && player.position.z < 18.5 &&
+          player.position.y > 0.8
+        fpvBlend = THREE.MathUtils.lerp(fpvBlend, inCabin ? 1 : 0, delta * 5)
+
+        // Dim scene lights inside cabin so the SpotLight carries the room
+        const tgtAmbient = inCabin ? 0.18 : 1.2
+        const tgtSun     = inCabin ? 0.05 : 1.4
+        if (ambientLightRef.current)
+          ambientLightRef.current.intensity = THREE.MathUtils.lerp(ambientLightRef.current.intensity, tgtAmbient, delta * 3)
+        if (sunLightRef.current)
+          sunLightRef.current.intensity = THREE.MathUtils.lerp(sunLightRef.current.intensity, tgtSun, delta * 3)
+
+        player.visible = fpvBlend < 0.5
 
         const HEAD_H = 1.65
         const camDist = 5.2
@@ -1638,31 +1720,84 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
           }
         })
 
-        // ── Bench proximity & sit ─────────────────────────────────────────────
+        // ── Bench / Chair proximity & sit ─────────────────────────────────────────
         if (!sittingRef.current) {
           let nearB = false
+
           BENCH_POSITIONS.forEach((b, i) => {
             if (Math.hypot(player.position.x - b.x, player.position.z - b.z) < BENCH_PROX) {
-              nearB = true; seatIdxRef.current = i
+              nearB = true
+              seatIdxRef.current = i
             }
           })
-          if (nearB !== nearBenchRef.current) { nearBenchRef.current = nearB; setNearBench(nearB) }
-        } else {
-          // Lock player to bench
+
+          const chairWorld = CHAIR_LOCAL_POS.clone()
+          cabGrp.localToWorld(chairWorld)
+
+          const nearC =
+            Math.hypot(player.position.x - chairWorld.x, player.position.z - chairWorld.z) < CHAIR_PROX
+
+          if (nearB !== nearBenchRef.current) {
+            nearBenchRef.current = nearB
+            setNearBench(nearB)
+          }
+
+          if (nearC !== nearChairRef.current) {
+            nearChairRef.current = nearC
+            setNearChair(nearC)
+          }
+        } else if (sittingAtRef.current === 'bench') {
           const s = BENCH_POSITIONS[seatIdxRef.current]
-          // y=-0.46 so hip (local y≈1.0) sits at bench top (y=0.54)
+
           player.position.set(s.x, -0.46, s.z)
-          // Face toward fire
           player.rotation.y = Math.atan2(FIRE_POS.x - s.x, FIRE_POS.z - s.z)
-          // Sitting pose
-          lLegPivot.rotation.x = -Math.PI / 2.8; rLegPivot.rotation.x = -Math.PI / 2.8
-          lKnee.rotation.x = Math.PI / 2.0;      rKnee.rotation.x = Math.PI / 2.0
-          lArmPivot.rotation.x = 0.1;            rArmPivot.rotation.x = 0.1
-          // Camera: sit behind player looking at fire
+
+          lLegPivot.rotation.x = -Math.PI / 2.8
+          rLegPivot.rotation.x = -Math.PI / 2.8
+          lKnee.rotation.x = Math.PI / 2.0
+          rKnee.rotation.x = Math.PI / 2.0
+          lArmPivot.rotation.x = 0.1
+          rArmPivot.rotation.x = 0.1
+
           const bFireLook = new THREE.Vector3(FIRE_POS.x, 0.7, FIRE_POS.z)
-          const bCamPos   = new THREE.Vector3(s.x - (FIRE_POS.x - s.x) * 0.5, 1.8, s.z - (FIRE_POS.z - s.z) * 0.5)
+          const bCamPos = new THREE.Vector3(
+            s.x - (FIRE_POS.x - s.x) * 0.5,
+            1.8,
+            s.z - (FIRE_POS.z - s.z) * 0.5
+          )
+
           camera.position.lerp(bCamPos, 0.07)
           camera.lookAt(bFireLook)
+        } else if (sittingAtRef.current === 'chair') {
+          const chairWorld = CHAIR_LOCAL_POS.clone()
+          cabGrp.localToWorld(chairWorld)
+
+          const monitorWorld = MONITOR_LOCAL_POS.clone()
+          cabGrp.localToWorld(monitorWorld)
+
+          // Lock player to chair
+          player.position.set(chairWorld.x+0.075, chairWorld.y - 0.15, chairWorld.z)
+
+          // Face monitor
+          player.rotation.y = Math.atan2(
+            monitorWorld.x - chairWorld.x,
+            monitorWorld.z - chairWorld.z
+          )
+
+          // Sitting pose
+          lLegPivot.rotation.x = -Math.PI / 2.8
+          rLegPivot.rotation.x = -Math.PI / 2.8
+          lKnee.rotation.x = Math.PI / 2.0
+          rKnee.rotation.x = Math.PI / 2.0
+          lArmPivot.rotation.x = 0.25
+          rArmPivot.rotation.x = 0.25
+
+          // First-person camera from seated head height
+          const chairHead = chairWorld.clone()
+          chairHead.y += 1.15
+
+          camera.position.lerp(chairHead, 0.15)
+          camera.lookAt(monitorWorld)
         }
 
         // ── Ladder proximity & climb ─────────────────────────────────────────
@@ -1975,8 +2110,28 @@ gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
     >
       <div ref={mountRef} className="w-full h-full touch-none" />
 
-      {/* Click-to-look prompt — desktop only, idle state */}
-      {!pointerLocked && !activeSection && bowlDisplay.state === 'idle' && !sitting && (
+      {/* Monitor overlay — shown on first load, looks like viewing the portfolio on a PC */}
+      {monitorMode && (
+        <MonitorOverlay
+          onGoOutside={() => {
+            setMonitorMode(false)
+            goOutsideRef.current = true
+          }}
+        />
+      )}
+
+      {/* "Use computer" prompt when near the chair */}
+      {!monitorMode && nearChair && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
+            <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
+            Use Computer
+          </div>
+        </div>
+      )}
+
+      {/* Click-to-look prompt — desktop only, idle state, not in monitor mode */}
+      {!monitorMode && !pointerLocked && !activeSection && bowlDisplay.state === 'idle' && !sitting && (
         <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
           <div className="bg-black/50 backdrop-blur-sm text-white text-sm px-5 py-2 rounded-full opacity-70">
             Click to look around

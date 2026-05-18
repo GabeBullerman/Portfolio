@@ -1,0 +1,300 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 891,
+      "max": [
+        4.173364162445068,
+        3.134284734725952,
+        5.216704845428467
+      ],
+      "min": [
+        -4.173364162445068,
+        0.012578248977661133,
+        -5.216704845428467
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 10692,
+      "componentType": 5126,
+      "count": 891,
+      "max": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 891,
+      "max": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 891,
+      "max": [
+        1.0,
+        0.909825325012207
+      ],
+      "min": [
+        0.0,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 7128,
+      "componentType": 5126,
+      "count": 891,
+      "max": [
+        1.0,
+        0.909825325012207
+      ],
+      "min": [
+        0.0,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 2532,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "lehxra (https://sketchfab.com/lehxra)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/low-poly-front-table-b9a463f5695a4daabb4925ebcbdc2879",
+      "title": "Low poly Front Table"
+    },
+    "generator": "Sketchfab-13.55.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 10128,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14256,
+      "byteOffset": 10128,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 21384,
+      "byteOffset": 24384,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 14256,
+      "byteOffset": 45768,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 60024,
+      "uri": "scene.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "textures/Wood_baseColor.png"
+    },
+    {
+      "uri": "textures/Wood_metallicRoughness.png"
+    },
+    {
+      "uri": "textures/Wood_normal.png"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "Wood",
+      "normalTexture": {
+        "index": 2
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 1
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Table_Wood_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TANGENT": 2,
+            "TEXCOORD_0": 3,
+            "TEXCOORD_1": 4
+          },
+          "indices": 5,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.220446049250313e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.009999999776482582,
+        0.0,
+        0.0,
+        -0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "e404c945385d4ad2852b60cd5236c23a.fbx"
+    },
+    {
+      "children": [
+        3
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4
+      ],
+      "matrix": [
+        40.874977111816406,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        40.87497711181586,
+        6.6593792680843635e-06,
+        0.0,
+        0.0,
+        -6.6593792680843635e-06,
+        40.87497711181586,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Table"
+    },
+    {
+      "mesh": 0,
+      "name": "Table_Wood_0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ]
+}

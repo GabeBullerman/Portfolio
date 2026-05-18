@@ -13,7 +13,7 @@ import BackToTop from './components/BackToTop'
 const ThreePortfolio = lazy(() => import('./components/ThreePortfolio'))
 
 export default function App() {
-  const [mode3D, setMode3D] = useState(false)
+  const [mode3D, setMode3D] = useState(true)
 
   if (mode3D) {
     return (
@@ -42,15 +42,6 @@ export default function App() {
       <Footer />
       <BackToTop />
 
-      {/* Floating 3D cube button */}
-      <button
-        onClick={() => setMode3D(true)}
-        title="Switch to 3D View"
-        className="fixed top-4 right-4 z-50 w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center shadow-lg hover:scale-110 hover:rotate-12 transition-transform duration-300 border border-white/20"
-        style={{ perspective: '200px' }}
-      >
-        <i className="fa-solid fa-cube text-xl" />
-      </button>
     </>
   )
 }
