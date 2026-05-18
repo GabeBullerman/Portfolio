@@ -574,22 +574,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cabMesh.position.set(-center2.x, -0.50, -center2.z)
 
       cabGrp.add(cabMesh)
-      cabGrp.updateMatrixWorld(true)
-
-      // Derive wall hitboxes from mesh world bounds
-      const wBox = new THREE.Box3().setFromObject(cabMesh)
-      const WT = 0.25
-      const doorHalfW = 0.65
-      const doorCX = (wBox.min.x + wBox.max.x) / 2
-      // Back wall
-      boxCols.push({ x0: wBox.min.x, x1: wBox.max.x, z0: wBox.max.z - WT, z1: wBox.max.z + WT, maxY: 99 })
-      // Side walls
-      boxCols.push({ x0: wBox.min.x - WT, x1: wBox.min.x + WT, z0: wBox.min.z, z1: wBox.max.z, maxY: 99 })
-      boxCols.push({ x0: wBox.max.x - WT, x1: wBox.max.x + WT, z0: wBox.min.z, z1: wBox.max.z, maxY: 99 })
-      // Front wall (door side) with gap
-      boxCols.push({ x0: wBox.min.x, x1: doorCX - doorHalfW, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
-      boxCols.push({ x0: doorCX + doorHalfW, x1: wBox.max.x, z0: wBox.min.z - WT, z1: wBox.min.z + WT, maxY: 99 })
-
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
@@ -598,27 +582,27 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const RAMP_H = 0.65   // height at top of stairs
     const rampMesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.8, 0.05, 2.0),
-      new THREE.MeshBasicMaterial({ visible: false })
+      new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })
     )
     rampMesh.position.set(0, 0, CD / 2 + 1.0)
     cabGrp.add(rampMesh)
     const rampGrp = new THREE.Group(); rampGrp.position.copy(rampMesh.position); cabGrp.add(rampGrp)
-    movablesRef.current.push({ name: '🪜 Ramp hitbox (cabin local)', group: rampGrp })
+    ;(rampGrp as any).__hitMesh = rampMesh
 
     // ── Visible hitbox planes (semi-transparent, align in debugger) ───────────
     const hitboxMat = (color: number) => new THREE.MeshBasicMaterial({
       color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
     })
+    const cabHitboxEntries: typeof movablesRef.current = []
     const addHitboxPlane = (name: string, w: number, h: number, d: number, px: number, py: number, pz: number, color: number) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hitboxMat(color))
       mesh.position.set(px, py, pz)
       cabGrp.add(mesh)
       const grp = new THREE.Group(); grp.position.set(px, py, pz); cabGrp.add(grp)
-      movablesRef.current.push({ name, group: grp, isHitbox: true })
-      // keep mesh in sync with group position/rotation each frame via reference
       ;(grp as any).__hitMesh = mesh
+      cabHitboxEntries.push({ name, group: grp, isHitbox: true })
     }
-    // Walls: red — tweak positions in debugger to match GLB geometry
+    // Walls: red
     addHitboxPlane('🟥 Wall: Front-L',  2.0, 2.5, 0.2,  -2.0, 1.25, -CD/2, 0xff3333)
     addHitboxPlane('🟥 Wall: Front-R',  2.0, 2.5, 0.2,   2.0, 1.25, -CD/2, 0xff3333)
     addHitboxPlane('🟥 Wall: Back',     5.0, 2.5, 0.2,   0.0, 1.25,  CD/2, 0xff3333)
@@ -626,8 +610,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addHitboxPlane('🟥 Wall: Right',    0.2, 2.5, 5.0,   3.4, 1.25, 0.0, 0xff3333)
     // Floor: green
     addHitboxPlane('🟩 Floor',          6.0, 0.1, 5.0,   0.0, 0.05, 0.0, 0x33ff66)
-    // Stairs: orange
-    addHitboxPlane('🟧 Stairs',         1.8, 0.1, 2.0,   0.0, 0.0, -CD/2 - 1.0, 0xff8800)
+    // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
     // Interior ceiling light — SpotLight + lamp model at ceiling centre
     const cabLight = new THREE.SpotLight(0xffd080, 2.2, 10, Math.PI * 0.38, 0.45, 1.5)
@@ -1054,15 +1037,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       physWorld.addBody(rb); ringBodies.push(rb)
     }
 
-    // ── Register movable objects for debug editor ─────────────────────────────
+    // ── Register movable objects for debug editor (cabin only) ───────────────
     movablesRef.current = [
-      ...SECTIONS.map((s, i) => ({ name: `Sign: ${s.label}`, group: signGroups[i] })),
-      { name: 'Cabin',       group: cabGrp  },
-      { name: 'Pond',        group: pondGrp },
-      { name: 'Ball Pit',    group: pitGrp,   meshes: pitMeshes   },
-      { name: 'Trampoline',  group: trampGrp, meshes: trampMeshes },
-      { name: 'Bowling',     group: bowlGrp,  meshes: bowlMeshes  },
-      { name: 'Ring Toss',   group: rtossGrp, meshes: rtossMeshes },
+      { name: '🏕 Cabin group', group: cabGrp },
+      { name: '🪜 Ramp hitbox (cabin local)', group: rampGrp, isHitbox: true },
+      ...cabHitboxEntries,
+      // Async-loaded items (cabin shell, switch, desk) push themselves below
     ]
 
     // Ring toss helpers
@@ -1662,6 +1642,27 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             if (player.position.y >= b.maxY) return  // player jumped over the wall
             const cx = THREE.MathUtils.clamp(player.position.x, b.x0, b.x1)
             const cz = THREE.MathUtils.clamp(player.position.z, b.z0, b.z1)
+            const dx = player.position.x - cx
+            const dz = player.position.z - cz
+            const dist = Math.sqrt(dx * dx + dz * dz)
+            if (dist < PR && dist > 0.001) {
+              const nx = dx / dist, nz = dz / dist
+              player.position.x = cx + nx * PR
+              player.position.z = cz + nz * PR
+            } else if (dist === 0) {
+              player.position.x += PR
+            }
+          })
+          // Dynamic collision from visible hitbox planes
+          movablesRef.current.forEach(m => {
+            if (!m.isHitbox) return
+            const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
+            if (!mesh) return
+            mesh.updateMatrixWorld(true)
+            const wb = new THREE.Box3().setFromObject(mesh)
+            if (player.position.y >= wb.max.y) return
+            const cx = THREE.MathUtils.clamp(player.position.x, wb.min.x, wb.max.x)
+            const cz = THREE.MathUtils.clamp(player.position.z, wb.min.z, wb.max.z)
             const dx = player.position.x - cx
             const dz = player.position.z - cz
             const dist = Math.sqrt(dx * dx + dz * dz)
