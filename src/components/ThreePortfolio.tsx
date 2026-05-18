@@ -617,7 +617,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addHitboxPlane('🟩 Floor',         9.0, 0.1, 5.0, -1.50, 2.05, -0.40, 0x33ff66,  0, 1.00, 1.00, 1.20)
     // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
-    // Wall light — SpotLight + lamp model mounted on back wall pointing inward
+    // Ring Light
     const cabLight = new THREE.SpotLight(0xffd080, 2.8, 12, Math.PI * 0.45, 0.40, 1.2)
     cabLight.position.set(2.60, 4.50, -0.25)
     cabLight.target.position.set(-1.50, 2.20, -0.25)
@@ -667,6 +667,44 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cabGrp.add(desk)
       movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
     }, undefined, err => console.error('[cabin] gaming setup failed:', err))
+
+     // ── Bed inside cabin ─────────────────────────────────────────────
+gltfLoader.load('/assets/cabin/bed/Untitled.glb', gltf => {
+  const bedMesh = gltf.scene
+
+  bedMesh.traverse(child => {
+    if ((child as THREE.Mesh).isMesh) {
+      child.castShadow = true
+      child.receiveShadow = true
+      ;(child as THREE.Mesh).visible = true
+    }
+  })
+
+  // Normalize weird Blender/export origins
+  const box = new THREE.Box3().setFromObject(bedMesh)
+  const size = new THREE.Vector3()
+  const center = new THREE.Vector3()
+  box.getSize(size)
+  box.getCenter(center)
+
+  bedMesh.position.sub(center)
+
+  const normalizedBed = new THREE.Group()
+  normalizedBed.add(bedMesh)
+
+  const maxDim = Math.max(size.x, size.y, size.z)
+  normalizedBed.scale.setScalar(2.85 / maxDim)
+
+  normalizedBed.position.set(1.9, 2.525, 1.05)
+
+  cabGrp.add(normalizedBed)
+
+  movablesRef.current.push({
+    name: '🛏 Bed normalized (cabin local)',
+    group: normalizedBed,
+    scaleObj: normalizedBed,
+  })
+}, undefined, err => console.error('[bed] GLB failed:', err))
 
     // ── Pond ─────────────────────────────────────────────────────────────────
     const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
