@@ -563,79 +563,41 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Cabin (behind spawn) ──────────────────────────────────────────────────
     const CW = 7, CD = 5.5, CH = 3.2, ROOF_PK = 1.4
     const DOOR_W = 1.1, DOOR_H = 2.55
-    const cabinMat  = new THREE.MeshLambertMaterial({ color: 0x6b3a1f })
-    const roofMat2  = new THREE.MeshLambertMaterial({ color: 0x2e1a0d, side: THREE.DoubleSide })
 
     const cabGrp = new THREE.Group(); cabGrp.position.set(CABIN_X, 0, CABIN_Z); cabGrp.rotation.y = Math.PI; scene.add(cabGrp)
     // Rotated 180°: local +Z → world -Z, so door (local +Z) faces south (CABIN_Z - CD/2)
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })  // back wall
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X+CW/2, z0: CABIN_Z+CD/2-0.2, z1: CABIN_Z+CD/2+0.2, maxY: 99 })
     boxCols.push({ x0: CABIN_X-CW/2-0.2, x1: CABIN_X-CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
     boxCols.push({ x0: CABIN_X+CW/2-0.2, x1: CABIN_X+CW/2+0.2, z0: CABIN_Z-CD/2, z1: CABIN_Z+CD/2, maxY: 99 })
-    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })  // front-left
-    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })  // front-right
+    boxCols.push({ x0: CABIN_X-CW/2, x1: CABIN_X-DOOR_W/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
+    boxCols.push({ x0: CABIN_X+DOOR_W/2, x1: CABIN_X+CW/2, z0: CABIN_Z-CD/2-0.2, z1: CABIN_Z-CD/2+0.2, maxY: 99 })
 
-    // All cabin geometry is relative to cabGrp origin = (CABIN_X, 0, CABIN_Z)
-    const cabFound = new THREE.Mesh(new THREE.BoxGeometry(CW+0.4, 0.2, CD+0.4), new THREE.MeshLambertMaterial({ color: 0x999999 }))
-    cabFound.position.set(0, 0.1, 0); cabFound.receiveShadow = true; cabGrp.add(cabFound)
-    const cabBack = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, 0.3), cabinMat)
-    cabBack.position.set(0, CH/2, -CD/2); cabBack.castShadow = true; cabGrp.add(cabBack)
-    const cabLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
-    cabLeft.position.set(-CW/2, CH/2, 0); cabLeft.castShadow = true; cabGrp.add(cabLeft)
-    const cabRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CH, CD), cabinMat)
-    cabRight.position.set(CW/2, CH/2, 0); cabRight.castShadow = true; cabGrp.add(cabRight)
-    const fwSeg = (CW - DOOR_W) / 2
-    const cabFrontL = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
-    cabFrontL.position.set(-(DOOR_W + fwSeg)/2, CH/2, CD/2); cabFrontL.castShadow = true; cabGrp.add(cabFrontL)
-    const cabFrontR = new THREE.Mesh(new THREE.BoxGeometry(fwSeg, CH, 0.3), cabinMat)
-    cabFrontR.position.set((DOOR_W + fwSeg)/2, CH/2, CD/2); cabFrontR.castShadow = true; cabGrp.add(cabFrontR)
-    const cabFrontTop = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, CH-DOOR_H, 0.3), cabinMat)
-    cabFrontTop.position.set(0, DOOR_H+(CH-DOOR_H)/2, CD/2); cabGrp.add(cabFrontTop)
-    // Door as pivot group so it can swing open
+    // GLB cabin shell — scaled to match CW × CH footprint; interactive elements added separately below
+    gltfLoader.load('/assets/cabin/cabin/Untitled.glb', gltf => {
+      const cabMesh = gltf.scene
+      cabMesh.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      const box = new THREE.Box3().setFromObject(cabMesh)
+      const size = new THREE.Vector3(); box.getSize(size)
+      const sc = CW / size.x
+      cabMesh.scale.setScalar(sc)
+      const box2 = new THREE.Box3().setFromObject(cabMesh)
+      const center2 = new THREE.Vector3(); box2.getCenter(center2)
+      cabMesh.position.set(-center2.x, -box2.min.y, -center2.z)
+      cabGrp.add(cabMesh)
+      movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
+    }, undefined, err => console.error('[cabin] GLB failed:', err))
+
+    // Procedural door (interactive — swings open on approach)
     const doorPivot = new THREE.Group()
     doorPivot.position.set(-DOOR_W/2, 0, CD/2)
     cabGrp.add(doorPivot)
     doorPivotRef.current = doorPivot
     const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-0.1, DOOR_H, 0.1), new THREE.MeshLambertMaterial({ color: 0x3d1a00 }))
     cabDoor.position.set(DOOR_W/2, DOOR_H/2, 0.06); doorPivot.add(cabDoor)
-    // Door handle
     const dHandle = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshLambertMaterial({ color: 0xccaa00 }))
     dHandle.position.set(DOOR_W-0.18, DOOR_H*0.46, 0.12); doorPivot.add(dHandle)
-
-    ;[-1, 1].forEach(side => {
-      const win = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.62, 0.62), new THREE.MeshBasicMaterial({ color: 0x1a3a5c }))
-      win.position.set(side*(CW/2+0.05), CH*0.6, 0.5); cabGrp.add(win)
-      const wf = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.70, 0.70), new THREE.MeshLambertMaterial({ color: 0x8b5e2a }))
-      wf.position.copy(win.position); cabGrp.add(wf)
-    })
-
-    // Pyramid roof using BufferGeometry (5-vertex pyramid over rect base)
-    const RW = CW + 0.5, RD = CD + 0.5   // overhang
-    const pyVerts = new Float32Array([
-      // Front face (apex, front-right, front-left)
-       0,    ROOF_PK,  0,
-       RW/2, 0,         RD/2,
-      -RW/2, 0,         RD/2,
-      // Back face (apex, back-left, back-right)
-       0,    ROOF_PK,  0,
-      -RW/2, 0,        -RD/2,
-       RW/2, 0,        -RD/2,
-      // Right face (apex, back-right, front-right)
-       0,    ROOF_PK,  0,
-       RW/2, 0,        -RD/2,
-       RW/2, 0,         RD/2,
-      // Left face (apex, front-left, back-left)
-       0,    ROOF_PK,  0,
-      -RW/2, 0,         RD/2,
-      -RW/2, 0,        -RD/2,
-    ])
-    const pyGeo = new THREE.BufferGeometry()
-    pyGeo.setAttribute('position', new THREE.BufferAttribute(pyVerts, 3))
-    pyGeo.computeVertexNormals()
-    const pyRoof = new THREE.Mesh(pyGeo, roofMat2)
-    pyRoof.position.set(0, CH, 0); pyRoof.castShadow = true; cabGrp.add(pyRoof)
-    // Solid base cap seals the bottom of the pyramid (covers the chimney entry)
-    const pyCap = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), roofMat2)
-    pyCap.rotation.x = Math.PI / 2; pyCap.position.set(0, CH + 0.01, 0); cabGrp.add(pyCap)
 
     // Chimney + smoke — all in one group so they track cabin position/rotation
     const CHIM_X = CW/4, CHIM_Z = -CD/4
@@ -684,20 +646,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const SWITCH_LX = DOOR_W / 2 + 0.35
     const SWITCH_LY = CH * 0.5
     const SWITCH_LZ = CD / 2 - 0.06
-    let switchToggleNode: THREE.Object3D | null = null
     gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
       const sw = gltf.scene
       sw.traverse(child => {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
-      // Raw plate is ~0.07 tall × 0.114 wide at scale 1; scale up to be visible (~0.22 tall)
       sw.scale.setScalar(3.0)
       sw.position.set(SWITCH_LX, SWITCH_LY, SWITCH_LZ)
-      // Face into the cabin (-Z local direction)
       sw.rotation.y = Math.PI
       cabGrp.add(sw)
-      switchToggleNode = sw.getObjectByName('Switch.001') ?? sw
-      console.log('[cabin] switch loaded, toggle node:', switchToggleNode?.name)
+      movablesRef.current.push({ name: '💡 Switch (cabin local)', group: sw as unknown as THREE.Group, scaleObj: sw })
     }, undefined, err => console.error('[cabin] switch failed:', err))
 
     const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
@@ -710,7 +668,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
 
-      // Measure raw size then scale to fit cabin interior (~3 units wide)
       const box = new THREE.Box3().setFromObject(desk)
       const size = new THREE.Vector3(); box.getSize(size)
       const center = new THREE.Vector3(); box.getCenter(center)
@@ -718,7 +675,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const sc = targetWidth / size.x
       desk.scale.setScalar(sc)
 
-      // Re-measure after scale to get floor offset
       const box2 = new THREE.Box3().setFromObject(desk)
       const yOff = -box2.min.y
 
@@ -726,15 +682,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       desk.rotation.y = Math.PI
 
       cabGrp.add(desk)
-
-      // Debugging — tune targetWidth / position from these numbers
-      const box3 = new THREE.Box3().setFromObject(desk)
-      const scaledSize = new THREE.Vector3(); box3.getSize(scaledSize)
-      const scaledCenter = new THREE.Vector3(); box3.getCenter(scaledCenter)
-      console.log(`[desk] sc=${sc.toFixed(3)}  scaledSize x=${scaledSize.x.toFixed(2)} y=${scaledSize.y.toFixed(2)} z=${scaledSize.z.toFixed(2)}`)
-      console.log(`[desk] localPos x=${desk.position.x.toFixed(2)} y=${desk.position.y.toFixed(2)} z=${desk.position.z.toFixed(2)}  rotY=${desk.rotation.y.toFixed(2)}`)
-      console.log(`[desk] scaledCenter x=${scaledCenter.x.toFixed(2)} y=${scaledCenter.y.toFixed(2)} z=${scaledCenter.z.toFixed(2)}`)
-      console.log(`[desk] cabin interior: x ∈ [${(-CW/2+0.2).toFixed(2)}, ${(CW/2-0.2).toFixed(2)}]  z ∈ [${(-CD/2+0.2).toFixed(2)}, ${(CD/2-0.2).toFixed(2)}]`)
+      movablesRef.current.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
     }, undefined, err => console.error('[cabin] gaming setup failed:', err))
 
     // ── Pond ─────────────────────────────────────────────────────────────────
