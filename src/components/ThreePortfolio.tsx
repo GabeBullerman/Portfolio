@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js'
 import {
   BOWL_CX, BOWL_START_Z, BOWL_PINS_Z, BOWL_LANE_Z, BOWL_PROX,
   PIN_H, PIN_R_BOT, PIN_R_TOP, BOWL_BALL_R, PIN_ROW_D, PIN_POSITIONS,
@@ -183,19 +185,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const cylCols: CylCol[] = []
     const boxCols: BoxCol[] = []
 
-    // ── Trees ────────────────────────────────────────────────────────────
-    const postMat = new THREE.MeshLambertMaterial({ color:0x7a4f2d })
-    function addTree(x: number, z: number, sc: number) {
-      cylCols.push({ x, z, r: 0.28 * sc })
-      const g = new THREE.Group()
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18*sc,0.26*sc,1.8*sc,7), postMat)
-      trunk.position.y=0.9*sc; trunk.castShadow=true; g.add(trunk)
-      ;([{r:1.8,h:2.4,y:1.8,c:0x2d6b29},{r:1.3,h:2.0,y:3.0,c:0x357a30},{r:0.8,h:1.5,y:4.1,c:0x3d8a37}] as const).forEach(({r,h,y,c})=>{
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(r*sc,h*sc,7), new THREE.MeshLambertMaterial({color:c}))
-        cone.position.y=y*sc; cone.castShadow=true; g.add(cone)
-      })
-      g.position.set(x,0,z); scene.add(g)
-    }
     // Define campfire position here so tree spawner can exclude it
     const FIRE_POS = new THREE.Vector3(0, 0, -6)
 
@@ -203,20 +192,119 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const CABIN_X = -5, CABIN_Z = 15
     const POND_X = -28, POND_Z = -35, POND_R = 3.2
 
-    const rng = mulberry32(42)
-    for (let i=0; i<220; i++) {
-      const x=(rng()-0.5)*160, z=rng()*130-95
-      if (Math.hypot(x,z)>90) continue
-      if (SECTIONS.some(s=>Math.hypot(x-s.wx,z-s.wz)<6.5)) continue
-      if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
-      if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
-      if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
-      if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
-      if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
-      if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
-      if (Math.hypot(x - POND_X,  z - POND_Z)  < POND_R + 2.5) continue
-      addTree(x,z,0.7+rng()*0.65)
+    // ── Nature assets (GLB + FBX) ─────────────────────────────────────────
+    const gltfLoader = new GLTFLoader()
+    const fbxLoader  = new FBXLoader()
+
+    function loadGLB(path: string): Promise<THREE.Group> {
+      return new Promise(resolve => {
+        gltfLoader.load(path, gltf => {
+          gltf.scene.traverse(child => {
+            if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+          })
+          resolve(gltf.scene)
+        })
+      })
     }
+    function loadFBX(path: string): Promise<THREE.Group> {
+      return new Promise(resolve => {
+        fbxLoader.load(path, grp => {
+          grp.traverse(child => {
+            if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+          })
+          resolve(grp)
+        })
+      })
+    }
+
+    Promise.all([
+      '/assets/nature/Tree1.3.glb',
+      '/assets/nature/Tree2.3.glb',
+      '/assets/nature/Tree3.3.glb',
+      '/assets/nature/Bush1.3.glb',
+      '/assets/nature/Bush2.3.glb',
+      '/assets/nature/Bush3.3.glb',
+      '/assets/nature/Stone1.3.glb',
+      '/assets/nature/Stone2.3.glb',
+      '/assets/nature/Stone3.3.glb',
+      '/assets/nature/Flower1.3.glb',
+      '/assets/nature/Flower2.3.glb',
+      '/assets/nature/Flower3.3.glb',
+      '/assets/nature/Mushroom1.2.glb',
+      '/assets/nature/Mushroom2.2.glb',
+    ].map(loadGLB).concat([
+      loadFBX('/assets/nature/cartoon_lowpoly_trees_fbx.FBX'),
+      loadFBX('/assets/nature/Lowpoly_tree_sample.fbx'),
+      loadFBX('/assets/nature/Tree low.FBX'),
+    ])).then(([t1, t2, t3, b1, b2, b3, s1, s2, s3, fl1, fl2, fl3, m1, m2, ft1, ft2, ft3]) => {
+      const trees   = [t1, t2, t3, ft1, ft2, ft3]
+      const bushes  = [b1, b2, b3]
+      const stones  = [s1, s2, s3]
+      const flowers = [fl1, fl2, fl3]
+      const mushs   = [m1, m2]
+
+      function scatter(
+        pool: THREE.Group[], seed: number, count: number,
+        scMin: number, scMax: number, clearR: number,
+        extraChecks?: (x: number, z: number) => boolean
+      ) {
+        const r = mulberry32(seed)
+        for (let i = 0; i < count; i++) {
+          const x = (r() - 0.5) * 160, z = r() * 130 - 95
+          const sc = scMin + r() * (scMax - scMin)
+          const yr = r() * Math.PI * 2
+          const vi = Math.floor(r() * pool.length)
+          if (Math.hypot(x, z) > 88) continue
+          if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
+          if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
+          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
+          if (extraChecks && extraChecks(x, z)) continue
+          const obj = pool[vi].clone(true)
+          obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
+          scene.add(obj)
+        }
+      }
+
+      // Trees — also push cylinder colliders
+      const tRng = mulberry32(42)
+      for (let i = 0; i < 220; i++) {
+        const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
+        const sc = 1.0 + tRng() * 0.5
+        const yr = tRng() * Math.PI * 2
+        const vi = Math.floor(tRng() * 3)
+        if (Math.hypot(x, z) > 90) continue
+        if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < 6.5)) continue
+        if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
+        if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
+        if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
+        if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
+        if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
+        if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
+        if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
+        cylCols.push({ x, z, r: 0.3 * sc })
+        const obj = trees[vi].clone(true)
+        obj.position.set(x, 0, z); obj.scale.setScalar(sc); obj.rotation.y = yr
+        scene.add(obj)
+      }
+
+      // Bushes
+      scatter(bushes, 77, 120, 0.8, 1.4, 5.0, (x, z) =>
+        Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5 ||
+        Math.hypot(x - PIT_CX, z - PIT_CZ) < 3.5 ||
+        Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2
+      )
+
+      // Stones
+      scatter(stones, 99, 80, 0.5, 1.2, 4.5, (x, z) =>
+        Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0
+      )
+
+      // Flowers
+      scatter(flowers, 123, 160, 0.6, 1.0, 3.5)
+
+      // Mushrooms
+      scatter(mushs, 55, 60, 0.4, 0.8, 4.0)
+    })
 
     // ── World border fence ──────────────────────────────────────────────────────
     const fPostMat = new THREE.MeshLambertMaterial({ color: 0x7a5c2e })
@@ -256,7 +344,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cylCols.push({ x: wx, z: wz, r: 0.22 })
       const clear = new THREE.Mesh(new THREE.CircleGeometry(4.5,20), new THREE.MeshLambertMaterial({color:0x5a9c5a}))
       clear.rotation.x=-Math.PI/2; clear.position.set(0,0.01,0); g.add(clear)
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.15,3.2,7), postMat)
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.15,3.2,7), new THREE.MeshLambertMaterial({ color: 0x7a4f2d }))
       post.position.set(0,1.6,0); post.castShadow=true; g.add(post)
       const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
       sign.position.set(0,3.8,0); sign.castShadow=true; g.add(sign)
