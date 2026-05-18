@@ -260,10 +260,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const flowers = [fl1, fl2, fl3]
       const mushs   = [m1, m2]
 
-      // FBX files loaded separately — failures are non-fatal
+      // FBX trees — non-fatal if any fail
       Promise.allSettled([
-        loadFBX('/assets/nature/cartoon_lowpoly_trees_fbx.FBX'),
-        loadFBX('/assets/nature/Lowpoly_tree_sample.fbx'),
         loadFBX('/assets/nature/Tree low.FBX'),
       ]).then(fbxResults => {
         const fbxTrees = fbxResults
