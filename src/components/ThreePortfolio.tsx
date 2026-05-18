@@ -102,6 +102,18 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [monitorMode, setMonitorMode] = useState(true)
   const goOutsideRef    = useRef(false)
   const goToComputerRef = useRef(false)
+  // Bed / sleep
+  const BED_LOCAL_POS = new THREE.Vector3(1.9, 2.625, 1.05)
+  const BED_PROX = 1.6
+  const [nearBed, setNearBed] = useState(false)
+  const nearBedRef = useRef(false)
+  const [isNight, setIsNight] = useState(false)
+  const isNightRef = useRef(false)
+  const sleepStateRef = useRef<'awake' | 'closing' | 'opening'>('awake')
+  const sleepFadeRef = useRef(0)
+  const sleepOverlayRef = useRef<HTMLDivElement>(null)
+  const dayEnvRef = useRef<THREE.Texture | null>(null)
+  const nightEnvRef = useRef<THREE.Texture | null>(null)
   // Cinematic camera transition (Go Outside / Use Computer)
   const cinematicRef    = useRef({
     active: false, t: 0, duration: 2.8,
@@ -157,10 +169,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     pmremGen.compileEquirectangularShader()
     new RGBELoader().load('/images/citrus_orchard_road_puresky_1k.hdr', (hdrTex) => {
       const envMap = pmremGen.fromEquirectangular(hdrTex).texture
+      dayEnvRef.current = envMap
       scene.background = envMap
       scene.environment = envMap
       hdrTex.dispose()
-      pmremGen.dispose()
+      new RGBELoader().load('/images/qwantani_moon_noon_puresky_1k.hdr', (nightTex) => {
+        nightEnvRef.current = pmremGen.fromEquirectangular(nightTex).texture
+        nightTex.dispose()
+        pmremGen.dispose()
+      })
     })
 
     const ambientLight = new THREE.AmbientLight(0xffeedd, 1.2)
@@ -1366,6 +1383,11 @@ if (
     goToComputerRef.current = true
     return
   }
+
+  if (nearBedRef.current && sleepStateRef.current === 'awake') {
+    sleepStateRef.current = 'closing'
+    return
+  }
 }
 
       // Ladder dismount
@@ -1553,6 +1575,27 @@ if (
 
       player.visible = !focusActiveRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle'
 
+      // ── Sleep fade (eyes closing / opening) ──────────────────────────
+      if (sleepStateRef.current !== 'awake') {
+        const SPEED = 0.55 // seconds to go fully dark / fully bright
+        if (sleepStateRef.current === 'closing') {
+          sleepFadeRef.current = Math.min(sleepFadeRef.current + delta / SPEED, 1)
+          if (sleepFadeRef.current >= 1) {
+            // Swap skybox at peak darkness
+            isNightRef.current = !isNightRef.current
+            setIsNight(isNightRef.current)
+            const nextEnv = isNightRef.current ? nightEnvRef.current : dayEnvRef.current
+            if (nextEnv) { scene.background = nextEnv; scene.environment = nextEnv }
+            sleepStateRef.current = 'opening'
+          }
+        } else {
+          sleepFadeRef.current = Math.max(sleepFadeRef.current - delta / SPEED, 0)
+          if (sleepFadeRef.current <= 0) sleepStateRef.current = 'awake'
+        }
+        if (sleepOverlayRef.current)
+          sleepOverlayRef.current.style.opacity = String(sleepFadeRef.current)
+      }
+
       // ── Cinematic transitions (Go Outside / Use Computer) ─────────────
       if (cinematicRef.current.active) {
         const cs = cinematicRef.current
@@ -1701,8 +1744,8 @@ if (
         fpvBlend = THREE.MathUtils.lerp(fpvBlend, inCabin ? 1 : 0, delta * 5)
 
         // Dim scene lights inside cabin so the SpotLight carries the room
-        const tgtAmbient = inCabin ? 0.18 : 1.2
-        const tgtSun     = inCabin ? 0.05 : 1.4
+        const tgtAmbient = inCabin ? 0.18 : (isNightRef.current ? 0.12 : 1.2)
+        const tgtSun     = inCabin ? 0.05 : (isNightRef.current ? 0.04 : 1.4)
         if (ambientLightRef.current)
           ambientLightRef.current.intensity = THREE.MathUtils.lerp(ambientLightRef.current.intensity, tgtAmbient, delta * 3)
         if (sunLightRef.current)
@@ -1808,6 +1851,15 @@ if (
           if (nearC !== nearChairRef.current) {
             nearChairRef.current = nearC
             setNearChair(nearC)
+          }
+
+          const bedWorld = BED_LOCAL_POS.clone()
+          cabGrp.localToWorld(bedWorld)
+          const nearBedVal =
+            Math.hypot(player.position.x - bedWorld.x, player.position.z - bedWorld.z) < BED_PROX
+          if (nearBedVal !== nearBedRef.current) {
+            nearBedRef.current = nearBedVal
+            setNearBed(nearBedVal)
           }
         } else if (sittingAtRef.current === 'bench') {
           const s = BENCH_POSITIONS[seatIdxRef.current]
@@ -2194,6 +2246,23 @@ if (
           </div>
         </div>
       )}
+
+      {/* "Sleep" prompt when near the bed */}
+      {!monitorMode && nearBed && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
+            <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
+            {isNight ? 'Wake Up' : 'Sleep'}
+          </div>
+        </div>
+      )}
+
+      {/* Eyes-closing sleep overlay */}
+      <div
+        ref={sleepOverlayRef}
+        className="absolute inset-0 bg-black pointer-events-none"
+        style={{ opacity: 0, zIndex: 55 }}
+      />
 
       {/* Click-to-look prompt — desktop only, idle state, not in monitor mode */}
       {!monitorMode && !pointerLocked && !activeSection && bowlDisplay.state === 'idle' && !sitting && (
