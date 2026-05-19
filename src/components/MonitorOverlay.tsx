@@ -19,7 +19,13 @@ export default function MonitorOverlay({ onGoOutside }: Props) {
   const [showFigure, setShowFigure]   = useState(false)
   const [typedText, setTypedText]     = useState('')
   const [typingDone, setTypingDone]   = useState(false)
-  const MESSAGE = "Pssst… hit Explore up in the nav!"
+  const hasExplored = localStorage.getItem('gabe-explored') === 'true'
+  const MESSAGE = hasExplored ? "Thanks for exploring!" : "Pssst… hit Explore up in the nav!"
+
+  const handleExplore = () => {
+    localStorage.setItem('gabe-explored', 'true')
+    onGoOutside()
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setShowFigure(true), 10000)
@@ -59,7 +65,7 @@ export default function MonitorOverlay({ onGoOutside }: Props) {
         onClick={handleClick}
         style={{ scrollbarGutter: 'stable' }}
       >
-        <Header onExplore={onGoOutside} />
+        <Header onExplore={handleExplore} />
         <main>
           <Hero />
           <Experience />
@@ -128,10 +134,13 @@ export default function MonitorOverlay({ onGoOutside }: Props) {
           <path d="M33 31 Q40 38 47 31" fill="none" stroke="#1f2937" strokeWidth="2.5" strokeLinecap="round" />
           {/* Body */}
           <line x1="40" y1="42" x2="40" y2="115" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
-          {/* Left arm (viewer's right) — vertical on screen, pointing straight up at button */}
+          {/* Left arm (viewer's right) — vertical on screen, pointing straight up */}
           <line x1="40" y1="65" x2="83" y2="10" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
-          {/* Right arm (viewer's left) — down by his side */}
-          <line x1="40" y1="65" x2="18" y2="108" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
+          {/* Right arm (viewer's left) — down by side normally, both up when explored */}
+          {hasExplored
+            ? <line x1="40" y1="65" x2="2"  y2="18" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
+            : <line x1="40" y1="65" x2="18" y2="108" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
+          }
           {/* Legs — barely visible stubs */}
           <line x1="40" y1="115" x2="28" y2="210" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />
           <line x1="40" y1="115" x2="54" y2="210" stroke="#1f2937" strokeWidth="3.5" strokeLinecap="round" />

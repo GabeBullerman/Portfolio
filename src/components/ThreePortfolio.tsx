@@ -103,7 +103,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const nearSwitchRef   = useRef(false)
   const switchNodeRef   = useRef<THREE.Object3D | null>(null)
   const [nearSwitch, setNearSwitch] = useState(false)
-  const cabSpotRef      = useRef<THREE.SpotLight | null>(null)
+  const cabCeilLightRef = useRef<THREE.PointLight | null>(null)
+  const monLightRef     = useRef<THREE.SpotLight | null>(null)
+  const inCabinPrevRef  = useRef(true)   // start inside — env map nulled until player exits
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(true)
   const goOutsideRef    = useRef(false)
@@ -151,6 +153,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     relockRef.current?.()
   }
 
+  // Force-mute music while in monitor overlay; restore when exploring
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = monitorMode
+    musicMutedRef.current  = monitorMode
+    setMusicMuted(monitorMode)
+  }, [monitorMode])
+
   useEffect(() => {
     const mount = mountRef.current
     if (!mount) return
@@ -177,7 +187,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       const envMap = pmremGen.fromEquirectangular(hdrTex).texture
       dayEnvRef.current = envMap
       scene.background = envMap
-      scene.environment = envMap
+      if (!inCabinPrevRef.current) scene.environment = envMap
       hdrTex.dispose()
       new RGBELoader().load('/images/qwantani_moon_noon_puresky_1k.hdr', (nightTex) => {
         nightEnvRef.current = pmremGen.fromEquirectangular(nightTex).texture
@@ -667,12 +677,58 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addHitboxPlane('🟩 Floor',         9.0, 0.1, 5.0, -1.50, 2.05, -0.40, 0x33ff66,  0, 1.00, 1.00, 1.20)
     // Stairs handled by rampGrp/rampMesh (orange mesh above)
 
-    // Ring Light
-    const cabLight = new THREE.SpotLight(0xffd080, 2.8, 12, Math.PI * 0.45, 0.40, 1.2)
-    cabLight.position.set(2.60, 4.50, -0.25)
-    cabLight.target.position.set(-1.50, 2.20, -0.25)
-    cabGrp.add(cabLight); cabGrp.add(cabLight.target)
-    cabSpotRef.current = cabLight
+    // ── Interior ceiling — flat plane sized to wall bounds, hides chimney base / roof pitch ──
+    const intMat = new THREE.MeshStandardMaterial({ color: 0x3d2e1e, roughness: 1.0, metalness: 0, side: THREE.DoubleSide })
+    // X: front wall (-4.10) → back wall (2.90) = 7.0 wide, center -0.60
+    // Z: left wall (-3.50) → right wall (2.75) = 6.25 deep, center -0.375
+    const intCeil = new THREE.Mesh(new THREE.PlaneGeometry(6.6, 5.85), intMat)
+    intCeil.rotation.x = -Math.PI / 2
+    intCeil.position.set(-0.60, 5.05, -0.375)
+    intCeil.receiveShadow = true
+    cabGrp.add(intCeil)
+    movablesRef.current.push({ name: '🟫 Interior ceiling', group: intCeil as unknown as THREE.Group, scaleObj: intCeil })
+
+    // Desk ring light — aesthetic only, no actual light source
+
+    // Ceiling PointLight — main room illumination, toggled by the wall switch
+    const ceilLight = new THREE.PointLight(0xffeedd, 6.0, 11, 1.4)
+    ceilLight.position.set(-0.5, 5.05, -0.4)
+    ceilLight.castShadow = true
+    ceilLight.shadow.mapSize.set(512, 512)
+    cabGrp.add(ceilLight)
+    cabCeilLightRef.current = ceilLight
+
+    // Small emissive bulb mesh so the fixture is visible
+    const bulbGeo = new THREE.SphereGeometry(0.12, 8, 6)
+    const bulbMat = new THREE.MeshStandardMaterial({ emissive: 0xffeedd, emissiveIntensity: 3, color: 0x000000 })
+    const bulbMesh = new THREE.Mesh(bulbGeo, bulbMat)
+    bulbMesh.position.copy(ceilLight.position)
+    cabGrp.add(bulbMesh)
+
+    // Lamp dome — semi-gloss opaque hemisphere shade, opens downward
+    const domeMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.38, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0xece6d8, roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.45 })
+    )
+    domeMesh.rotation.x = Math.PI  // flip so curved side faces down into room
+    domeMesh.position.copy(ceilLight.position)
+    domeMesh.castShadow = true
+    cabGrp.add(domeMesh)
+
+    // Black metal rim ring around the dome opening
+    const rimMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38, 0.028, 8, 64),
+      new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.8 })
+    )
+    rimMesh.rotation.x = Math.PI / 2  // lay flat
+    rimMesh.position.copy(ceilLight.position)
+    rimMesh.castShadow = true
+    cabGrp.add(rimMesh)
+
+    // Keep bulb/dome/rim visibility in sync with the light
+    ceilLight.userData.bulb = bulbMesh
+    ceilLight.userData.dome = domeMesh
+    ceilLight.userData.rim  = rimMesh
 
     gltfLoader.load('/assets/cabin/light/light.gltf', gltf => {
       const lamp = gltf.scene
@@ -727,6 +783,18 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         })
       })
 
+      // Monitor screen glow — SpotLight cone aimed into the room from the screen face.
+      // The light source itself is invisible (Three.js SpotLight has no mesh).
+      // MONITOR_LOCAL_POS is the screen center; aim target further into the room (-Z local).
+      const monLight = new THREE.SpotLight(0xd0e8ff, 1.2, 5, Math.PI * 0.38, 0.5, 1.5)
+      monLight.position.set(MONITOR_LOCAL_POS.x, MONITOR_LOCAL_POS.y, MONITOR_LOCAL_POS.z)
+      const monTarget = new THREE.Object3D()
+      monTarget.position.set(MONITOR_LOCAL_POS.x, MONITOR_LOCAL_POS.y - 0.4, MONITOR_LOCAL_POS.z - 1.8)
+      cabGrp.add(monLight)
+      cabGrp.add(monTarget)
+      monLight.target = monTarget
+      monLightRef.current = monLight
+
       desk.position.set(2.0, 2.8, -2.20)
 
       cabGrp.add(desk)
@@ -773,7 +841,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const maxDim = Math.max(size.x, size.y, size.z)
   normalizedBed.scale.setScalar(2.85 / maxDim)
 
-  normalizedBed.position.set(1.9, 2.625, 1.05)
+  normalizedBed.position.set(1.00, 2.625, 1.65)
+  normalizedBed.rotation.set(0,Math.PI/2,0)
 
   cabGrp.add(normalizedBed)
 
@@ -972,7 +1041,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const TRAMP_SEGMENTS = 32
     const trampFabricMat = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 20 })
     const frameMat2 = new THREE.MeshLambertMaterial({ color: 0x888888 })
-    const netMat = new THREE.MeshBasicMaterial({ color: 0x2255cc, transparent: true, opacity: 0.45, side: THREE.DoubleSide, wireframe: false })
+    const netMat = new THREE.MeshBasicMaterial({ color: 0x2255cc, transparent: true, opacity: 0.55, side: THREE.DoubleSide, wireframe: false })
     const trampMeshes: THREE.Object3D[] = []
     const trampGrp = new THREE.Group(); trampGrp.position.set(TRAMP_CX, 0, TRAMP_CZ)
 
@@ -1514,10 +1583,22 @@ if (
         return
       }
 
-      // Light switch toggle
+      // Light switch toggle — ceiling light only; desk ring light is always on
       if (mapped === 'e' && nearSwitchRef.current) {
         cabLightOnRef.current = !cabLightOnRef.current
-        if (cabSpotRef.current) cabSpotRef.current.visible = cabLightOnRef.current
+        const on = cabLightOnRef.current
+        if (cabCeilLightRef.current) {
+          cabCeilLightRef.current.visible = on
+          const { bulb, dome, rim } = cabCeilLightRef.current.userData as { bulb?: THREE.Mesh; dome?: THREE.Mesh; rim?: THREE.Mesh }
+          if (bulb) bulb.visible = on
+          if (dome) dome.visible = on
+          if (rim)  rim.visible  = on
+        }
+        // Monitor glow is stronger when ceiling light is off
+        if (monLightRef.current) {
+          monLightRef.current.intensity = on ? 1.2 : 3.5
+          monLightRef.current.distance  = on ? 5   : 8
+        }
         return
       }
 
@@ -1668,7 +1749,11 @@ if (
             isNightRef.current = !isNightRef.current
             setIsNight(isNightRef.current)
             const nextEnv = isNightRef.current ? nightEnvRef.current : dayEnvRef.current
-            if (nextEnv) { scene.background = nextEnv; scene.environment = nextEnv }
+            if (nextEnv) {
+              scene.background = nextEnv
+              // Only restore environment map if outside — inside it stays null
+              if (!inCabinPrevRef.current) scene.environment = nextEnv
+            }
             sleepStateRef.current = 'opening'
           }
         } else {
@@ -1819,16 +1904,26 @@ if (
         lElbow.rotation.x = swingAmt * 0.15; rElbow.rotation.x = swingAmt * 0.15
 
         // ── Camera: auto FPV inside cabin, TPV outside ────────────────────
-        // Cabin interior world bounds (derived from cabGrp pos/rotation)
+        // Lighting: only true inside the cabin walls (front wall at world z ≈ 11.0)
         const inCabin =
           player.position.x > -8.2 && player.position.x < -1.5 &&
-          player.position.z > 9.0  && player.position.z < 18.5 &&
+          player.position.z > 11.0 && player.position.z < 18.5 &&
           player.position.y > 0.8
-        fpvBlend = THREE.MathUtils.lerp(fpvBlend, inCabin ? 1 : 0, delta * 5)
+        // FPV: also covers the balcony — stay first-person until the player
+        // descends the ramp to ground level (y < 1.0) to avoid camera clipping
+        const inCabinOrBalcony =
+          player.position.x > -8.2 && player.position.x < -1.5 &&
+          player.position.z > 9.0  && player.position.z < 18.5 &&
+          player.position.y > 1.0
+        fpvBlend = THREE.MathUtils.lerp(fpvBlend, inCabinOrBalcony ? 1 : 0, delta * 5)
 
-        // Dim scene lights inside cabin so the SpotLight carries the room
-        const tgtAmbient = inCabin ? 0.18 : (isNightRef.current ? 0.12 : 1.2)
-        const tgtSun     = inCabin ? 0.05 : (isNightRef.current ? 0.04 : 1.4)
+        // Inside: kill global lights + env map so only the ceiling PointLight lights the room
+        if (inCabin !== inCabinPrevRef.current) {
+          inCabinPrevRef.current = inCabin
+          scene.environment = inCabin ? null : (isNightRef.current ? nightEnvRef.current : dayEnvRef.current)
+        }
+        const tgtAmbient = inCabin ? 0.06 : (isNightRef.current ? 0.12 : 1.2)
+        const tgtSun     = inCabin ? 0.0  : (isNightRef.current ? 0.04 : 1.4)
         if (ambientLightRef.current)
           ambientLightRef.current.intensity = THREE.MathUtils.lerp(ambientLightRef.current.intensity, tgtAmbient, delta * 3)
         if (sunLightRef.current)
