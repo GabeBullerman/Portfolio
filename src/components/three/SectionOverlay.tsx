@@ -1,7 +1,13 @@
 import { experienceData } from '../../data/experience'
 import { skillsData } from '../../data/skills'
 import { projectsData } from '../../data/projects'
-import { SectionId, SECTIONS } from './constants'
+type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
+const SECTIONS = [
+  { id: 'about', label: 'About Me' }, { id: 'experience', label: 'Experience' },
+  { id: 'skills', label: 'Skills' }, { id: 'projects', label: 'Projects' },
+  { id: 'certifications', label: 'Certs' }, { id: 'moreonme', label: 'More on Me' },
+  { id: 'contact', label: 'Contact' },
+] as const
 
 // ─── Overlay theme colors ────────────────────────────────────────────────────
 export const WT = '#fff5e0'

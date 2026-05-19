@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { experienceData } from '../../data/experience'
 import { projectsData } from '../../data/projects'
-import { SectionId } from './constants'
 import { mulberry32 } from './helpers'
 
 // ─── Canvas helpers ──────────────────────────────────────────────────────────
@@ -42,7 +41,7 @@ export function asyncLoadCertImages(c: CanvasRenderingContext2D, W: number, H: n
   })
 }
 
-export function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: number, H: number) {
+export function drawSignPreview(c: CanvasRenderingContext2D, id: string, W: number, H: number) {
   const top = 196, avail = H - top - 44
   c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = 'transparent'
   switch (id) {
@@ -153,7 +152,7 @@ export function drawSignPreview(c: CanvasRenderingContext2D, id: SectionId, W: n
   c.restore()
 }
 
-export function makeSignTexture(label: string, id: SectionId): THREE.CanvasTexture {
+export function makeSignTexture(label: string, id: string): THREE.CanvasTexture {
   const W=1024, H=512
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H
   const c=cv.getContext('2d')!

@@ -1,7 +1,4 @@
 // ─── Types ──────────────────────────────────────────────────────────────────
-export type SectionId = 'about' | 'experience' | 'skills' | 'projects' | 'certifications' | 'moreonme' | 'contact'
-export interface SectionCfg { id: SectionId; label: string; wx: number; wz: number }
-
 export type BowlState = 'idle' | 'aiming' | 'thrown' | 'result'
 export type RTossState = 'idle' | 'aiming' | 'thrown' | 'result'
 
@@ -37,8 +34,8 @@ export const PIN_POSITIONS: [number, number, number][] = [
 
 // ─── Bench constants ──────────────────────────────────────────────────────────
 export const BENCH_POSITIONS = [
-  { x: -2.3, z: -7.8, ry: Math.PI * 0.3 },
-  { x:  2.3, z: -7.8, ry: -Math.PI * 0.3 },
+  { x: -2.3, z: -15.7, ry: Math.PI * 0.3 },
+  { x:  2.3, z: -15.7, ry: -Math.PI * 0.3 },
 ] as const
 export const BENCH_PROX = 2.3
 
@@ -64,15 +61,3 @@ export const LADDER_X = TRAMP_CX                       // south side — centere
 export const LADDER_Z = TRAMP_CZ + TRAMP_R + 0.12     // flush with south rim
 export const LADDER_PROX = 2.2
 
-// ─── Sections ────────────────────────────────────────────────────────────────
-export const SECTIONS: SectionCfg[] = [
-  { id: 'about',          label: 'About Me',   wx: -6,  wz:  -3 },
-  { id: 'experience',     label: 'Experience', wx: -18, wz: -16 },
-  { id: 'skills',         label: 'Skills',     wx:  4,  wz: -26 },
-  { id: 'projects',       label: 'Projects',   wx: -14, wz: -40 },
-  { id: 'certifications', label: 'Certs',      wx:  6,  wz: -52 },
-  { id: 'moreonme',       label: 'More on Me', wx: -16, wz: -62 },
-  { id: 'contact',        label: 'Contact',    wx:  2,  wz: -72 },
-]
-
-export const PROX = 4.5

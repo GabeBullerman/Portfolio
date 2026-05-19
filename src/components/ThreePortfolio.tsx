@@ -10,20 +10,15 @@ import {
   BENCH_POSITIONS, BENCH_PROX,
   RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RING_R, RTOSS_RING_TUBE, RTOSS_RINGS, RTOSS_POST_H, RTOSS_POST_R,
   PIT_CX, PIT_CZ, TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y, LADDER_X, LADDER_Z, LADDER_PROX,
-  SECTIONS, PROX,
-  SectionId, BowlState, RTossState,
+  BowlState, RTossState,
 } from './three/constants'
 import { mulberry32, lerpAngle } from './three/helpers'
-import { makeSignTexture } from './three/signTextures'
-import { SectionOverlay } from './three/SectionOverlay'
 import MonitorOverlay from './MonitorOverlay'
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const mountRef          = useRef<HTMLDivElement>(null)
   const [pointerLocked, setPointerLocked] = useState(false)
-  const [activeSection, setActiveSection] = useState<SectionId | null>(null)
-  const [nearSign, setNearSign]           = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
   // Background music
   const audioRef      = useRef<HTMLAudioElement | null>(null)
@@ -37,7 +32,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const RADIO_PROX    = 1.4
   const touchMoveRef    = useRef({ x: 0, y: 0 })
   const touchActiveRef  = useRef(false)
-  const triggerFocusRef = useRef<((id: SectionId) => void) | null>(null)
   // Bowling mini-game
   const [nearBowl, setNearBowl]           = useState(false)
   const [bowlDisplay, setBowlDisplay]     = useState<{ state: BowlState; score: number; hs: number }>({ state: 'idle', score: 0, hs: 0 })
@@ -81,7 +75,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const focusActiveRef  = useRef(false)
   const overlayShownRef = useRef(false)
   const proxTimerRef    = useRef(0)
-  const currentSecRef   = useRef<SectionId | null>(null)
   // Prevents sign from re-triggering immediately after the player presses ESC
   const exitedRef       = useRef(false)
   const relockRef       = useRef<(() => void) | null>(null)
@@ -148,8 +141,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     overlayShownRef.current = false
     proxTimerRef.current    = 0
     exitedRef.current       = true
-    setActiveSection(null)
-    setNearSign(false)
     relockRef.current?.()
   }
 
@@ -164,6 +155,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   useEffect(() => {
     const mount = mountRef.current
     if (!mount) return
+    movablesRef.current = []
     const W = mount.clientWidth, H = mount.clientHeight
 
     // ── Scene ────────────────────────────────────────────────────────────
@@ -221,7 +213,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // Static campfire obstacle (approximate with short cylinder)
     const fireObstacle = new CANNON.Body({ mass: 0 })
     fireObstacle.addShape(new CANNON.Cylinder(0.75, 0.75, 0.3, 8))
-    fireObstacle.position.set(0, 0.15, -6)
+    fireObstacle.position.set(0, 0.15, -14)
     physWorld.addBody(fireObstacle)
 
     // ── Ground ───────────────────────────────────────────────────────────
@@ -245,7 +237,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     ground.rotation.x = -Math.PI / 2; scene.add(ground)
 
     // Map rim (tree-line edge)
-    const rim = new THREE.Mesh(new THREE.RingGeometry(72,82,48), new THREE.MeshLambertMaterial({ color:0x3a6030, side:THREE.DoubleSide }))
+    const rim = new THREE.Mesh(new THREE.RingGeometry(88,98,48), new THREE.MeshLambertMaterial({ color:0x3a6030, side:THREE.DoubleSide }))
     rim.rotation.x = -Math.PI/2; rim.position.y = -0.3; scene.add(rim)
 
     // ── Collision system ──────────────────────────────────────────────────
@@ -255,7 +247,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const boxCols: BoxCol[] = []
 
     // Define campfire position here so tree spawner can exclude it
-    const FIRE_POS = new THREE.Vector3(0, 0, -6)
+    const FIRE_POS = new THREE.Vector3(0, 0, -14)
 
     // Cabin and pond positions (defined early for tree exclusion)
     const CABIN_X = -5, CABIN_Z = 15
@@ -338,6 +330,27 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           .map(r => r.value)
         const trees = [t1, t2, t3, ...fbxTrees]
         const treeNames = ['Tree1.3.glb', 'Tree2.3.glb', 'Tree3.3.glb', 'Tree low.FBX']
+
+        // Normalize environment map contribution across all nature models so they
+        // have consistent brightness regardless of what's baked into each asset.
+        const normalizeNature = (obj: THREE.Object3D) => {
+          obj.traverse(child => {
+            const mesh = child as THREE.Mesh
+            if (!mesh.isMesh) return
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            mats.forEach(m => {
+              const std = m as THREE.MeshStandardMaterial
+              if (std.isMeshStandardMaterial) {
+                std.envMapIntensity = 0.35
+              } else {
+                // Unlit materials (MeshBasicMaterial, MeshLambertMaterial) — darken color directly
+                const basic = m as THREE.MeshBasicMaterial
+                if (basic.color) basic.color.multiplyScalar(0.45)
+              }
+            })
+          })
+        }
+        ;[...trees, ...bushes, ...stones, ...flowers, ...mushs].forEach(normalizeNature)
         // Per-model base scale (user-tuned) + ground Y offset computed from bounding box
         const baseScales = [0.950, 0.725, 0.625, 0.050]
         const treeConfigs = trees.map((t, i) => {
@@ -361,19 +374,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           scene.add(g)
         })
 
-        // Path corridor exclusion — keeps nature off the stone path between signs
-        const PATH_WP: [number, number][] = [
-          [FIRE_POS.x, FIRE_POS.z],
-          ...SECTIONS.map(s => [s.wx, s.wz] as [number, number]),
-        ]
-        function nearPath(px: number, pz: number, halfW = 1.6): boolean {
-          for (let i = 0; i < PATH_WP.length - 1; i++) {
-            const [x1, z1] = PATH_WP[i], [x2, z2] = PATH_WP[i + 1]
-            const dx = x2 - x1, dz = z2 - z1
-            const len2 = dx * dx + dz * dz
-            const t = len2 < 0.001 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (pz - z1) * dz) / len2))
-            if (Math.hypot(px - (x1 + t * dx), pz - (z1 + t * dz)) < halfW) return true
-          }
+        // AABB road exclusion — keeps nature off all road surfaces
+        function onRoad(x: number, z: number, pad = 1.5): boolean {
+          // Driveway: center (6, 5), w=6, d=13
+          if (x >= 3 - pad && x <= 9 + pad && z >= -1.5 - pad && z <= 11.5 + pad) return true
+          // Bottom connector: outer edge of Project Blvd to outer edge of Memory Ln
+          if (x >= -45 - pad && x <= 47 + pad && z >= -8 - pad && z <= 0 + pad) return true
+          // Project Blvd: center (-41, -48), w=8, d=86
+          if (x >= -45 - pad && x <= -37 + pad && z >= -91 - pad && z <= -5 + pad) return true
+          // Memory Ln: center (43, -48), w=8, d=86
+          if (x >= 39 - pad && x <= 47 + pad && z >= -91 - pad && z <= -5 + pad) return true
           return false
         }
 
@@ -391,7 +401,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
         function scatter(
           pool: THREE.Group[], seed: number, count: number,
-          scMin: number, scMax: number, clearR: number,
+          scMin: number, scMax: number,
           extraChecks?: (x: number, z: number) => boolean,
           yOffs?: number[]
         ) {
@@ -403,9 +413,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             const vi = Math.floor(r() * pool.length)
             if (Math.hypot(x, z) > 88) continue
             if (Math.hypot(x, z) < SPAWN_CLEAR - 4) continue
-            if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < clearR)) continue
+            if (onRoad(x, z)) continue
             if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
-            if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 6) continue
+            if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 10) continue
             if (Math.abs(x - BOWL_CX) < 4.0 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
             if (Math.abs(x - RTOSS_CX) < 3.5 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
             if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 5.0) continue
@@ -429,13 +439,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           const vi = Math.floor(tRng() * trees.length)
           if (Math.hypot(x, z) > 90) continue
           if (Math.hypot(x, z) < SPAWN_CLEAR) continue
-          if (SECTIONS.some(s => Math.hypot(x - s.wx, z - s.wz) < 6.5)) continue
+          if (onRoad(x, z)) continue
           if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
           if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
           if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
           if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
           if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
-          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 7) continue
+          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 11) continue
           if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
           const cfg = treeConfigs[vi] ?? { scale: 0.6, yOff: 0 }
           const sc = cfg.scale * variation
@@ -445,19 +455,19 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           scene.add(obj)
         }
 
-        scatter(bushes,  77,  120, 0.8, 1.4, 5.0, (x, z) =>
-          nearPath(x, z) ||
+        scatter(bushes,  77,  120, 0.8, 1.4, (x: number, z: number) =>
+          onRoad(x, z) ||
           Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5,
           bushYOffs
         )
-        scatter(stones,  99,   80, 0.5, 1.2, 4.5, (x, z) =>
-          nearPath(x, z) ||
+        scatter(stones,  99,   80, 0.5, 1.2, (x: number, z: number) =>
+          onRoad(x, z) ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0,
           stoneYOffs
         )
-        scatter(flowers, 123, 160, 2.0, 3.5, 3.5, (x, z) => nearPath(x, z), flowerYOffs)
-        scatter(mushs,    55,  60, 1.2, 2.2, 4.0, (x, z) => nearPath(x, z), mushYOffs)
+        scatter(flowers, 123, 160, 2.0, 3.5, (x: number, z: number) => onRoad(x, z), flowerYOffs)
+        scatter(mushs,    55,  60, 1.2, 2.2, (x: number, z: number) => onRoad(x, z), mushYOffs)
         console.log('[nature] All assets scattered successfully')
       })
     }).catch(err => {
@@ -489,65 +499,120 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
       }
     }
-    addFenceSide('z',  18, -42,  42, 28)   // North
-    addFenceSide('z', -92, -42,  42, 28)   // South
-    addFenceSide('x', -42, -92,  18, 37)   // West
-    addFenceSide('x',  42, -92,  18, 37)   // East
+    addFenceSide('z',  22, -78,  78, 47)   // North
+    addFenceSide('z', -95, -78,  78, 47)   // South
+    addFenceSide('x', -78, -95,  22, 36)   // West
+    addFenceSide('x',  78, -95,  22, 36)   // East
 
-    // ── Signs ────────────────────────────────────────────────────────────
-    const signGroups: THREE.Group[] = []
-    SECTIONS.forEach(({ id, label, wx, wz }) => {
-      const g = new THREE.Group(); g.position.set(wx, 0, wz); scene.add(g)
-      signGroups.push(g)
-      cylCols.push({ x: wx, z: wz, r: 0.22 })
-      const clear = new THREE.Mesh(new THREE.CircleGeometry(4.5,20), new THREE.MeshLambertMaterial({color:0x5a9c5a}))
-      clear.rotation.x=-Math.PI/2; clear.position.set(0,0.01,0); g.add(clear)
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.15,3.2,7), new THREE.MeshLambertMaterial({ color: 0x7a4f2d }))
-      post.position.set(0,1.6,0); post.castShadow=true; g.add(post)
-      const sign = new THREE.Mesh(new THREE.BoxGeometry(5.0,2.5,0.22), new THREE.MeshLambertMaterial({map:makeSignTexture(label,id)}))
-      sign.position.set(0,3.8,0); sign.castShadow=true; g.add(sign)
-    })
+    // ── Roads ────────────────────────────────────────────────────────────────
+    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.95, metalness: 0 })
 
-    // ── Stone paths between signs ─────────────────────────────────────────
-    {
-      const pathStoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8a7e })
-      const pathStoneGeo = new THREE.SphereGeometry(1, 5, 4)
-      const pathStoneInst = new THREE.InstancedMesh(pathStoneGeo, pathStoneMat, 1200)
-      pathStoneInst.receiveShadow = true; scene.add(pathStoneInst)
-      const dummy = new THREE.Object3D()
-      const pathRng = mulberry32(888)
-      let idx = 0
-
-      function addStonePath(x1: number, z1: number, x2: number, z2: number) {
-        const dx = x2 - x1, dz = z2 - z1
-        const len = Math.hypot(dx, dz)
-        const ux = dx / len, uz = dz / len
-        const count = Math.ceil(len * 5.5)
-        for (let i = 0; i < count && idx < 1200; i++) {
-          const t   = (i + pathRng() * 0.7) / count
-          const perp = (pathRng() - 0.5) * 1.4
-          const sx  = x1 + ux * t * len + (-uz) * perp
-          const sz  = z1 + uz * t * len +  ux  * perp
-          const r   = 0.055 + pathRng() * 0.085
-          dummy.position.set(sx, r * 0.25, sz)
-          dummy.scale.set(r, r * (0.22 + pathRng() * 0.18), r * (0.85 + pathRng() * 0.3))
-          dummy.rotation.y = pathRng() * Math.PI * 2
-          dummy.updateMatrix()
-          pathStoneInst.setMatrixAt(idx++, dummy.matrix)
-        }
-      }
-
-      // Path from campfire area to first sign, then sign→sign
-      const waypoints: [number, number][] = [
-        [FIRE_POS.x, FIRE_POS.z],
-        ...SECTIONS.map(s => [s.wx, s.wz] as [number, number]),
-      ]
-      for (let i = 0; i < waypoints.length - 1; i++) {
-        addStonePath(waypoints[i][0], waypoints[i][1], waypoints[i+1][0], waypoints[i+1][1])
-      }
-      pathStoneInst.instanceMatrix.needsUpdate = true
-      pathStoneInst.count = idx
+    let roadIdx = 0
+    const addRoad = (cx: number, cz: number, w: number, d: number, label?: string) => {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), asphaltMat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.receiveShadow = true
+      const grp = new THREE.Group()
+      grp.position.set(cx, 0.02, cz)
+      grp.add(mesh)
+      scene.add(grp)
+      movablesRef.current.push({ name: `🛣 ${label ?? `Road ${roadIdx}`}`, group: grp, scaleObj: grp })
+      roadIdx++
     }
+
+    // Road geometry constants — all edge math derived from these
+    const BLVD_X = -41, MEML_X = 43, VERT_W = 8, VERT_D = 86, VERT_CZ = -48
+    const CONN_Z = -4, CONN_D = 8
+    const DRIV_CX = 6, DRIV_W = 6, DRIV_CZ = 5, DRIV_D = 13
+    const blvdOuter = BLVD_X - VERT_W / 2   // -45
+    const blvdInner = BLVD_X + VERT_W / 2   // -37
+    const memOuter  = MEML_X + VERT_W / 2   //  47
+    const memInner  = MEML_X - VERT_W / 2   //  39
+    const connLeft  = blvdOuter              // connector spans outer-to-outer
+    const connRight = memOuter
+    const connCX    = (connLeft + connRight) / 2
+    const connW     = connRight - connLeft
+    const connNorth = CONN_Z + CONN_D / 2   //  0
+    const connSouth = CONN_Z - CONN_D / 2   // -8
+    const vertSouth = VERT_CZ - VERT_D / 2  // -91
+    // Vertical road lines span from connector south edge downward
+    const vertLineLen = Math.abs(vertSouth - connSouth)        // 83
+    const vertLineCZ  = (connSouth + vertSouth) / 2            // -49.5
+    // Driveway edges
+    const drivLeft  = DRIV_CX - DRIV_W / 2  //  3
+    const drivRight = DRIV_CX + DRIV_W / 2  //  9
+    const drivNorth = DRIV_CZ + DRIV_D / 2  // 11.5
+
+    // Driveway — cabin front (~z=11) to road junction (z=-4)
+    addRoad(DRIV_CX, DRIV_CZ, DRIV_W, DRIV_D, 'Driveway')
+    // Bottom connector — width clamped to outer edges of both side roads
+    addRoad(connCX, CONN_Z, connW, CONN_D, 'Bottom Connector')
+    // Project Blvd — left vertical
+    addRoad(BLVD_X, VERT_CZ, VERT_W, VERT_D, 'Project Blvd')
+    // Memory Ln — right vertical
+    addRoad(MEML_X, VERT_CZ, VERT_W, VERT_D, 'Memory Ln')
+
+    // Road edge lines (white, thin planes slightly above road)
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+    const addRoadLine = (cx: number, cz: number, w: number, d: number) => {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), lineMat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set(cx, 0.03, cz)
+      scene.add(mesh)
+    }
+    // Complete perimeter outline of the entire road network
+    // Outer vertical walls — full height from connector north edge to road south end
+    const fullH  = connNorth - vertSouth                    // 91
+    const fullCZ = (connNorth + vertSouth) / 2              // -45.5
+    addRoadLine(blvdOuter + 0.2, fullCZ, 0.25, fullH)
+    addRoadLine(memOuter  - 0.2, fullCZ, 0.25, fullH)
+    // Inner vertical walls — from connector south edge down to road south end
+    addRoadLine(blvdInner - 0.2, vertLineCZ, 0.25, vertLineLen)
+    addRoadLine(memInner  + 0.2, vertLineCZ, 0.25, vertLineLen)
+    // Connector north edge — split around driveway opening
+    addRoadLine((connLeft + drivLeft) / 2,  connNorth - 0.1, drivLeft - connLeft,  0.25)  // west of driveway
+    addRoadLine((drivRight + connRight) / 2, connNorth - 0.1, connRight - drivRight, 0.25)  // east of driveway
+    // Driveway sides — from connector north edge up to driveway north end
+    const drivSideLen = drivNorth - connNorth
+    const drivSideCZ  = (connNorth + drivNorth) / 2
+    addRoadLine(drivLeft  - 0.2, drivSideCZ, 0.25, drivSideLen)
+    addRoadLine(drivRight + 0.2, drivSideCZ, 0.25, drivSideLen)
+    // Driveway north cap
+    addRoadLine(DRIV_CX, drivNorth - 0.1, DRIV_W, 0.25)
+    // Connector south edge — middle only (grass here, road continues south in intersection zones)
+    const midW  = memInner - blvdInner                      // 76
+    const midCX = (blvdInner + memInner) / 2               // 1
+    addRoadLine(midCX, connSouth + 0.1, midW, 0.25)
+    // South end caps for each vertical road
+    addRoadLine(BLVD_X, vertSouth + 0.1, VERT_W, 0.25)
+    addRoadLine(MEML_X, vertSouth + 0.1, VERT_W, 0.25)
+
+    // ── Buildings ─────────────────────────────────────────────────────────────
+    // Duo building — first 2 projects on Project Blvd (west side, facing east)
+    gltfLoader.load('/assets/outdoor/buildings/duo/scene.gltf', gltf => {
+      const bldg = gltf.scene
+      bldg.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      bldg.scale.setScalar(1.0)
+      bldg.position.set(-51, 0, -15)
+      bldg.rotation.y = -Math.PI / 2  // face east toward road
+      scene.add(bldg)
+      movablesRef.current.push({ name: '🏢 Project Blvd 1-2', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+    }, undefined, err => console.error('[buildings] duo failed:', err))
+
+    // Single building — About Me (near campfire, in park)
+    gltfLoader.load('/assets/outdoor/buildings/scene.gltf', gltf => {
+      const bldg = gltf.scene
+      bldg.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      bldg.scale.setScalar(1.0)
+      bldg.position.set(20, 0, -8)
+      bldg.rotation.y = Math.PI  // face west toward fire
+      scene.add(bldg)
+      movablesRef.current.push({ name: '🏢 About Me', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+    }, undefined, err => console.error('[buildings] single failed:', err))
 
     // ── Proximity progress ring ───────────────────────────────────────────
     const RING_SEGS = 80
@@ -607,6 +672,18 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const fireLight = new THREE.PointLight(0xff7700, 1.6, 9)
     fireLight.position.set(FIRE_POS.x,1.0,FIRE_POS.z); scene.add(fireLight)
 
+    // ── Street sign — near campfire, position tunable via debug editor ────────
+    gltfLoader.load('/assets/outdoor/street sign/Untitled.glb', gltf => {
+      const sign = gltf.scene
+      sign.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      sign.position.set(-5.0, 0, -9)
+      sign.scale.set(2,2,2)
+      scene.add(sign)
+      movablesRef.current.push({ name: '🪧 Street sign', group: sign as unknown as THREE.Group, scaleObj: sign })
+    }, undefined, err => console.error('[outdoor] street sign failed:', err))
+
     // ── Fireflies ─────────────────────────────────────────────────────────
     const FF_COUNT = 40
     const ffGeo = new THREE.SphereGeometry(0.055, 4, 3)
@@ -628,13 +705,24 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // GLB cabin shell — scaled to match CW × CH footprint; interactive elements added separately below
     gltfLoader.load('/assets/cabin/cabin/Untitled.glb', gltf => {
       const cabMesh = gltf.scene
-      cabMesh.traverse(child => {
-        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
-      })
       cabMesh.scale.setScalar(0.600)
       cabMesh.position.set(-1.93, -0.50, 1.21)
-
       cabGrp.add(cabMesh)
+
+      // Log top-level children so swingset can be identified by name
+      cabMesh.children.forEach(c => console.log(`[cabin child] "${c.name}" type=${c.type}`))
+
+      // Hide any mesh whose world Z is south of the cabin's front wall (world z < 9).
+      // This catches the swingset that extends into the road without touching interior meshes.
+      cabMesh.updateWorldMatrix(true, true)
+      cabMesh.traverse(child => {
+        if (!(child as THREE.Mesh).isMesh) return
+        child.castShadow = true; child.receiveShadow = true
+        const wp = new THREE.Vector3()
+        child.getWorldPosition(wp)
+        if (wp.z < 8) child.visible = false
+      })
+
       movablesRef.current.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
     }, undefined, err => console.error('[cabin] GLB failed:', err))
 
@@ -1373,12 +1461,12 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     }
 
     // ── Register movable objects for debug editor (cabin only) ───────────────
-    movablesRef.current = [
+    movablesRef.current.push(
       { name: '🏕 Cabin group', group: cabGrp },
       { name: '🪜 Ramp hitbox (cabin local)', group: rampGrp, isHitbox: true },
       ...cabHitboxEntries,
       // Async-loaded items (cabin shell, switch, desk) push themselves below
-    ]
+    )
 
     // Ring toss helpers
     function resetRingToss() {
@@ -1514,16 +1602,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const keys = new Set<string>()
 
     relockRef.current = () => renderer.domElement.requestPointerLock()
-
-    function triggerFocus(id: SectionId) {
-      const si = SECTIONS.findIndex(sec=>sec.id===id)
-      const sg = signGroups[si]
-      focusPosRef.current.set(sg.position.x, 3.8, sg.position.z+7.0)
-      focusLookRef.current.set(sg.position.x, 3.8, sg.position.z)
-      focusActiveRef.current=true; overlayShownRef.current=false; proxTimerRef.current=0
-      document.exitPointerLock()
-    }
-    triggerFocusRef.current = triggerFocus
 
     function keyToWASD(key: string): string {
       if (key==='arrowup') return 'w'; if (key==='arrowdown') return 's'
@@ -1687,10 +1765,7 @@ if (
         return
       }
 
-      if (mapped==='e' && !focusActiveRef.current && currentSecRef.current) {
-        triggerFocus(currentSecRef.current)
-      }
-      if (e.key==='Escape' && (focusActiveRef.current || overlayShownRef.current)) {
+      if (e.key==='Escape' && focusActiveRef.current) {
         exitFocus()
       }
     }
@@ -1888,8 +1963,8 @@ if (
         }
         // Player model always faces camera forward direction
         player.rotation.y = lerpAngle(player.rotation.y, camYaw + Math.PI, 0.14)
-        player.position.x = THREE.MathUtils.clamp(player.position.x, -41, 41)
-        player.position.z = THREE.MathUtils.clamp(player.position.z, -91, 17)
+        player.position.x = THREE.MathUtils.clamp(player.position.x, -77, 77)
+        player.position.z = THREE.MathUtils.clamp(player.position.z, -94, 20)
 
         // ── Jump / gravity ────────────────────────────────────────────
         if (bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current && !climbingRef.current) {
@@ -2007,12 +2082,14 @@ if (
           inCabinPrevRef.current = inCabin
           scene.environment = inCabin ? null : (isNightRef.current ? nightEnvRef.current : dayEnvRef.current)
         }
-        const tgtAmbient = inCabin ? 0.06 : (isNightRef.current ? 0.12 : 1.2)
-        const tgtSun     = inCabin ? 0.0  : (isNightRef.current ? 0.04 : 1.4)
+        const tgtAmbient  = inCabin ? 0.06 : (isNightRef.current ? 0.12 : 1.2)
+        const tgtSun      = inCabin ? 0.0  : (isNightRef.current ? 0.04 : 1.4)
+        const tgtExposure = inCabin ? 0.65 : (isNightRef.current ? 0.32 : 0.65)
         if (ambientLightRef.current)
           ambientLightRef.current.intensity = THREE.MathUtils.lerp(ambientLightRef.current.intensity, tgtAmbient, delta * 3)
         if (sunLightRef.current)
           sunLightRef.current.intensity = THREE.MathUtils.lerp(sunLightRef.current.intensity, tgtSun, delta * 3)
+        renderer.toneMappingExposure = THREE.MathUtils.lerp(renderer.toneMappingExposure, tgtExposure, delta * 3)
 
         player.visible = fpvBlend < 0.5
 
@@ -2042,38 +2119,8 @@ if (
           )
         }
 
-        // Proximity to signs (reads live group positions so editor moves work)
-        let nearest: SectionId | null = null, nearDist = PROX
-        SECTIONS.forEach(({ id }, si) => {
-          const sg = signGroups[si]
-          const d = Math.hypot(player.position.x - sg.position.x, player.position.z - sg.position.z)
-          if (d < nearDist) { nearDist = d; nearest = id }
-        })
-
-        if (nearest !== currentSecRef.current) {
-          // Player moved to a different area — reset exit cooldown so the new sign can trigger
-          currentSecRef.current = nearest
-          exitedRef.current = false
-          setNearSign(nearest !== null)
-          proxTimerRef.current = 0
-        }
-
-        // Only auto-trigger if player hasn't just dismissed this sign
-        if (nearest && !exitedRef.current) {
-          proxTimerRef.current += delta
-          if (proxTimerRef.current > 2.2) triggerFocus(nearest)
-        }
-
-        // Progress ring — follows current sign, fills over 2.2 s
-        if (nearest && !exitedRef.current && proxTimerRef.current > 0) {
-          const si = SECTIONS.findIndex(s => s.id === nearest)
-          ringLine.position.set(signGroups[si].position.x, 0, signGroups[si].position.z)
-          ringLine.visible = true
-          ringGeo.setDrawRange(0, Math.ceil((RING_SEGS + 1) * Math.min(proxTimerRef.current / 2.2, 1)))
-        } else {
-          ringLine.visible = false
-          ringGeo.setDrawRange(0, 0)
-        }
+        ringLine.visible = false
+        ringGeo.setDrawRange(0, 0)
 
         // Player nudges pit balls
         balls.forEach(b => {
@@ -2371,7 +2418,6 @@ if (
 
         if (!overlayShownRef.current && camera.position.distanceTo(focusPosRef.current) < 0.6) {
           overlayShownRef.current = true
-          setActiveSection(currentSecRef.current)
         }
       }
 
@@ -2451,11 +2497,8 @@ if (
           `  Pond:         center(${POND_X}, 0, ${POND_Z})  r: ${POND_R}`,
           `  Campfire:     (${FIRE_POS.x}, 0, ${FIRE_POS.z})`,
           '',
-          'SIGNS  (prox: ${PROX})',
-          ...SECTIONS.map(s => `  ${s.label.padEnd(14)} (${s.wx}, ${s.wz})`),
-          '',
           'WORLD BOUNDS',
-          '  x: -42 .. 42   z: -92 .. 18',
+          '  x: -78 .. 78   z: -95 .. 22',
         ].join('\n')
       }
 
@@ -2540,7 +2583,7 @@ if (
       />
 
       {/* Click-to-look prompt — desktop only, idle state, not in monitor mode */}
-      {!monitorMode && !pointerLocked && !activeSection && bowlDisplay.state === 'idle' && !sitting && (
+      {!monitorMode && !pointerLocked && bowlDisplay.state === 'idle' && !sitting && (
         <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none">
           <div className="bg-black/50 backdrop-blur-sm text-white text-sm px-5 py-2 rounded-full opacity-70">
             Click to look around
@@ -2775,7 +2818,7 @@ if (
       )}
 
       {/* Bowling overlay — shown when actively bowling */}
-      {!activeSection && bowlDisplay.state !== 'idle' && (
+      {bowlDisplay.state !== 'idle' && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
           {/* Score bar at top */}
           <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
@@ -2831,7 +2874,7 @@ if (
       )}
 
       {/* Mobile throw/play-again button — only during bowling */}
-      {!activeSection && (bowlDisplay.state === 'aiming' || bowlDisplay.state === 'result') && (
+      {(bowlDisplay.state === 'aiming' || bowlDisplay.state === 'result') && (
         <button
           className="md:hidden absolute right-6 z-30 px-5 py-3 bg-yellow-600/90 backdrop-blur-sm text-white border border-yellow-400/50 rounded-full font-bold text-sm pointer-events-auto"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
@@ -2843,7 +2886,7 @@ if (
       )}
 
       {/* Ring toss overlay */}
-      {!activeSection && rtossDisplay.state !== 'idle' && (
+      {rtossDisplay.state !== 'idle' && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between"
           style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
           <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
@@ -2891,7 +2934,7 @@ if (
       )}
 
       {/* All HUD — hidden when modal is open */}
-      {!activeSection && (
+      {(
         <>
           {/* Near-bowl hint — only when idle near lane */}
           {nearBowl && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
@@ -2949,15 +2992,7 @@ if (
             </div>
           )}
 
-          {/* Desktop: near-sign hint (above controls bar) */}
-          {!nearSwitch && !nearBowl && !nearRToss && !nearBench && !sitting && nearSign && (
-            <div
-              className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
-            >
-              Press <kbd className="font-bold mx-1">E</kbd> to inspect · or stand still for 2s
-            </div>
-          )}
+
 
           {/* Desktop: controls bar — hidden during bowling/rtoss/sitting */}
           {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
@@ -2965,7 +3000,7 @@ if (
             className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
           >
-            WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">Space</kbd> jump &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> inspect &nbsp;·&nbsp; <kbd className="font-bold mx-1">Esc</kbd> or move to close
+            WASD · Arrows &nbsp;·&nbsp; <kbd className="font-bold mx-1">Space</kbd> jump &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> interact
           </div>
           )}
 
@@ -2979,21 +3014,7 @@ if (
           </div>
           )}
 
-          {/* Mobile: Inspect button — right side, same height as joystick */}
-          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && nearSign && (
-            <button
-              className="md:hidden absolute right-6 z-30 px-5 py-3 bg-amber-800/90 backdrop-blur-sm text-white border border-amber-500/50 rounded-full font-bold text-sm animate-pulse"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                if (currentSecRef.current && triggerFocusRef.current) {
-                  triggerFocusRef.current(currentSecRef.current)
-                }
-              }}
-            >
-              Inspect
-            </button>
-          )}
+
 
           {/* Mobile: Joystick — left side, hidden during bowling/rtoss/sitting */}
           {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
@@ -3029,7 +3050,7 @@ if (
         </>
       )}
 
-      {activeSection && <SectionOverlay id={activeSection} onClose={exitFocus} />}
+
 
     </div>
   )
