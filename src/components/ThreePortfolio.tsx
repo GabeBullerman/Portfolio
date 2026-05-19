@@ -730,6 +730,91 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     ceilLight.userData.dome = domeMesh
     ceilLight.userData.rim  = rimMesh
 
+    // ── Wall clock — analog, shows real time, mounted on back wall ────────────
+    const clockCanvas = document.createElement('canvas')
+    clockCanvas.width = clockCanvas.height = 512
+    const clockCtx = clockCanvas.getContext('2d')!
+    const clockTex = new THREE.CanvasTexture(clockCanvas)
+
+    const drawClock = () => {
+      const now = new Date()
+      const h = now.getHours() % 12
+      const m = now.getMinutes()
+      const s = now.getSeconds()
+      const cx = 256, cy = 256, r = 230
+
+      clockCtx.clearRect(0, 0, 512, 512)
+
+      // Face
+      clockCtx.fillStyle = '#f5e6c8'
+      clockCtx.beginPath(); clockCtx.arc(cx, cy, r, 0, Math.PI * 2); clockCtx.fill()
+
+      // Hour tick marks
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 - Math.PI / 2
+        const isQuarter = i % 3 === 0
+        clockCtx.beginPath()
+        clockCtx.moveTo(cx + Math.cos(a) * (isQuarter ? r - 36 : r - 22), cy + Math.sin(a) * (isQuarter ? r - 36 : r - 22))
+        clockCtx.lineTo(cx + Math.cos(a) * (r - 8),  cy + Math.sin(a) * (r - 8))
+        clockCtx.strokeStyle = '#2a1a0a'
+        clockCtx.lineWidth = isQuarter ? 8 : 4
+        clockCtx.lineCap = 'round'
+        clockCtx.stroke()
+      }
+
+      // Hour hand
+      const hA = ((h + m / 60) / 12) * Math.PI * 2 - Math.PI / 2
+      clockCtx.beginPath()
+      clockCtx.moveTo(cx - Math.cos(hA) * 28, cy - Math.sin(hA) * 28)
+      clockCtx.lineTo(cx + Math.cos(hA) * r * 0.52, cy + Math.sin(hA) * r * 0.52)
+      clockCtx.strokeStyle = '#1a0f05'; clockCtx.lineWidth = 18; clockCtx.lineCap = 'round'; clockCtx.stroke()
+
+      // Minute hand
+      const mA = ((m + s / 60) / 60) * Math.PI * 2 - Math.PI / 2
+      clockCtx.beginPath()
+      clockCtx.moveTo(cx - Math.cos(mA) * 32, cy - Math.sin(mA) * 32)
+      clockCtx.lineTo(cx + Math.cos(mA) * r * 0.76, cy + Math.sin(mA) * r * 0.76)
+      clockCtx.strokeStyle = '#1a0f05'; clockCtx.lineWidth = 11; clockCtx.lineCap = 'round'; clockCtx.stroke()
+
+      // Second hand
+      const sA = (s / 60) * Math.PI * 2 - Math.PI / 2
+      clockCtx.beginPath()
+      clockCtx.moveTo(cx - Math.cos(sA) * 44, cy - Math.sin(sA) * 44)
+      clockCtx.lineTo(cx + Math.cos(sA) * r * 0.88, cy + Math.sin(sA) * r * 0.88)
+      clockCtx.strokeStyle = '#cc2200'; clockCtx.lineWidth = 5; clockCtx.lineCap = 'round'; clockCtx.stroke()
+
+      // Centre cap
+      clockCtx.fillStyle = '#1a0f05'
+      clockCtx.beginPath(); clockCtx.arc(cx, cy, 12, 0, Math.PI * 2); clockCtx.fill()
+      clockCtx.fillStyle = '#cc2200'
+      clockCtx.beginPath(); clockCtx.arc(cx, cy, 6, 0, Math.PI * 2); clockCtx.fill()
+
+      clockTex.needsUpdate = true
+    }
+
+    drawClock()
+    const clockInterval = setInterval(drawClock, 1000)
+
+    // Clock face plane
+    const clockPlane = new THREE.Mesh(
+      new THREE.CircleGeometry(0.34, 64),
+      new THREE.MeshStandardMaterial({ map: clockTex, emissiveMap: clockTex, emissive: new THREE.Color(1, 1, 1), emissiveIntensity: 0.4, roughness: 0.7, metalness: 0 })
+    )
+    clockPlane.rotation.y = -Math.PI / 2  // face into room (-X direction)
+    clockPlane.position.set(2.6, 3.75, -0.5)
+    cabGrp.add(clockPlane)
+
+    // Wooden rim frame
+    const clockFrame = new THREE.Mesh(
+      new THREE.TorusGeometry(0.36, 0.045, 12, 64),
+      new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.8, metalness: 0.05 })
+    )
+    clockFrame.rotation.y = -Math.PI / 2
+    clockFrame.position.set(2.6, 3.75, -0.5)
+    cabGrp.add(clockFrame)
+
+    movablesRef.current.push({ name: '🕐 Wall clock', group: clockPlane as unknown as THREE.Group, scaleObj: clockPlane })
+
     gltfLoader.load('/assets/cabin/light/light.gltf', gltf => {
       const lamp = gltf.scene
       lamp.traverse(child => {
@@ -2399,6 +2484,7 @@ if (
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('pointerlockchange', onPointerLockChange)
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock()
+      clearInterval(clockInterval)
       audioRef.current?.pause()
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
