@@ -519,8 +519,10 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     p.renderer.render(p.scene, p.camera)
   }
 
-  return {
+  const loop = {
     start: () => { animate() },
     stop:  () => { cancelAnimationFrame(animId) },
-  }
+  };
+  (loop as any).__animState = st
+  return loop
 }

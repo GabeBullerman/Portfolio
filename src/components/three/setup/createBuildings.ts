@@ -25,7 +25,7 @@ export function createBuildings(
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
     bldg.scale.setScalar(1.1)
-    bldg.position.set(-51, 0, -15)
+    bldg.position.set(-51.00, 0.01, -15.00)
     bldg.rotation.y = -Math.PI / 2
     groundBldg(bldg)
     scene.add(bldg)
@@ -39,7 +39,7 @@ export function createBuildings(
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
     bldg.scale.setScalar(0.10)
-    bldg.position.set(-51, 0, -35)
+    bldg.position.set(-53.50, 0.00, -35.50)
     bldg.rotation.y = -Math.PI / 2
     groundBldg(bldg)
     scene.add(bldg)
@@ -53,7 +53,7 @@ export function createBuildings(
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
     bldg.scale.setScalar(0.015)
-    bldg.position.set(-51, 0, -55)
+    bldg.position.set(-53.00, 1.50, -55.00)
     bldg.rotation.y = -Math.PI / 2
     groundBldg(bldg)
     scene.add(bldg)
