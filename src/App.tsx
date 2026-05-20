@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense, useRef } from 'react'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import Experience from './components/Experience'
@@ -9,8 +9,42 @@ import MoreOnMe from './components/MoreOnMe'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
+import ThreeBackground from './components/ThreeBackground'
+import { useTheme } from './hooks/useTheme'
 
 const ThreePortfolio = lazy(() => import('./components/ThreePortfolio'))
+
+function TwoDApp() {
+  useTheme()
+
+  const experienceRef = useRef<HTMLElement>(null)
+  const skillsRef = useRef<HTMLElement>(null)
+  const projectsRef = useRef<HTMLElement>(null)
+  const certificationsRef = useRef<HTMLElement>(null)
+  const contactRef = useRef<HTMLElement>(null)
+
+  const sectionRefs = [experienceRef, skillsRef, projectsRef, certificationsRef, contactRef]
+
+  return (
+    <>
+      <ThreeBackground sectionRefs={sectionRefs} />
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Header />
+        <main>
+          <Hero />
+          <Experience sectionRef={experienceRef} />
+          <Skills sectionRef={skillsRef} />
+          <Projects sectionRef={projectsRef} />
+          <Certifications sectionRef={certificationsRef} />
+          <MoreOnMe />
+          <Contact sectionRef={contactRef} />
+        </main>
+        <Footer />
+        <BackToTop />
+      </div>
+    </>
+  )
+}
 
 export default function App() {
   const [mode3D, setMode3D] = useState(true)
@@ -27,21 +61,5 @@ export default function App() {
     )
   }
 
-  return (
-    <>
-      <Header />
-      <main>
-        <Hero />
-        <Experience />
-        <Skills />
-        <Projects />
-        <Certifications />
-        <MoreOnMe />
-        <Contact />
-      </main>
-      <Footer />
-      <BackToTop />
-
-    </>
-  )
+  return <TwoDApp />
 }

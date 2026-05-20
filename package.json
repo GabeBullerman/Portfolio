@@ -9,10 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "cannon-es": "^0.20.0",
+    "framer-motion": "^12.39.0",
+    "gsap": "^3.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "three": "^0.167.0"
+    "three": "^0.167.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.1",

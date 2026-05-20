@@ -1,36 +1,90 @@
-const contactItems = [
-  {
-    icon: 'fa-brands fa-linkedin',
-    label: 'LinkedIn',
-    href: 'https://www.linkedin.com/in/gabe-bullerman/',
-  },
-  {
-    icon: 'fa-solid fa-envelope',
-    label: 'gabebullerman1@gmail.com',
-    href: 'mailto:gabebullerman1@gmail.com',
-  },
-  {
-    icon: 'fa-solid fa-phone',
-    label: '319-230-0474',
-    href: 'tel:3192300474',
-  },
-]
+import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 
-export default function Contact() {
+interface SectionProps {
+  sectionRef?: React.RefObject<HTMLElement>
+}
+
+export default function Contact({ sectionRef }: SectionProps) {
+  const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>()
+
   return (
-    <section id="contact" className="bg-white text-black py-16">
-      <div className="max-w-3xl mx-auto px-8 text-center">
-        <h2 className="text-4xl font-bold mb-10">Contact</h2>
-        <ul className="list-none p-0 m-0 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12">
-          {contactItems.map(({ icon, label, href }) => (
-            <li key={label} className="flex items-center gap-3 text-lg">
-              <i className={icon} />
-              <a href={href} target="_blank" rel="noopener noreferrer" className="text-black no-underline hover:underline">
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
+    <section id="contact" ref={sectionRef} className="page-section">
+      <div className="page-container-narrow">
+        <div className="section-heading">
+          <p
+            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
+            style={{ color: 'var(--accent)' }}
+          >
+            {"Let's Connect"}
+          </p>
+          <h2 className="text-4xl md:text-5xl font-black" style={{ color: 'var(--text)' }}>
+            Contact
+          </h2>
+          <div className="section-divider" />
+        </div>
+
+        <div
+          ref={ref}
+          className="text-center transition-all duration-[1000ms]"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transform: isVisible ? 'translateY(0)' : 'translateY(24px)',
+          }}
+        >
+          <h3 className="mb-5 text-3xl font-black" style={{ color: 'var(--text)' }}>
+            Open to Opportunities
+          </h3>
+
+          <p
+            className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {"I'm actively seeking software engineering opportunities involving full-stack development, "}
+            frontend engineering, interactive web experiences, or scalable application development.
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-4">
+            <a
+              href="mailto:gabebullerman1@gmail.com"
+              className="rounded-full px-8 py-3 text-sm font-bold transition-all duration-300 hover:scale-105"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--bg)',
+                boxShadow: '0 0 24px var(--accent-glow)',
+              }}
+            >
+              Email Me
+            </a>
+
+            <a
+              href="https://github.com/GabeBullerman"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full px-8 py-3 text-sm font-bold transition-all duration-300 hover:scale-105"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border-strong)',
+                color: 'var(--accent)',
+              }}
+            >
+              GitHub
+            </a>
+
+            <a
+              href="https://linkedin.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full px-8 py-3 text-sm font-bold transition-all duration-300 hover:scale-105"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border-strong)',
+                color: 'var(--accent)',
+              }}
+            >
+              LinkedIn
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   )

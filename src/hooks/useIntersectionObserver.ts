@@ -11,7 +11,12 @@ export function useIntersectionObserver<T extends Element>(
     if (!el) return
 
     const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect() // once revealed, stay revealed
+        }
+      },
       { threshold: 0.1, ...options }
     )
 

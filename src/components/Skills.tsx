@@ -1,45 +1,110 @@
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 import { skillsData, type SkillCategory } from '../data/skills'
 
-function SkillCategoryBlock({ category, isLast }: { category: SkillCategory; isLast: boolean }) {
+interface SectionProps {
+  sectionRef?: React.RefObject<HTMLElement>
+}
+
+function SkillRow({ category, index, isLast }: { category: SkillCategory; index: number; isLast: boolean }) {
   const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>()
 
   return (
     <>
-      <div ref={ref} className="text-center">
-        <strong className="block text-xl mb-6">{category.category}</strong>
-        <div className="flex flex-wrap justify-center gap-6">
+      <div
+        ref={ref}
+        className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 py-6 transition-all duration-[900ms]"
+        style={{
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'translateY(0)' : 'translateY(16px)',
+          transitionDelay: `${index * 80}ms`,
+        }}
+      >
+        {/* Category label */}
+        <div className="flex-shrink-0 sm:w-36 sm:text-right">
+          <span
+            className="text-xs font-bold uppercase tracking-[0.2em]"
+            style={{ color: 'var(--accent)' }}
+          >
+            {category.category}
+          </span>
+        </div>
+
+        {/* Vertical rule */}
+        <div
+          className="hidden sm:block self-stretch w-px flex-shrink-0"
+          style={{ background: 'var(--border)' }}
+        />
+
+        {/* Icons */}
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-3">
           {category.skills.map((skill, i) => (
             <div
               key={skill.name}
-              className="flex flex-col items-center w-20 transition-opacity duration-700"
+              className="group flex flex-col items-center gap-1 cursor-default w-14 transition-all duration-500"
               style={{
                 opacity: isVisible ? 1 : 0,
-                transitionDelay: `${i * 60}ms`,
+                transitionDelay: `${index * 80 + i * 35}ms`,
               }}
             >
-              <img src={skill.icon} alt={skill.name} className="w-16 h-16 mb-2 object-contain" />
-              <p className="text-xs font-bold text-center m-0 leading-tight">{skill.name}</p>
+              <img
+                src={skill.icon}
+                alt={skill.name}
+                className="h-10 w-10 object-contain transition-all duration-300 group-hover:scale-110"
+                style={{ filter: 'drop-shadow(0 0 0px transparent)' }}
+                onMouseEnter={(e) => {
+                  ;(e.currentTarget as HTMLImageElement).style.filter =
+                    'drop-shadow(0 0 8px var(--accent))'
+                }}
+                onMouseLeave={(e) => {
+                  ;(e.currentTarget as HTMLImageElement).style.filter =
+                    'drop-shadow(0 0 0px transparent)'
+                }}
+              />
+              <span
+                className="text-center leading-tight"
+                style={{ color: 'var(--text-subtle)', fontSize: '0.65rem', fontWeight: 600 }}
+              >
+                {skill.name}
+              </span>
             </div>
           ))}
         </div>
       </div>
-      {!isLast && <div className="h-px bg-black w-[85%] mx-auto" />}
+
+      {!isLast && (
+        <div
+          className="h-px w-full"
+          style={{ background: 'linear-gradient(90deg, transparent, var(--border), transparent)' }}
+        />
+      )}
     </>
   )
 }
 
-export default function Skills() {
+export default function Skills({ sectionRef }: SectionProps) {
   return (
-    <section id="skills" className="bg-white text-black py-16">
-      <div className="max-w-7xl mx-auto px-8">
-        <h2 className="text-4xl font-bold text-center mb-8">Technical Skills</h2>
-        <div className="border-2 border-black rounded-2xl p-6 md:p-10 flex flex-col gap-8">
-          {skillsData.map((category, i) => (
-            <SkillCategoryBlock
+    <section id="skills" ref={sectionRef} className="page-section" style={{ color: 'var(--text)' }}>
+      <div className="page-container">
+        <div className="section-heading">
+          <p
+            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
+            style={{ color: 'var(--accent)' }}
+          >
+            Technical Toolkit
+          </p>
+          <h2 className="text-4xl md:text-5xl font-black" style={{ color: 'var(--text)' }}>
+            Technical Skills
+          </h2>
+          <div className="section-divider" />
+        </div>
+
+        <div className="rounded-3xl px-6 md:px-10 glass-card">
+          {skillsData.map((category, index) => (
+            <SkillRow
               key={category.category}
               category={category}
-              isLast={i === skillsData.length - 1}
+              index={index}
+              isLast={index === skillsData.length - 1}
             />
           ))}
         </div>
