@@ -126,6 +126,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null)
   const sunLightRef     = useRef<THREE.DirectionalLight | null>(null)
   // Debug overlay (backtick to toggle)
+  const playerWalkBlendRef  = useRef(0)   // 0 = idle, 1 = walking (lerped each frame)
+  const playerBonesRef = useRef<{
+    lUpLeg?: THREE.Bone; rUpLeg?: THREE.Bone
+    lLoLeg?: THREE.Bone; rLoLeg?: THREE.Bone
+    lUpArm?: THREE.Bone; rUpArm?: THREE.Bone
+    spine?:  THREE.Bone
+  } | null>(null)
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   // Object editor
@@ -156,6 +163,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const mount = mountRef.current
     if (!mount) return
     movablesRef.current = []
+    let effectDisposed = false
     const W = mount.clientWidth, H = mount.clientHeight
 
     // ── Scene ────────────────────────────────────────────────────────────
@@ -362,17 +370,14 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         })
         console.log(`[nature] Tree pool: ${trees.length} variants (${fbxTrees.length} FBX loaded)`)
 
-        // Showcase — one of each tree at x=-24..x=-24+n*7, z=8 for debug scaling
-        trees.forEach((template, i) => {
-          const cfg = treeConfigs[i]
-          const showcase = template.clone(true)
-          showcase.scale.setScalar(cfg.scale)
-          showcase.position.set(-24 + i * 7, cfg.yOff * cfg.scale, 8)
-          scene.add(showcase)
-          const g = new THREE.Group()
-          g.position.set(showcase.position.x, 0, showcase.position.z)
-          scene.add(g)
-        })
+// Building exclusion — keeps nature clear of building footprints
+        function nearBuilding(x: number, z: number): boolean {
+          if (Math.hypot(x - (-51), z - (-15)) < 14) return true  // Duo
+          if (Math.hypot(x - (-51), z - (-35)) < 8)  return true  // Orange store
+          if (Math.hypot(x - (-51), z - (-55)) < 8)  return true  // Purple store
+          if (Math.hypot(x - 20,    z - (-8))  < 12) return true  // About Me
+          return false
+        }
 
         // AABB road exclusion — keeps nature off all road surfaces
         function onRoad(x: number, z: number, pad = 1.5): boolean {
@@ -413,9 +418,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
             const vi = Math.floor(r() * pool.length)
             if (Math.hypot(x, z) > 88) continue
             if (Math.hypot(x, z) < SPAWN_CLEAR - 4) continue
-            if (onRoad(x, z)) continue
+            if (onRoad(x, z, 3.0) || nearBuilding(x, z)) continue   // pad 3.0 = road + sidewalk width
+            if (x >= -45 && x <= 55 && z >= 0 && z <= 35) continue  // full house/cabin strip north of road
             if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
-            if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 10) continue
             if (Math.abs(x - BOWL_CX) < 4.0 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
             if (Math.abs(x - RTOSS_CX) < 3.5 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
             if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 5.0) continue
@@ -429,9 +434,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         }
 
         const SPAWN_CLEAR = 12  // keep trees away from player spawn (0, 0)
+        // Per-load random offset so plants differ each visit
+        const spawnSeed = Date.now() & 0xffffffff
 
         // Trees — also push cylinder colliders
-        const tRng = mulberry32(42)
+        const tRng = mulberry32(42 + spawnSeed)
         for (let i = 0; i < 220; i++) {
           const x = (tRng() - 0.5) * 160, z = tRng() * 130 - 95
           const variation = 0.85 + tRng() * 0.30   // ±15% random size variation
@@ -439,13 +446,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           const vi = Math.floor(tRng() * trees.length)
           if (Math.hypot(x, z) > 90) continue
           if (Math.hypot(x, z) < SPAWN_CLEAR) continue
-          if (onRoad(x, z)) continue
+          if (onRoad(x, z, 3.0) || nearBuilding(x, z)) continue   // pad 3.0 = road + sidewalk width
+          if (x >= -45 && x <= 55 && z >= 0 && z <= 35) continue  // full house/cabin strip north of road
           if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
           if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
           if (Math.abs(x - RTOSS_CX) < 3.0 && z > RTOSS_POST_Z - 2 && z < RTOSS_START_Z + 4) continue
           if (Math.hypot(x - PIT_CX, z - PIT_CZ) < 4.0) continue
           if (Math.hypot(x - TRAMP_CX, z - TRAMP_CZ) < TRAMP_R + 2.5) continue
-          if (Math.hypot(x - CABIN_X, z - CABIN_Z) < 11) continue
           if (Math.hypot(x - POND_X, z - POND_Z) < POND_R + 2.5) continue
           const cfg = treeConfigs[vi] ?? { scale: 0.6, yOff: 0 }
           const sc = cfg.scale * variation
@@ -455,19 +462,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
           scene.add(obj)
         }
 
-        scatter(bushes,  77,  120, 0.8, 1.4, (x: number, z: number) =>
-          onRoad(x, z) ||
+        const northStrip = (x: number, z: number) => x >= -45 && x <= 55 && z >= 0 && z <= 35
+        scatter(bushes,  77  + spawnSeed, 120, 0.8, 1.4, (x: number, z: number) =>
+          onRoad(x, z, 3.0) || nearBuilding(x, z) || northStrip(x, z) ||
           Math.hypot(x, z) < SPAWN_CLEAR - 2 ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.5,
           bushYOffs
         )
-        scatter(stones,  99,   80, 0.5, 1.2, (x: number, z: number) =>
-          onRoad(x, z) ||
+        scatter(stones,  99  + spawnSeed,  80, 0.5, 1.2, (x: number, z: number) =>
+          onRoad(x, z, 3.0) || nearBuilding(x, z) || northStrip(x, z) ||
           Math.hypot(x - POND_X, z - POND_Z) < POND_R + 1.0,
           stoneYOffs
         )
-        scatter(flowers, 123, 160, 2.0, 3.5, (x: number, z: number) => onRoad(x, z), flowerYOffs)
-        scatter(mushs,    55,  60, 1.2, 2.2, (x: number, z: number) => onRoad(x, z), mushYOffs)
+        scatter(flowers, 123 + spawnSeed, 160, 2.0, 3.5, (x: number, z: number) =>
+          onRoad(x, z, 3.0) || nearBuilding(x, z) || northStrip(x, z), flowerYOffs)
+        scatter(mushs,    55 + spawnSeed,  60, 1.2, 2.2, (x: number, z: number) =>
+          onRoad(x, z, 3.0) || nearBuilding(x, z) || northStrip(x, z), mushYOffs)
         console.log('[nature] All assets scattered successfully')
       })
     }).catch(err => {
@@ -587,19 +597,185 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     addRoadLine(BLVD_X, vertSouth + 0.1, VERT_W, 0.25)
     addRoadLine(MEML_X, vertSouth + 0.1, VERT_W, 0.25)
 
+    // ── Sidewalks ─────────────────────────────────────────────────────────────
+    // Outer perimeter of the full road network — wraps the outside edges of
+    // Project Blvd, the connector, Memory Lane and the driveway, with corner
+    // fills at every junction.  Canvas texture tiles a joint grid so it looks
+    // like real paving slabs.  Every piece is in movablesRef for live tuning.
+    const SW   = 1.5   // sidewalk strip width (world units)
+    const TILE = 2.5   // paving-slab size (world units)
+
+    // Tiled paving-slab canvas: light grey fill + darker joint lines along each edge
+    const swCanvas = document.createElement('canvas')
+    swCanvas.width = 64; swCanvas.height = 64
+    const swCtx = swCanvas.getContext('2d')!
+    swCtx.fillStyle = '#9e9d8e'
+    swCtx.fillRect(0, 0, 64, 64)
+    swCtx.strokeStyle = '#6b6a5b'
+    swCtx.lineWidth = 2
+    swCtx.beginPath(); swCtx.moveTo(0, 0); swCtx.lineTo(64, 0); swCtx.stroke()
+    swCtx.beginPath(); swCtx.moveTo(0, 0); swCtx.lineTo(0, 64); swCtx.stroke()
+    const swBaseTex = new THREE.CanvasTexture(swCanvas)
+    swBaseTex.wrapS = THREE.RepeatWrapping
+    swBaseTex.wrapT = THREE.RepeatWrapping
+
+    const addSidewalk = (cx: number, cz: number, w: number, d: number, label: string) => {
+      const tex = swBaseTex.clone()
+      tex.needsUpdate = true
+      tex.repeat.set(Math.max(1, w / TILE), Math.max(1, d / TILE))
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.receiveShadow = true
+      const grp = new THREE.Group()
+      grp.position.set(cx, 0.03, cz)
+      grp.add(mesh)
+      scene.add(grp)
+      movablesRef.current.push({ name: `🚶 ${label}`, group: grp, scaleObj: grp })
+    }
+
+    // ── Connector north edge, west of driveway ──  blvdOuter → drivLeft
+    const cnW = drivLeft - blvdOuter                                     // 3 − (−45) = 48
+    addSidewalk((blvdOuter + drivLeft) / 2, connNorth + SW / 2, cnW, SW, 'SW: Connector North W')
+
+    // ── Driveway west side ──  z: connNorth → drivNorth
+    const dvD = drivNorth - connNorth                                    // 11.5
+    addSidewalk(drivLeft - SW / 2, (connNorth + drivNorth) / 2, SW, dvD, 'SW: Driveway West')
+
+    // ── Driveway north cap ──
+    addSidewalk(DRIV_CX, drivNorth + SW / 2, DRIV_W, SW, 'SW: Driveway North')
+
+    // ── Driveway east side ──  z: connNorth → drivNorth
+    addSidewalk(drivRight + SW / 2, (connNorth + drivNorth) / 2, SW, dvD, 'SW: Driveway East')
+
+    // ── Connector north edge, east of driveway ──  drivRight → memOuter
+    const cnE = memOuter - drivRight                                     // 47 − 9 = 38
+    addSidewalk((drivRight + memOuter) / 2, connNorth + SW / 2, cnE, SW, 'SW: Connector North E')
+
+    // ── Memory Lane east outer, full vertical ──
+    const swVD = connNorth - vertSouth                                   // 91
+    const swVC = (connNorth + vertSouth) / 2                            // −45.5
+    addSidewalk(memOuter + SW / 2, swVC, SW, swVD, 'SW: MemLn East')
+
+    // ── Memory Lane south cap ──  memInner → memOuter+SW (wraps outer corner)
+    addSidewalk(memOuter, vertSouth - SW / 2, VERT_W + SW, SW, 'SW: MemLn South')
+
+    // ── Project Blvd south cap ──  blvdOuter-SW → blvdInner (wraps outer corner)
+    addSidewalk(blvdOuter - SW / 2, vertSouth - SW / 2, VERT_W + SW, SW, 'SW: Blvd South')
+
+    // ── Project Blvd west outer, full vertical ──
+    addSidewalk(blvdOuter - SW / 2, swVC, SW, swVD, 'SW: Blvd West')
+
+    // ── Corner fills — road outer corners ──
+    addSidewalk(blvdOuter - SW / 2, connNorth + SW / 2, SW, SW, 'SW: Corner NW')
+    addSidewalk(memOuter  + SW / 2, connNorth + SW / 2, SW, SW, 'SW: Corner NE')
+    addSidewalk(blvdOuter - SW / 2, vertSouth - SW / 2, SW, SW, 'SW: Corner SW')
+    addSidewalk(memOuter  + SW / 2, vertSouth - SW / 2, SW, SW, 'SW: Corner SE')
+
+    // ── Corner fills — driveway junctions with connector ──
+    addSidewalk(drivLeft  - SW / 2, connNorth + SW / 2, SW, SW, 'SW: Corner Driv SW')
+    addSidewalk(drivRight + SW / 2, connNorth + SW / 2, SW, SW, 'SW: Corner Driv SE')
+    // ── Corner fills — driveway north corners ──
+    addSidewalk(drivLeft  - SW / 2, drivNorth + SW / 2, SW, SW, 'SW: Corner Driv NW')
+    addSidewalk(drivRight + SW / 2, drivNorth + SW / 2, SW, SW, 'SW: Corner Driv NE')
+
     // ── Buildings ─────────────────────────────────────────────────────────────
+    // Ground a building so its lowest mesh vertex sits at y=0
+    function groundBldg(bldg: THREE.Object3D) {
+      const box = new THREE.Box3().setFromObject(bldg)
+      if (box.min.y < 0) bldg.position.y -= box.min.y
+    }
+
     // Duo building — first 2 projects on Project Blvd (west side, facing east)
     gltfLoader.load('/assets/outdoor/buildings/duo/scene.gltf', gltf => {
       const bldg = gltf.scene
       bldg.traverse(child => {
         if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
       })
-      bldg.scale.setScalar(1.0)
+      bldg.scale.setScalar(1.1)
       bldg.position.set(-51, 0, -15)
-      bldg.rotation.y = -Math.PI / 2  // face east toward road
+      bldg.rotation.y = -Math.PI / 2
+      groundBldg(bldg)
       scene.add(bldg)
       movablesRef.current.push({ name: '🏢 Project Blvd 1-2', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     }, undefined, err => console.error('[buildings] duo failed:', err))
+
+    // Orange store — Project Blvd, west side
+    gltfLoader.load('/assets/outdoor/buildings/orange store/scene.gltf', gltf => {
+      const bldg = gltf.scene
+      bldg.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      bldg.scale.setScalar(0.10)
+      bldg.position.set(-51, 0, -35)
+      bldg.rotation.y = -Math.PI / 2
+      groundBldg(bldg)
+      scene.add(bldg)
+      movablesRef.current.push({ name: '🏪 Orange Store (Blvd)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+    }, undefined, err => console.error('[buildings] orange store failed:', err))
+
+    // Purple store — Project Blvd, west side
+    gltfLoader.load('/assets/outdoor/buildings/purple store/scene.gltf', gltf => {
+      const bldg = gltf.scene
+      bldg.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      bldg.scale.setScalar(0.015)
+      bldg.position.set(-51, 0, -55)
+      bldg.rotation.y = -Math.PI / 2
+      groundBldg(bldg)
+      scene.add(bldg)
+      movablesRef.current.push({ name: '🏪 Purple Store (Blvd)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+    }, undefined, err => console.error('[buildings] purple store failed:', err))
+
+    // Other houses — connector road, east of driveway, near cabin
+    gltfLoader.load('/assets/outdoor/buildings/other houses/Untitled.glb', gltf => {
+      const bldg = gltf.scene
+      bldg.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      bldg.scale.setScalar(2.0)
+      bldg.rotation.y = Math.PI / 2   // face south toward the connector road
+      // Measure at origin to get half-extents, then position so edges align exactly
+      scene.add(bldg)
+      const hbb0 = new THREE.Box3().setFromObject(bldg)
+      bldg.position.set(
+        24.10,
+        -hbb0.min.y + 0.04,
+        19.6
+      )
+      const hbb = new THREE.Box3().setFromObject(bldg)
+      // Split collision around the cabin gap — two boxes, one per house group
+      const gapHalf = 7   // half-width of the gap the user left for the cabin (~14 units)
+      boxCols.push({ x0: hbb.min.x,            x1: CABIN_X - gapHalf, z0: hbb.min.z, z1: hbb.max.z, maxY: hbb.max.y })
+      boxCols.push({ x0: CABIN_X + gapHalf,    x1: hbb.max.x,         z0: hbb.min.z, z1: hbb.max.z, maxY: hbb.max.y })
+      movablesRef.current.push({ name: '🏘️ Other Houses', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+
+      // Stone paths — one per house. PlaneGeometry(1,1) so group.scale = (width, 1, length).
+      // Texture cloned from swBaseTex so they match the sidewalk slab appearance.
+      const pathDefs = [
+        { name: '🪨 Stone Path 1', x: -28.56, z: 5.80, w: 1.8, l:  8.6 },
+        { name: '🪨 Stone Path 2', x: -16.31, z: 5.60, w: 1.8, l:  8.2 },
+        { name: '🪨 Stone Path 3', x:  18.09, z: 5.80, w: 1.8, l:  8.6 },
+        { name: '🪨 Stone Path 4', x:  29.04, z: 6.80, w: 1.8, l: 10.6 },
+        { name: '🪨 Stone Path 5', x:  35.44, z: 5.60, w: 1.8, l:  8.2 },
+      ]
+      pathDefs.forEach(({ name, x, z, w, l }) => {
+        const tex = swBaseTex.clone()
+        tex.needsUpdate = true
+        tex.repeat.set(Math.max(1, w / TILE), Math.max(1, l / TILE))
+        const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
+        mesh.rotation.x = -Math.PI / 2
+        mesh.receiveShadow = true
+        const grp = new THREE.Group()
+        grp.position.set(x, 0.03, z)
+        grp.scale.set(w, 1, l)
+        grp.add(mesh)
+        scene.add(grp)
+        movablesRef.current.push({ name, group: grp, scaleObj: grp })
+      })
+    }, undefined, err => console.error('[buildings] other houses failed:', err))
 
     // Single building — About Me (near campfire, in park)
     gltfLoader.load('/assets/outdoor/buildings/scene.gltf', gltf => {
@@ -609,10 +785,26 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       })
       bldg.scale.setScalar(1.0)
       bldg.position.set(20, 0, -8)
-      bldg.rotation.y = Math.PI  // face west toward fire
+      bldg.rotation.y = Math.PI
+      groundBldg(bldg)
       scene.add(bldg)
       movablesRef.current.push({ name: '🏢 About Me', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     }, undefined, err => console.error('[buildings] single failed:', err))
+
+    // Parked car in driveway (centre x=6, driveway z=-1..11.5)
+    gltfLoader.load('/assets/outdoor/car/scene.gltf', gltf => {
+      if (effectDisposed) return
+      const car = gltf.scene
+      car.traverse(child => {
+        if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      })
+      car.rotation.y = Math.PI / 2
+      car.scale.setScalar(1.0)
+      const carBox = new THREE.Box3().setFromObject(car)
+      car.position.set(6, -carBox.min.y + 0.04, 3)
+      scene.add(car)
+      movablesRef.current.push({ name: '🚗 Car (driveway)', group: car as unknown as THREE.Group, scaleObj: car })
+    }, undefined, err => console.error('[car] failed:', err))
 
     // ── Proximity progress ring ───────────────────────────────────────────
     const RING_SEGS = 80
@@ -1595,6 +1787,46 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const { pivot:lLegPivot, knee:lKnee } = makeLeg(-1)
     const { pivot:rLegPivot, knee:rKnee } = makeLeg(1)
     player.add(lLegPivot, rLegPivot)
+
+    // Load scout boy GLB — texture embedded, replaces procedural stick figure when ready
+    const proceduralMeshes = [headMesh, hairTop, hairBack, torsoMesh]
+    gltfLoader.load('/assets/player/Untitled.glb', gltf => {
+      // ── MUST BE FIRST — before effectDisposed guard ──────────────────
+      if (effectDisposed) return
+      const model = gltf.scene
+      // GLB has embedded texture + KHR_materials_unlit — materials load correctly as-is
+
+      // Debug: log actual bone names so we can verify the lookup keys
+      const boneMap = new Map<string, THREE.Bone>()
+      model.traverse(c => { if ((c as THREE.Bone).isBone) boneMap.set(c.name, c as THREE.Bone) })
+      console.log('[player] bones:', [...boneMap.keys()])
+
+      const lUpLeg  = boneMap.get('mixamorigLeftUpLeg_28')
+      const rUpLeg  = boneMap.get('mixamorigRightUpLeg_33')
+      const lLoLeg  = boneMap.get('mixamorigLeftLeg_27')
+      const rLoLeg  = boneMap.get('mixamorigRightLeg_32')
+      const lUpArm  = boneMap.get('mixamorigLeftArm_11')
+      const rUpArm  = boneMap.get('mixamorigRightArm_19')
+      const spine   = boneMap.get('mixamorigSpine_23')
+      console.log('[player] mapped — lUpLeg:', lUpLeg?.name, 'rUpLeg:', rUpLeg?.name, 'spine:', spine?.name)
+
+      // Hide procedural geometry
+      proceduralMeshes.forEach(m => { m.visible = false })
+      ;[lArmPivot, rArmPivot, lLegPivot, rLegPivot].forEach(p =>
+        p.traverse(c => { if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).visible = false })
+      )
+      model.scale.setScalar(1.0)
+      model.rotation.set(-Math.PI / 2, 0, 0)
+      // Measure bounds in local space BEFORE adding to player (avoids player world-transform offset)
+      const bbox = new THREE.Box3().setFromObject(model)
+      model.position.y = -bbox.min.y
+      player.add(model)
+      movablesRef.current.push({ name: '🧑 Scout boy (player)', group: model as unknown as THREE.Group, scaleObj: model })
+
+      // Store bone refs for direct per-frame manipulation (bypasses PropertyBinding colon issue)
+      playerBonesRef.current = { lUpLeg, rUpLeg, lLoLeg, rLoLeg, lUpArm, rUpArm, spine }
+    }, undefined, err => console.error('[player] scout boy failed:', err))
+
     // Spawn inside cabin (monitor room) — monitorMode overlay covers the 3D view initially
     player.position.set(-4.0, 2.1, 14.0); scene.add(player)
 
@@ -1841,6 +2073,31 @@ if (
       const now = performance.now()
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now; elapsed += delta
+      const bones = playerBonesRef.current
+      if (bones) {
+        const blend = THREE.MathUtils.lerp(
+          playerWalkBlendRef.current === 1 ? 1 : 0,
+          playerWalkBlendRef.current,
+          Math.min(1, delta * 8)
+        )
+        const t = elapsed * Math.PI * 2          // 1 full cycle per second
+        const sw = 0.30, kb = 0.28, as = 0.20
+        if (bones.lUpLeg) bones.lUpLeg.rotation.x = Math.sin(t) * sw * blend
+        if (bones.rUpLeg) bones.rUpLeg.rotation.x = Math.sin(t + Math.PI) * sw * blend
+        if (bones.lLoLeg) bones.lLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 0.5)) * kb * blend
+        if (bones.rLoLeg) bones.rLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 1.5)) * kb * blend
+        if (bones.lUpArm) {
+          bones.lUpArm.rotation.x = -Math.PI / 2
+          bones.lUpArm.rotation.y = 0
+          bones.lUpArm.rotation.z = -Math.sin(t + Math.PI) * as * blend
+        }
+        if (bones.rUpArm) {
+          bones.rUpArm.rotation.x =  Math.PI / 2
+          bones.rUpArm.rotation.y = 0
+          bones.rUpArm.rotation.z =  Math.sin(t) * as * blend
+        }
+        if (bones.spine)  bones.spine.rotation.x  = Math.sin(elapsed * Math.PI) * 0.015
+      }
 
       // ── Go Outside: sweep camera from monitor → cabin interior ───────
       if (goOutsideRef.current) {
@@ -1956,6 +2213,7 @@ if (
         if (hasD) { rawVel.x += rt_x; rawVel.z += rt_z }
 
         const isMoving = rawVel.lengthSq() > 0
+        playerWalkBlendRef.current = isMoving ? 1 : 0
         if (isMoving && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) {
           rawVel.normalize().multiplyScalar(8.5 * delta)
           player.position.x += rawVel.x
@@ -2516,6 +2774,8 @@ if (
     document.documentElement.style.overflow = 'hidden'
 
     return () => {
+      effectDisposed = true
+      playerBonesRef.current = null
       document.body.style.overflow = ''
       document.documentElement.style.overflow = ''
       cancelAnimationFrame(animId)
@@ -2745,27 +3005,30 @@ if (
                   )
                 })()}
 
-                {/* Uniform scale controls for non-hitbox objects */}
+                {/* Per-axis scale controls for non-hitbox objects */}
                 {movablesRef.current[debugSel]?.scaleObj && (() => {
                   const sc = movablesRef.current[debugSel].scaleObj!
-                  const applyScale = (delta: number) => {
-                    const next = Math.max(0.05, parseFloat((sc.scale.x + delta).toFixed(3)))
-                    sc.scale.setScalar(next)
+                  const applyAxisScale = (axis: 'x' | 'y' | 'z', delta: number) => {
+                    sc.scale[axis] = Math.max(0.05, parseFloat((sc.scale[axis] + delta).toFixed(3)))
                     setSelPos(p => p ? { ...p } : { x: 0, y: 0, z: 0 })
                   }
                   return (
-                    <div className="mt-2 pt-2 border-t border-white/10">
-                      <div className="text-xs text-white/50 mb-1">
-                        Scale: <span className="text-white font-mono">{sc.scale.x.toFixed(3)}</span>
-                      </div>
-                      <div className="flex gap-1">
-                        {[-0.1, -0.05, +0.05, +0.1].map(d => (
-                          <button key={d} onClick={() => applyScale(d)}
-                            className="flex-1 text-xs py-1 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
-                            {d > 0 ? `+${d}` : d}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
+                      {(['x', 'y', 'z'] as const).map(axis => (
+                        <div key={axis}>
+                          <div className="text-xs text-white/50 mb-0.5">
+                            Scale {axis.toUpperCase()}: <span className="text-white font-mono">{sc.scale[axis].toFixed(3)}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            {[-0.5, -0.1, +0.1, +0.5].map(d => (
+                              <button key={d} onClick={() => applyAxisScale(axis, d)}
+                                className="flex-1 text-xs py-1 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
+                                {d > 0 ? `+${d}` : d}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )
                 })()}
@@ -2781,7 +3044,13 @@ if (
                 const lines = movablesRef.current.map(m => {
                   const p = m.group.position, rot = m.group.rotation
                   const base = `${m.name}: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`
-                  if (!m.isHitbox) return base
+                  if (!m.isHitbox) {
+                    const sc = m.scaleObj
+                    if (sc && (sc.scale.x !== sc.scale.y || sc.scale.x !== sc.scale.z)) {
+                      return `${base}  scale(${sc.scale.x.toFixed(3)}, ${sc.scale.y.toFixed(3)}, ${sc.scale.z.toFixed(3)})`
+                    }
+                    return base
+                  }
                   const rotStr = `rot(${r2d(rot.x)}°, ${r2d(rot.y)}°, ${r2d(rot.z)}°)`
                   const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
                   const scStr = mesh ? `  size(${mesh.scale.x.toFixed(2)}, ${mesh.scale.y.toFixed(2)}, ${mesh.scale.z.toFixed(2)})` : ''
