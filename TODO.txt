@@ -1,6 +1,6 @@
 1 - Make the park area more of a "park" make there be like a big lake or creek or something with a bridge over it that starts with a waterfall and terminates into a body of water
 adds park benches, lights, some sort of entrace like an arch or a sign, more paths, more structured layout, a playground or something maybe?
-2 - Add cliff behind cabin with my water shader code
+2 - [DONE] Add cliff behind cabin with my water shader code
 3 - [DONE] Fix character walking animation as well as the sitting pose for bench
 4 - [DONE] Fix animation of going back to the computer, pans to old chair location off to the side near the back wall of cabin instead of straight ahead where the chair is now
 5 - [DONE] Add hitboxes to other buildings, add buildings to memory ln
@@ -8,9 +8,9 @@ adds park benches, lights, some sort of entrace like an arch or a sign, more pat
 7 - [DONE] Improve 2D page a LOT, it's very basic black and white with very little effort, add more animations, randomize the theme on launch, add effects and
 more impressive visuals. Integrate things like my vercel scrolling-based-animation and particle-magic/galaxy-playground.
 8 - Fix world border visuals + fence alignment
-9 - Remove sleeping thing, lighting at night is too complicated and the feature isn't worth adding
+9 - [DONE] Remove sleeping thing, lighting at night is too complicated and the feature isn't worth adding
 10 - Add dotted yellow line to middle of road
-11 - Fun overhaul: Fix ladder logic on trampoline to have larger hitbox further back a bit so I don't climb inside of it, and don't clip into the ladder while jumping, tighten net area to only be open at the width of the ladder x1.5, remove ring toss, update bowling to actually hold for power rather than pressing while the power bar moves itself, get better bowling pin textures and wall behind.
+11 - [DONE] Fun overhaul: Fix ladder logic on trampoline to have larger hitbox further back a bit so I don't climb inside of it, and don't clip into the ladder while jumping, tighten net area to only be open at the width of the ladder x1.5, update bowling to actually hold for power rather than pressing while the power bar moves itself, get better bowling pin textures and wall behind.
 12 - Populate the project blvd and memory ln buildings (once they have hitboxes and/or are added if not already) with information about me
 13 - Add cube/rectangular hitboxes to other objects (car, trees, rocks, other houses) current "other houses" hitbox is just a huge border around the entirety of the mesh area they cover I think, want to tighten those to "per house" hitboxes
 14 - Add warning while clicking "Explore" in nav on mobile regarding the quality and performance on the experience, recommend computer use.

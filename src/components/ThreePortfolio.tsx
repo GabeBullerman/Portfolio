@@ -10,6 +10,7 @@ import { createBuildings } from './three/setup/createBuildings'
 import { createCabin } from './three/setup/createCabin'
 import { createProps } from './three/setup/createProps'
 import { createPlayer } from './three/setup/createPlayer'
+import { createCliff } from './three/setup/createCliff'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
@@ -102,18 +103,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [monitorMode, setMonitorMode] = useState(true)
   const goOutsideRef    = useRef(false)
   const goToComputerRef = useRef(false)
-  // Bed / sleep
-  const BED_LOCAL_POS = new THREE.Vector3(1.9, 2.625, 1.05)
-  const BED_PROX = 1.6
-  const [nearBed, setNearBed] = useState(false)
-  const nearBedRef = useRef(false)
-  const [isNight, setIsNight] = useState(false)
-  const isNightRef = useRef(false)
-  const sleepStateRef = useRef<'awake' | 'closing' | 'opening'>('awake')
-  const sleepFadeRef = useRef(0)
-  const sleepOverlayRef = useRef<HTMLDivElement>(null)
   const dayEnvRef = useRef<THREE.Texture | null>(null)
-  const nightEnvRef = useRef<THREE.Texture | null>(null)
   // Cinematic camera transition
   const cinematicRef    = useRef({
     active: false, t: 0, duration: 2.8,
@@ -164,7 +154,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── Scene, camera, renderer, physics ─────────────────────────────────
     const { scene, camera, renderer, physWorld } = createScene(mount, {
-      dayEnvRef, nightEnvRef, ambientLightRef, sunLightRef, inCabinPrevRef,
+      dayEnvRef, ambientLightRef, sunLightRef, inCabinPrevRef,
     })
 
     // ── Collision arrays ──────────────────────────────────────────────────
@@ -177,6 +167,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
 
     // ── World: ground, fence, roads, sidewalks ────────────────────────────
     const { swBaseTex, TILE } = createWorld(scene, movablesRef.current)
+
+    // ── Cliff + water lake behind cabin ──────────────────────────────────
+    const cliff = createCliff(scene)
 
     // ── Nature: trees, bushes, stones, flowers ────────────────────────────
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
@@ -289,7 +282,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       if (mapped === 'e' && !sittingRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle') {
         if (nearBenchRef.current) { sittingRef.current = true; sittingAtRef.current = 'bench'; setSitting(true); document.exitPointerLock(); return }
         if (nearChairRef.current) { goToComputerRef.current = true; return }
-        if (nearBedRef.current && sleepStateRef.current === 'awake') { sleepStateRef.current = 'closing'; return }
         if (nearRadioRef.current && audioRef.current) { audioRef.current.muted = !audioRef.current.muted; musicMutedRef.current = audioRef.current.muted; setMusicMuted(audioRef.current.muted); return }
       }
       if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) { climbingRef.current = false; setClimbing(false); nearLadderRef.current = false; setNearLadder(false) }
@@ -373,7 +365,6 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cylCols, boxCols, ceilCols,
       CABIN_X, CABIN_Z, POND_X, POND_Z, POND_R,
       FIRE_POS, CHAIR_LOCAL_POS, MONITOR_LOCAL_POS, CHAIR_PROX, RADIO_PROX,
-      BED_LOCAL_POS, BED_PROX,
       keys, touchMoveRef,
       bowlStateRef, rtossStateRef, focusActiveRef, overlayShownRef,
       sittingRef, sittingAtRef, seatIdxRef, climbingRef,
@@ -381,16 +372,16 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       doorPivotRef, doorOpenRef, doorRotRef,
       cabLightOnRef, nearSwitchRef, switchNodeRef, cabCeilLightRef, monLightRef,
       inCabinPrevRef, goOutsideRef, goToComputerRef,
-      sleepStateRef, sleepFadeRef, sleepOverlayRef, isNightRef,
-      dayEnvRef, nightEnvRef, ambientLightRef, sunLightRef,
+      dayEnvRef, ambientLightRef, sunLightRef,
       cinematicRef, playerBonesRef, playerWalkBlendRef,
       bowlAimRef, bowlPowerRef, bowlPowerDirRef, bowlTimerRef, bowlHSRef, bowlThrowKeyRef, powerBarRef,
       rtossAimRef, rPowerRef, rPowerDirRef, rtossTimerRef, rtossThrownRef, rtossThrowKeyRef, rPowerBarRef,
-      nearBowlRef, nearRTossRef, nearBenchRef, nearChairRef, nearBedRef, nearLadderRef, nearRadioRef,
+      nearBowlRef, nearRTossRef, nearBenchRef, nearChairRef, nearLadderRef, nearRadioRef,
       radioGroupRef, focusPosRef, focusLookRef, movablesRef, debugModeRef, debugPanelRef,
-      setIsNight, setNearBowl, setNearRToss, setNearBench, setNearChair, setNearBed,
+      setNearBowl, setNearRToss, setNearBench, setNearChair,
       setNearLadder, setNearSwitch, setNearRadio, setClimbing, setMonitorMode,
       setBowlDisplay, setRTossDisplay,
+      cliffUpdate: cliff.update,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -426,7 +417,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} isNight={isNight} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearBed={nearBed} nearRadio={nearRadio} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} sleepOverlayRef={sleepOverlayRef} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} />
     </div>
   )

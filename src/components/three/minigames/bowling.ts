@@ -86,7 +86,7 @@ export function createBowling(
     physWorld.addBody(wallBody)
   })
 
-  // Back wall
+  // Back wall — low physics bumper (keeps pins/ball in)
   const backMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW + bumperThk * 2, bumperH, bumperThk), bumperMat)
   backMesh.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2); scene.add(backMesh); bowlMeshes.push(backMesh)
   const backBody = new CANNON.Body({ mass: 0 })
@@ -94,14 +94,40 @@ export function createBowling(
   backBody.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2)
   physWorld.addBody(backBody)
 
+
   // ── Bowling pins ──────────────────────────────────────────────────────
-  const pinCv = document.createElement('canvas'); pinCv.width = 64; pinCv.height = 128
+  const pinCv = document.createElement('canvas'); pinCv.width = 128; pinCv.height = 256
   const pctx = pinCv.getContext('2d')!
-  pctx.fillStyle = '#f5f0e8'; pctx.fillRect(0, 0, 64, 128)
-  pctx.fillStyle = '#cc1111'; pctx.fillRect(0, 28, 64, 9)
-  pctx.fillStyle = '#cc1111'; pctx.fillRect(0, 42, 64, 9)
+  // White body with subtle warm gradient
+  const bodyGrad = pctx.createLinearGradient(0, 0, 128, 0)
+  bodyGrad.addColorStop(0,    '#d8d4cc')
+  bodyGrad.addColorStop(0.25, '#f8f4ef')
+  bodyGrad.addColorStop(0.5,  '#ffffff')
+  bodyGrad.addColorStop(0.75, '#f8f4ef')
+  bodyGrad.addColorStop(1,    '#d8d4cc')
+  pctx.fillStyle = bodyGrad; pctx.fillRect(0, 0, 128, 256)
+  // Red neck stripe (two bands)
+  const redGrad = pctx.createLinearGradient(0, 0, 128, 0)
+  redGrad.addColorStop(0,    '#990d0d')
+  redGrad.addColorStop(0.25, '#dd1111')
+  redGrad.addColorStop(0.5,  '#ff2222')
+  redGrad.addColorStop(0.75, '#dd1111')
+  redGrad.addColorStop(1,    '#990d0d')
+  pctx.fillStyle = redGrad
+  pctx.fillRect(0, 62, 128, 18)   // upper band
+  pctx.fillRect(0, 90, 128, 18)   // lower band
+  // Thin dark border between stripes
+  pctx.fillStyle = 'rgba(0,0,0,0.15)'; pctx.fillRect(0, 80, 128, 10)
+  // Subtle shine highlight down center
+  const shineGrad = pctx.createLinearGradient(0, 0, 128, 0)
+  shineGrad.addColorStop(0,    'rgba(255,255,255,0)')
+  shineGrad.addColorStop(0.45, 'rgba(255,255,255,0)')
+  shineGrad.addColorStop(0.5,  'rgba(255,255,255,0.35)')
+  shineGrad.addColorStop(0.55, 'rgba(255,255,255,0)')
+  shineGrad.addColorStop(1,    'rgba(255,255,255,0)')
+  pctx.fillStyle = shineGrad; pctx.fillRect(0, 0, 128, 256)
   const pinTex = new THREE.CanvasTexture(pinCv)
-  const pinMat = new THREE.MeshPhongMaterial({ map: pinTex, shininess: 90 })
+  const pinMat = new THREE.MeshPhongMaterial({ map: pinTex, shininess: 140, specular: 0xaaaaaa })
 
   const pinMeshes: THREE.Mesh[] = []
   const pinBodies: CANNON.Body[] = []

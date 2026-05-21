@@ -6,7 +6,7 @@ import {
   BOWL_CX, BOWL_START_Z, BOWL_PINS_Z,
   RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RINGS,
   TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
-  LADDER_X, LADDER_Z, LADDER_PROX,
+  LADDER_X, LADDER_Z,
   BENCH_POSITIONS, BENCH_PROX,
   PIN_ROW_D,
   BowlState, RTossState,
@@ -71,8 +71,6 @@ export interface AnimateParams {
   MONITOR_LOCAL_POS: THREE.Vector3
   CHAIR_PROX: number
   RADIO_PROX: number
-  BED_LOCAL_POS: THREE.Vector3
-  BED_PROX: number
   // Input
   keys: Set<string>
   touchMoveRef: React.MutableRefObject<{ x: number; y: number }>
@@ -99,12 +97,7 @@ export interface AnimateParams {
   inCabinPrevRef:   React.MutableRefObject<boolean>
   goOutsideRef:     React.MutableRefObject<boolean>
   goToComputerRef:  React.MutableRefObject<boolean>
-  sleepStateRef:    React.MutableRefObject<'awake' | 'closing' | 'opening'>
-  sleepFadeRef:     React.MutableRefObject<number>
-  sleepOverlayRef:  React.MutableRefObject<HTMLDivElement | null>
-  isNightRef:       React.MutableRefObject<boolean>
   dayEnvRef:        React.MutableRefObject<THREE.Texture | null>
-  nightEnvRef:      React.MutableRefObject<THREE.Texture | null>
   ambientLightRef:  React.MutableRefObject<THREE.AmbientLight | null>
   sunLightRef:      React.MutableRefObject<THREE.DirectionalLight | null>
   cinematicRef:     React.MutableRefObject<{ active: boolean; t: number; duration: number; fromPos: THREE.Vector3; toPos: THREE.Vector3; fromLook: THREE.Vector3; toLook: THREE.Vector3; onDone: (() => void) | null }>
@@ -128,7 +121,6 @@ export interface AnimateParams {
   nearRTossRef:     React.MutableRefObject<boolean>
   nearBenchRef:     React.MutableRefObject<boolean>
   nearChairRef:     React.MutableRefObject<boolean>
-  nearBedRef:       React.MutableRefObject<boolean>
   nearLadderRef:    React.MutableRefObject<boolean>
   nearRadioRef:     React.MutableRefObject<boolean>
   radioGroupRef:    React.MutableRefObject<THREE.Group | null>
@@ -138,15 +130,14 @@ export interface AnimateParams {
   debugModeRef:     React.MutableRefObject<boolean>
   debugPanelRef:    React.MutableRefObject<HTMLPreElement | null>
   // React state setters
-  setIsNight:       (v: boolean) => void
   setNearBowl:      (v: boolean) => void
   setNearRToss:     (v: boolean) => void
   setNearBench:     (v: boolean) => void
   setNearChair:     (v: boolean) => void
-  setNearBed:       (v: boolean) => void
   setNearLadder:    (v: boolean) => void
   setNearSwitch:    (v: boolean) => void
   setNearRadio:     (v: boolean) => void
+  cliffUpdate:      (elapsed: number) => void
   setClimbing:      (v: boolean) => void
   setMonitorMode:   (v: boolean) => void
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
@@ -173,6 +164,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     const now = performance.now()
     const delta = Math.min((now - st.lastTime) / 1000, 0.05)
     st.lastTime = now; st.elapsed += delta
+    p.cliffUpdate(st.elapsed)
 
     // Bone animation
     const bones = p.playerBonesRef.current
@@ -250,23 +242,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
 
     p.player.visible = !p.focusActiveRef.current && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle'
 
-    // Sleep fade
-    if (p.sleepStateRef.current !== 'awake') {
-      const SPEED = 0.55
-      if (p.sleepStateRef.current === 'closing') {
-        p.sleepFadeRef.current = Math.min(p.sleepFadeRef.current + delta / SPEED, 1)
-        if (p.sleepFadeRef.current >= 1) {
-          p.isNightRef.current = !p.isNightRef.current; p.setIsNight(p.isNightRef.current)
-          const nextEnv = p.isNightRef.current ? p.nightEnvRef.current : p.dayEnvRef.current
-          if (nextEnv) { p.scene.background = nextEnv; if (!p.inCabinPrevRef.current) p.scene.environment = nextEnv }
-          p.sleepStateRef.current = 'opening'
-        }
-      } else {
-        p.sleepFadeRef.current = Math.max(p.sleepFadeRef.current - delta / SPEED, 0)
-        if (p.sleepFadeRef.current <= 0) p.sleepStateRef.current = 'awake'
-      }
-      if (p.sleepOverlayRef.current) p.sleepOverlayRef.current.style.opacity = String(p.sleepFadeRef.current)
-    }
+
 
     // Cinematic
     if (p.cinematicRef.current.active) {
@@ -288,8 +264,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       p.playerWalkBlendRef.current = isMoving ? 1 : 0
       if (isMoving && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current) { rawVel.normalize().multiplyScalar(8.5 * delta); p.player.position.x += rawVel.x; p.player.position.z += rawVel.z }
       p.player.rotation.y = lerpAngle(p.player.rotation.y, st.camYaw + Math.PI, 0.14)
-      p.player.position.x = THREE.MathUtils.clamp(p.player.position.x, -77, 77)
-      p.player.position.z = THREE.MathUtils.clamp(p.player.position.z, -94, 20)
+      p.player.position.x = THREE.MathUtils.clamp(p.player.position.x, -77.5, 77.5)
+      p.player.position.z = THREE.MathUtils.clamp(p.player.position.z, -94.5, 21.5)
 
       // Jump / gravity
       if (p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current && !p.climbingRef.current) {
@@ -344,10 +320,10 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > 52.20  && px < 57.80  && pz > -19.80 && pz < -13.40)    // 2Story Memory Ln
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
-      if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : (p.isNightRef.current ? p.nightEnvRef.current : p.dayEnvRef.current) }
-      const tgtAmbient = inCabin ? 0.06 : (p.isNightRef.current ? 0.12 : 1.2)
-      const tgtSun     = inCabin ? 0.0  : (p.isNightRef.current ? 0.04 : 1.4)
-      const tgtExp     = inCabin ? 0.65 : (p.isNightRef.current ? 0.32 : 0.65)
+      if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
+      const tgtAmbient = inCabin ? 0.06 : 1.2
+      const tgtSun     = inCabin ? 0.0  : 1.4
+      const tgtExp     = inCabin ? 0.65 : 0.65
       if (p.ambientLightRef.current) p.ambientLightRef.current.intensity = THREE.MathUtils.lerp(p.ambientLightRef.current.intensity, tgtAmbient, delta * 3)
       if (p.sunLightRef.current)     p.sunLightRef.current.intensity     = THREE.MathUtils.lerp(p.sunLightRef.current.intensity,     tgtSun,     delta * 3)
       p.renderer.toneMappingExposure = THREE.MathUtils.lerp(p.renderer.toneMappingExposure, tgtExp, delta * 3)
@@ -379,9 +355,6 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         const nearC = Math.hypot(p.player.position.x - chairWorld.x, p.player.position.z - chairWorld.z) < p.CHAIR_PROX
         if (nearB !== p.nearBenchRef.current) { p.nearBenchRef.current = nearB; p.setNearBench(nearB) }
         if (nearC !== p.nearChairRef.current) { p.nearChairRef.current = nearC; p.setNearChair(nearC) }
-        const bedWorld = p.BED_LOCAL_POS.clone(); p.cabGrp.localToWorld(bedWorld)
-        const nearBedVal = Math.hypot(p.player.position.x - bedWorld.x, p.player.position.z - bedWorld.z) < p.BED_PROX
-        if (nearBedVal !== p.nearBedRef.current) { p.nearBedRef.current = nearBedVal; p.setNearBed(nearBedVal) }
         if (p.radioGroupRef.current) {
           const rw = new THREE.Vector3(); p.radioGroupRef.current.getWorldPosition(rw)
           const nrv = Math.hypot(p.player.position.x - rw.x, p.player.position.z - rw.z) < p.RADIO_PROX
@@ -400,9 +373,11 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         const chairHead = chairWorld.clone(); chairHead.y += 1.15; p.camera.position.lerp(chairHead, 0.15); p.camera.lookAt(monitorWorld)
       }
 
-      // Ladder
+      // Ladder — detection zone offset 1.5 units south (approach side), ground-only
       if (!p.climbingRef.current) {
-        const nearL = Math.hypot(p.player.position.x - LADDER_X, p.player.position.z - LADDER_Z) < LADDER_PROX && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current
+        const nearL = Math.hypot(p.player.position.x - LADDER_X, p.player.position.z - (LADDER_Z + 1.5)) < 1.5
+          && p.player.position.y < 0.5
+          && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current
         if (nearL !== p.nearLadderRef.current) { p.nearLadderRef.current = nearL; p.setNearLadder(nearL) }
       } else {
         p.player.position.x = THREE.MathUtils.lerp(p.player.position.x, LADDER_X, 0.2); p.player.position.z = THREE.MathUtils.lerp(p.player.position.z, LADDER_Z, 0.2); st.playerVelY = 0
@@ -500,8 +475,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         if (p.bowlStateRef.current === 'aiming') {
           if (p.keys.has('a') || p.touchMoveRef.current.x < -0.2) p.bowlAimRef.current = THREE.MathUtils.clamp(p.bowlAimRef.current - delta * 1.2, -0.45, 0.45)
           if (p.keys.has('d') || p.touchMoveRef.current.x > 0.2)  p.bowlAimRef.current = THREE.MathUtils.clamp(p.bowlAimRef.current + delta * 1.2, -0.45, 0.45)
-          p.bowlPowerRef.current += delta * p.bowlPowerDirRef.current * 1.4
-          if (p.bowlPowerRef.current >= 1) { p.bowlPowerRef.current = 1; p.bowlPowerDirRef.current = -1 } if (p.bowlPowerRef.current <= 0) { p.bowlPowerRef.current = 0; p.bowlPowerDirRef.current = 1 }
+          if (p.bowlThrowKeyRef.current) p.bowlPowerRef.current = Math.min(p.bowlPowerRef.current + delta * 1.4, 1)
           if (p.powerBarRef.current) p.powerBarRef.current.style.width = `${p.bowlPowerRef.current * 100}%`
         }
         p.aimArrow.visible = p.bowlStateRef.current === 'aiming'; p.aimArrow.rotation.y = -p.bowlAimRef.current

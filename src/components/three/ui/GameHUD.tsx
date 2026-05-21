@@ -7,7 +7,6 @@ interface RTossDisplay { state: RTossState; thrown: number; score: number; hs: n
 interface GameHUDProps {
   monitorMode:    boolean
   pointerLocked:  boolean
-  isNight:        boolean
   musicMuted:     boolean
   nearBowl:       boolean
   nearRToss:      boolean
@@ -15,14 +14,12 @@ interface GameHUDProps {
   nearChair:      boolean
   nearLadder:     boolean
   nearSwitch:     boolean
-  nearBed:        boolean
   nearRadio:      boolean
   sitting:        boolean
   climbing:       boolean
   bowlDisplay:    BowlDisplay
   rtossDisplay:   RTossDisplay
   joyPos:         { x: number; y: number }
-  sleepOverlayRef: React.Ref<HTMLDivElement>
   powerBarRef:    React.Ref<HTMLDivElement>
   rPowerBarRef:   React.Ref<HTMLDivElement>
   touchMoveRef:   React.MutableRefObject<{ x: number; y: number }>
@@ -31,11 +28,11 @@ interface GameHUDProps {
 }
 
 export default function GameHUD({
-  monitorMode, pointerLocked, isNight, musicMuted,
-  nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearBed, nearRadio,
+  monitorMode, pointerLocked, musicMuted,
+  nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
   sitting, climbing,
   bowlDisplay, rtossDisplay,
-  joyPos, sleepOverlayRef, powerBarRef, rPowerBarRef,
+  joyPos, powerBarRef, rPowerBarRef,
   touchMoveRef, touchActiveRef, setJoyPos,
 }: GameHUDProps) {
   return (
@@ -49,23 +46,6 @@ export default function GameHUD({
           </div>
         </div>
       )}
-
-      {/* "Sleep" prompt when near the bed */}
-      {!monitorMode && nearBed && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
-            <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
-            {isNight ? 'Wake Up' : 'Sleep'}
-          </div>
-        </div>
-      )}
-
-      {/* Eyes-closing sleep overlay */}
-      <div
-        ref={sleepOverlayRef}
-        className="absolute inset-0 bg-black pointer-events-none"
-        style={{ opacity: 0, zIndex: 55 }}
-      />
 
       {/* Click-to-look prompt — desktop only, idle state, not in monitor mode */}
       {!monitorMode && !pointerLocked && bowlDisplay.state === 'idle' && !sitting && (

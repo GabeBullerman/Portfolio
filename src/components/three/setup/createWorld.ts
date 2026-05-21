@@ -29,15 +29,35 @@ export function createWorld(
   const grassTex = new THREE.CanvasTexture(grassCv)
   grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping
   grassTex.repeat.set(24, 24)
+  // Fence footprint: x[-78,78], z[-95,22] → center (0,-36.5), size 156×117
+  // Ground matches fence footprint exactly — rim strips outside handle the border visuals
+  const fN = 22, fS = -95, fW = -78, fE = 78
+  const fCZ = (fN + fS) / 2  // -36.5
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(180, 180),
+    new THREE.PlaneGeometry(fE - fW, fN - fS),  // 156 × 117
     new THREE.MeshLambertMaterial({ map: grassTex }),
   )
-  ground.rotation.x = -Math.PI / 2; scene.add(ground)
+  ground.rotation.x = -Math.PI / 2
+  ground.position.set(0, 0, fCZ)
+  scene.add(ground)
 
-  // Map rim (tree-line edge)
-  const rim = new THREE.Mesh(new THREE.RingGeometry(88, 98, 48), new THREE.MeshLambertMaterial({ color: 0x3a6030, side: THREE.DoubleSide }))
-  rim.rotation.x = -Math.PI / 2; rim.position.y = -0.3; scene.add(rim)
+  // Rectangular border strips (dark tree-line) at y=0, just outside the fence
+  const rimMat = new THREE.MeshLambertMaterial({ color: 0x3a6030 })
+  const rimW = 14  // width of each border strip
+  const rimGrpW = (fE - fW) + rimW * 2  // 156 + 28 = 184 — covers full width incl corners
+  ;[
+    // South strip
+    { cx: 0,             cz: fS - rimW / 2, w: rimGrpW, d: rimW },
+    // West strip (between N and S strips, no corner overlap)
+    { cx: fW - rimW / 2, cz: fCZ,           w: rimW,    d: fN - fS },
+    // East strip
+    { cx: fE + rimW / 2, cz: fCZ,           w: rimW,    d: fN - fS },
+  ].forEach(({ cx, cz, w, d }) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), rimMat)
+    m.rotation.x = -Math.PI / 2
+    m.position.set(cx, 0, cz)
+    scene.add(m)
+  })
 
   // ── World border fence ──────────────────────────────────────────────────────
   const fPostMat = new THREE.MeshLambertMaterial({ color: 0x7a5c2e })

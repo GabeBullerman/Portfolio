@@ -239,14 +239,15 @@ export function createProps(
   scene.add(trampFrame)
 
   // Blue net — gap on south side (+Z) where the ladder is.
-  const NET_GAP = Math.PI / 3.6  // ~50° gap
+  // Gap width = ladder rung width (0.54) × 1.5 ÷ radius ≈ 0.17 rad; use 0.20 for comfort.
+  const NET_GAP = 0.20
   const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, NET_GAP / 2, Math.PI * 2 - NET_GAP)
   const netMesh = new THREE.Mesh(netGeo, netMat)
   netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
   scene.add(netMesh)
 
   // Net support poles — 12 evenly spaced, skip gap at south (+Z, math-angle π/2)
-  const LADDER_GAP_HALF = NET_GAP / 2 + 0.18
+  const LADDER_GAP_HALF = NET_GAP / 2 + 0.06
   const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, TRAMP_Y + 1.2, 6)
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2
@@ -301,6 +302,10 @@ export function createProps(
     rung.position.set(LADDER_X, 0.28 + i * (TRAMP_Y / rungCount), LADDER_Z)
     scene.add(rung)
   }
+
+  // Box collider for ladder — prevents clipping through while jumping
+  // Skipped while climbing (collision block is bypassed when climbingRef is true)
+  boxCols.push({ x0: LADDER_X - 0.45, x1: LADDER_X + 0.45, z0: LADDER_Z - 0.18, z1: LADDER_Z + 0.18, maxY: TRAMP_Y + 0.2 })
 
   return {
     FIRE_POS,

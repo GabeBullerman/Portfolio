@@ -4,7 +4,6 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 
 export interface SceneRefs {
   dayEnvRef:      React.MutableRefObject<THREE.Texture | null>
-  nightEnvRef:    React.MutableRefObject<THREE.Texture | null>
   ambientLightRef: React.MutableRefObject<THREE.AmbientLight | null>
   sunLightRef:    React.MutableRefObject<THREE.DirectionalLight | null>
   inCabinPrevRef: React.MutableRefObject<boolean>
@@ -43,11 +42,7 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
     scene.background = envMap
     if (!refs.inCabinPrevRef.current) scene.environment = envMap
     hdrTex.dispose()
-    new RGBELoader().load('/images/qwantani_moon_noon_puresky_1k.hdr', (nightTex) => {
-      refs.nightEnvRef.current = pmremGen.fromEquirectangular(nightTex).texture
-      nightTex.dispose()
-      pmremGen.dispose()
-    })
+    pmremGen.dispose()
   })
 
   const ambientLight = new THREE.AmbientLight(0xffeedd, 1.2)

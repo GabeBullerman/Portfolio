@@ -125,6 +125,11 @@ export function createNature(
       })
       console.log(`[nature] Tree pool: ${trees.length} variants (${fbxTrees.length} FBX loaded)`)
 
+      // Outside-fence exclusion — nothing spawns beyond the fence boundary
+      function outsideFence(x: number, z: number): boolean {
+        return x < -78 || x > 78 || z > 22 || z < -95
+      }
+
       // Building exclusion — keeps nature clear of building footprints
       function nearBuilding(x: number, z: number): boolean {
         if (Math.hypot(x - (-51),   z - (-15))   < 14) return true  // Duo
@@ -174,7 +179,7 @@ export function createNature(
           const vi = Math.floor(r() * pool.length)
           if (Math.hypot(x, z) > 88) continue
           if (Math.hypot(x, z) < SPAWN_CLEAR - 4) continue
-          if (onRoad(x, z, 3.0) || nearBuilding(x, z)) continue   // pad 3.0 = road + sidewalk width
+          if (outsideFence(x, z) || onRoad(x, z, 3.0) || nearBuilding(x, z)) continue
           if (x >= -45 && x <= 55 && z >= 0 && z <= 35) continue  // full house/cabin strip north of road
           if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 4.0) continue
           if (Math.abs(x - BOWL_CX) < 4.0 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
@@ -202,7 +207,7 @@ export function createNature(
         const vi = Math.floor(tRng() * trees.length)
         if (Math.hypot(x, z) > 90) continue
         if (Math.hypot(x, z) < SPAWN_CLEAR) continue
-        if (onRoad(x, z, 3.0) || nearBuilding(x, z)) continue   // pad 3.0 = road + sidewalk width
+        if (outsideFence(x, z) || onRoad(x, z, 3.0) || nearBuilding(x, z)) continue
         if (x >= -45 && x <= 55 && z >= 0 && z <= 35) continue  // full house/cabin strip north of road
         if (Math.hypot(x - FIRE_POS.x, z - FIRE_POS.z) < 5.0) continue
         if (Math.abs(x - BOWL_CX) < 3.5 && z > BOWL_PINS_Z - 3 && z < BOWL_START_Z + 4) continue
