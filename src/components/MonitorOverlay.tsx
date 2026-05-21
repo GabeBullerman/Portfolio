@@ -107,11 +107,7 @@ export default function MonitorOverlay({
 
   <Projects />
 
-  <div className="px-6 md:px-12 pb-6">
-    <div className="max-w-6xl mx-auto">
-      <InteractiveShowcase />
-    </div>
-  </div>
+  <InteractiveShowcase />
 
   <Skills />
 

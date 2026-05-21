@@ -20,7 +20,7 @@ export default function Hero() {
   return (
     <section
       id="about-me"
-      className="relative flex items-center justify-center px-6 md:px-10 pt-24 pb-8 min-h-[72vh] overflow-hidden"
+      className="relative flex items-center justify-center px-6 md:px-10 pt-32 pb-2 min-h-[50vh] overflow-hidden"
       style={{ color: 'var(--text)' }}
     >
       <div

@@ -184,7 +184,7 @@ export default function GalaxyPreview() {
               color: 'var(--text-muted)',
             }}
           >
-            Adapted from the standalone galaxy playground: colored particle
+            Adapted from my standalone galaxy playground: colored particle
             branches, additive blending, orbit controls, zoom, and real-time
             rotation in a contained portfolio preview.
           </p>

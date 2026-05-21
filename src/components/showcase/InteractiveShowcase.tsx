@@ -27,8 +27,7 @@ export default function InteractiveShowcase() {
             className="max-w-3xl mx-auto text-lg leading-relaxed"
             style={{ color: 'var(--text-muted)' }}
           >
-            Lightweight WebGL and motion experiments designed to make the
-            portfolio more memorable while keeping the experience professional.
+            Lightweight WebGL and motion experiments designed to make memorable experiences.
           </p>
 
           <div className="section-divider" />
