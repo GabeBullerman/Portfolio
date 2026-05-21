@@ -4,7 +4,6 @@ import Hero from './Hero'
 import Experience from './Experience'
 import Projects from './Projects'
 import Skills from './Skills'
-import Certifications from './Certifications'
 import MoreOnMe from './MoreOnMe'
 import Contact from './Contact'
 import Footer from './Footer'
@@ -115,8 +114,6 @@ export default function MonitorOverlay({
   </div>
 
   <Skills />
-
-  <Certifications />
 
   <MoreOnMe />
 
