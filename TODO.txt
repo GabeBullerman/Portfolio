@@ -3,7 +3,7 @@ adds park benches, lights, some sort of entrace like an arch or a sign, more pat
 2 - Add cliff behind cabin with my water shader code
 3 - Fix character walking animation as well as the sitting pose for bench
 4 - Fix animation of going back to the computer, pans to old chair location off to the side near the back wall of cabin instead of straight ahead where the chair is now
-5 - Add hitboxes to other buildings, add buildings to memory ln
+5 - [DONE] Add hitboxes to other buildings, add buildings to memory ln
 6 - Add more songs to jukebox, set f or something to go next song
 7 - [DONE] Improve 2D page a LOT, it's very basic black and white with very little effort, add more animations, randomize the theme on launch, add effects and
 more impressive visuals. Integrate things like my vercel scrolling-based-animation and particle-magic/galaxy-playground.

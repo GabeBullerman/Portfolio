@@ -196,7 +196,10 @@ export function createBuildings(
   gltfLoader.load('/assets/outdoor/buildings/2story/Untitled.glb', gltf => {
     const bldg = gltf.scene
     bldg.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      if (!(child as THREE.Mesh).isMesh) return
+      child.castShadow = true; child.receiveShadow = true
+      const mats = Array.isArray((child as THREE.Mesh).material) ? (child as THREE.Mesh).material as THREE.Material[] : [(child as THREE.Mesh).material as THREE.Material]
+      mats.forEach(m => { m.side = THREE.DoubleSide })
     })
     bldg.scale.setScalar(4.2)
     bldg.position.set(55.00, -0.40, -16.00)
@@ -204,10 +207,33 @@ export function createBuildings(
     groundBldg(bldg)
     scene.add(bldg)
     movables.push({ name: '🏠 2Story (Memory Ln)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
+    // Interior floor plane — covers building footprint so grass isn't visible inside
+    const floorMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshStandardMaterial({ color: 0xc8a878, roughness: 0.85, metalness: 0 })
+    )
+    floorMesh.rotation.x = -Math.PI / 2
+    floorMesh.receiveShadow = true
+    scene.add(floorMesh)
+    const floorGrp = new THREE.Group()
+    floorGrp.position.set(55.00, 0.02, -16.00)
+    floorGrp.scale.set(5.1, 1, 5.1)
+    floorGrp.add(floorMesh)
+    scene.add(floorGrp)
+    movables.push({ name: '🪵 2Story: Floor', group: floorGrp, scaleObj: floorGrp })
     // Outer shell hitbox — visible red so user can align it
-    const twoStoryMat = new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false })
-    addVisibleHitbox('🟥 2Story: Box', 55.00, 3.00, -16.60, 8, 6, 8, 0.700, 1.200, 0.800, twoStoryMat, false)
-    addDoor('🟩 2Story: Door', 55.00, 1.00, -11.00)
+    addVisibleHitbox('🟥 2Story: Box', 55.00, 3.00, -16.60, 8, 6, 8, 0.700, 1.200, 0.800)
+    addVisibleHitbox('🟩 2Story: Door', 52.60, 1.00, -17.70, 3, 4, 1, 0.350, 0.600, 1.000, doorMat, false, Math.PI / 2)
+    // 2Story — hollow box, door on west face at z=-17.70
+    // Hitbox: pos(55.00,3.00,-16.60) scale(0.700,1.200,0.800) → x[52.20,57.80] z[-19.80,-13.40]
+    // Door gap: z[-18.23,-17.18] (door width 3*0.350=1.05, centered at -17.70)
+    // maxY = 3.00 + 3*1.200 = 6.60
+    boxCols.push({ x0: 52.20, x1: 53.20, z0: -19.80, z1: -18.23, maxY: 6.60 }) // west wall south of door
+    boxCols.push({ x0: 52.20, x1: 53.20, z0: -17.18, z1: -13.40, maxY: 6.60 }) // west wall north of door
+    boxCols.push({ x0: 56.80, x1: 57.80, z0: -19.80, z1: -13.40, maxY: 6.60 }) // east wall
+    boxCols.push({ x0: 52.20, x1: 57.80, z0: -19.80, z1: -18.80, maxY: 6.60 }) // south wall
+    boxCols.push({ x0: 52.20, x1: 57.80, z0: -13.90, z1: -13.40, maxY: 6.60 }) // north wall
+    ceilCols.push({ x0: 52.20, x1: 57.80, z0: -19.80, z1: -13.40, minY: 6.60 }) // 2Story roof
   }, undefined, err => console.error('[buildings] 2story failed:', err))
 
   // Single building — About Me (near campfire, in park)

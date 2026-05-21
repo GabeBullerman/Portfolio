@@ -307,7 +307,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > -55.90 && px < -50.70 && pz > -17.50 && pz < -12.30) || // Store A
         (px > -56.00 && px < -50.40 && pz > -24.00 && pz < -19.20) || // Store B
         (px > -56.10 && px < -50.90 && pz > -39.10 && pz < -31.90) || // Orange store
-        (px > -56.90 && px < -50.90 && pz > -59.00 && pz < -51.40)    // Slant store
+        (px > -56.90 && px < -50.90 && pz > -59.00 && pz < -51.40) ||  // Slant store
+        (px > 52.20  && px < 57.80  && pz > -19.80 && pz < -13.40)    // 2Story Memory Ln
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : (p.isNightRef.current ? p.nightEnvRef.current : p.dayEnvRef.current) }

@@ -4,7 +4,6 @@ import Hero from './components/Hero'
 import Experience from './components/Experience'
 import Skills from './components/Skills'
 import Projects from './components/Projects'
-import Certifications from './components/Certifications'
 import MoreOnMe from './components/MoreOnMe'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
@@ -20,10 +19,9 @@ function TwoDApp() {
   const experienceRef = useRef<HTMLElement>(null)
   const skillsRef = useRef<HTMLElement>(null)
   const projectsRef = useRef<HTMLElement>(null)
-  const certificationsRef = useRef<HTMLElement>(null)
   const contactRef = useRef<HTMLElement>(null)
 
-  const sectionRefs = [experienceRef, skillsRef, projectsRef, certificationsRef, contactRef]
+  const sectionRefs = [experienceRef, skillsRef, projectsRef, contactRef]
 
   return (
     <>
@@ -35,7 +33,6 @@ function TwoDApp() {
           <Experience sectionRef={experienceRef} />
           <Skills sectionRef={skillsRef} />
           <Projects sectionRef={projectsRef} />
-          <Certifications sectionRef={certificationsRef} />
           <MoreOnMe />
           <Contact sectionRef={contactRef} />
         </main>
