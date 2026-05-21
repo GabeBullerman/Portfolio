@@ -41,18 +41,44 @@ export default function DebugOverlay({
 
           {/* Object list */}
           <div className="overflow-y-auto flex-1 p-2 flex flex-col gap-1">
-            {movablesRef.current.map((m, i) => (
-              <button
-                key={i}
-                onClick={() => { setDebugSel(i); setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z }) }}
-                className={`text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${debugSel === i ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}
-              >
-                <span className="font-medium">{m.name}</span>
-                <span className="block text-white/50 font-mono">
-                  x={m.group.position.x.toFixed(1)}  y={m.group.position.y.toFixed(1)}  z={m.group.position.z.toFixed(1)}
-                </span>
-              </button>
-            ))}
+            {(() => {
+              const getGroup = (name: string) => {
+                if (name.startsWith('🛣')) return 'Roads'
+                if (name.startsWith('🚶')) return 'Sidewalks'
+                if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'
+                if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜') || name.startsWith('🟫')) return 'Cabin'
+                if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
+                if (name.startsWith('🪨')) return 'Stone Paths'
+                return 'Props'
+              }
+              const groupOrder = ['Buildings', 'Cabin', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
+              const grouped: Record<string, number[]> = {}
+              movablesRef.current.forEach((m, i) => {
+                const g = getGroup(m.name)
+                if (!grouped[g]) grouped[g] = []
+                grouped[g].push(i)
+              })
+              return groupOrder.filter(g => grouped[g]?.length).map(g => (
+                <div key={g}>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-1 pt-2 pb-1">{g}</div>
+                  {grouped[g].map(i => {
+                    const m = movablesRef.current[i]
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => { setDebugSel(i); setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z }) }}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${debugSel === i ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}
+                      >
+                        <span className="font-medium">{m.name}</span>
+                        <span className="block text-white/50 font-mono">
+                          x={m.group.position.x.toFixed(1)}  y={m.group.position.y.toFixed(1)}  z={m.group.position.z.toFixed(1)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))
+            })()}
           </div>
 
           {/* Move controls */}
@@ -60,7 +86,8 @@ export default function DebugOverlay({
             const snap = () => {
               const m = movablesRef.current[debugSel]
               setSelPos({ x: m.group.position.x, y: m.group.position.y, z: m.group.position.z })
-              setSelRot({ x: m.group.rotation.x, y: m.group.rotation.y, z: m.group.rotation.z })
+              const e = new THREE.Euler().setFromQuaternion(m.group.quaternion)
+              setSelRot({ x: e.x, y: e.y, z: e.z })
             }
             const syncHitMesh = (m: Movable) => {
               const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
@@ -73,17 +100,23 @@ export default function DebugOverlay({
               const m = movablesRef.current[debugSel]
               m.group.position.x += dx; m.group.position.z += dz
               m.meshes?.forEach(obj => { obj.position.x += dx; obj.position.z += dz })
+              m.group.updateMatrix(); m.group.updateMatrixWorld(true)
               syncHitMesh(m); snap()
             }
             const moveY = (dy: number) => {
               const m = movablesRef.current[debugSel]
               m.group.position.y += dy
               m.meshes?.forEach(obj => { obj.position.y += dy })
+              m.group.updateMatrix(); m.group.updateMatrixWorld(true)
               syncHitMesh(m); snap()
             }
             const rotate = (axis: 'x' | 'y' | 'z', deg: number) => {
               const m = movablesRef.current[debugSel]
-              m.group.rotation[axis] += deg * Math.PI / 180
+              const rad = deg * Math.PI / 180
+              const axisVec = axis === 'x' ? new THREE.Vector3(1,0,0) : axis === 'y' ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1)
+              m.group.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axisVec, rad))
+              m.group.updateMatrix()
+              m.group.updateMatrixWorld(true)
               syncHitMesh(m); snap()
             }
             return (
@@ -201,32 +234,63 @@ export default function DebugOverlay({
             )
           })()}
 
-          {/* Copy button */}
-          <div className="p-3 border-t border-white/10 shrink-0">
-            <button
-              onClick={() => {
-                const r2d = (r: number) => (r * 180 / Math.PI).toFixed(1)
-                const lines = movablesRef.current.map(m => {
-                  const p = m.group.position, rot = m.group.rotation
-                  const base = `${m.name}: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`
-                  if (!m.isHitbox) {
-                    const sc = m.scaleObj
-                    if (sc && (sc.scale.x !== sc.scale.y || sc.scale.x !== sc.scale.z)) {
-                      return `${base}  scale(${sc.scale.x.toFixed(3)}, ${sc.scale.y.toFixed(3)}, ${sc.scale.z.toFixed(3)})`
-                    }
-                    return base
+          {/* Copy buttons */}
+          <div className="p-3 border-t border-white/10 shrink-0 flex flex-col gap-2">
+            {(() => {
+              const r2d = (r: number) => (r * 180 / Math.PI).toFixed(1)
+              const fmtMovable = (m: Movable) => {
+                const p = m.group.position, rot = m.group.rotation
+                const base = `${m.name}: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`
+                if (!m.isHitbox) {
+                  const e = new THREE.Euler().setFromQuaternion(m.group.quaternion)
+                  const rotStr = `rot(${r2d(e.x)}°, ${r2d(e.y)}°, ${r2d(e.z)}°)`
+                  const sc = m.scaleObj
+                  if (sc && (sc.scale.x !== sc.scale.y || sc.scale.x !== sc.scale.z)) {
+                    return `${base}  ${rotStr}  scale(${sc.scale.x.toFixed(3)}, ${sc.scale.y.toFixed(3)}, ${sc.scale.z.toFixed(3)})`
                   }
-                  const rotStr = `rot(${r2d(rot.x)}°, ${r2d(rot.y)}°, ${r2d(rot.z)}°)`
-                  const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
-                  const scStr = mesh ? `  size(${mesh.scale.x.toFixed(2)}, ${mesh.scale.y.toFixed(2)}, ${mesh.scale.z.toFixed(2)})` : ''
-                  return `${base}  ${rotStr}${scStr}`
-                })
-                navigator.clipboard.writeText(lines.join('\n'))
-              }}
-              className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-500 rounded-lg text-xs font-semibold transition-colors"
-            >
-              📋 Copy All Positions
-            </button>
+                  return `${base}  ${rotStr}`
+                }
+                const rotStr = `rot(${r2d(rot.x)}°, ${r2d(rot.y)}°, ${r2d(rot.z)}°)`
+                const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined
+                const scStr = mesh ? `  size(${mesh.scale.x.toFixed(2)}, ${mesh.scale.y.toFixed(2)}, ${mesh.scale.z.toFixed(2)})` : ''
+                return `${base}  ${rotStr}${scStr}`
+              }
+              const getGroup = (name: string) => {
+                if (name.startsWith('🛣')) return 'Roads'
+                if (name.startsWith('🚶')) return 'Sidewalks'
+                if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'
+                if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜')) return 'Cabin'
+                if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
+                if (name.startsWith('🪨')) return 'Stone Paths'
+                return 'Props'
+              }
+              const selGroup = debugSel >= 0 && movablesRef.current[debugSel]
+                ? getGroup(movablesRef.current[debugSel].name)
+                : null
+              return (
+                <>
+                  {selGroup && (
+                    <button
+                      onClick={() => {
+                        const lines = movablesRef.current
+                          .filter(m => getGroup(m.name) === selGroup)
+                          .map(fmtMovable)
+                        navigator.clipboard.writeText(lines.join('\n'))
+                      }}
+                      className="w-full py-1.5 bg-blue-700 hover:bg-blue-600 active:bg-blue-500 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      📋 Copy {selGroup}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => navigator.clipboard.writeText(movablesRef.current.map(fmtMovable).join('\n'))}
+                    className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-500 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    📋 Copy All Positions
+                  </button>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}

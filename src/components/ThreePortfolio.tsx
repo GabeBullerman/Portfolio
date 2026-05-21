@@ -169,6 +169,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Collision arrays ──────────────────────────────────────────────────
     const cylCols: { x: number; z: number; r: number; maxY?: number }[] = []
     const boxCols: { x0: number; x1: number; z0: number; z1: number; maxY: number }[] = []
+    const ceilCols: { x0: number; x1: number; z0: number; z1: number; minY: number }[] = []
 
     const CABIN_X = -5, CABIN_Z = 15
     const POND_X = -28, POND_Z = -35, POND_R = 3.2
@@ -181,7 +182,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     createNature(scene, cylCols, FIRE_POS, POND_X, POND_Z, POND_R)
 
     // ── Buildings ─────────────────────────────────────────────────────────
-    createBuildings(scene, boxCols, movablesRef.current, swBaseTex, TILE, CABIN_X)
+    createBuildings(scene, boxCols, ceilCols, movablesRef.current, swBaseTex, TILE, CABIN_X)
 
     // ── Cabin ─────────────────────────────────────────────────────────────
     const { cabGrp, rampGrp, cabHitboxEntries, clockInterval } = createCabin(
@@ -368,7 +369,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       ringMeshes, ringBodies, ringLine, ringGeo,
       lArmPivot, rArmPivot, lLegPivot, rLegPivot,
       lKnee, rKnee, lElbow, rElbow,
-      cylCols, boxCols,
+      cylCols, boxCols, ceilCols,
       CABIN_X, CABIN_Z, POND_X, POND_Z, POND_R,
       FIRE_POS, CHAIR_LOCAL_POS, MONITOR_LOCAL_POS, CHAIR_PROX, RADIO_PROX,
       BED_LOCAL_POS, BED_PROX,

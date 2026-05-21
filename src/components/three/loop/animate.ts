@@ -3,9 +3,9 @@ import * as CANNON from 'cannon-es'
 import { lerpAngle } from '../helpers'
 import { DuckData } from '../types'
 import {
-  BOWL_CX, BOWL_START_Z, BOWL_PINS_Z, BOWL_LANE_Z,
+  BOWL_CX, BOWL_START_Z, BOWL_PINS_Z,
   RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RINGS,
-  PIT_CX, PIT_CZ, TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
+  TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
   LADDER_X, LADDER_Z, LADDER_PROX,
   BENCH_POSITIONS, BENCH_PROX,
   PIN_ROW_D,
@@ -62,6 +62,7 @@ export interface AnimateParams {
   // Collision arrays
   cylCols:  { x: number; z: number; r: number; maxY?: number }[]
   boxCols:  { x0: number; x1: number; z0: number; z1: number; maxY: number }[]
+  ceilCols: { x0: number; x1: number; z0: number; z1: number; minY: number }[]
   // World constants
   CABIN_X: number; CABIN_Z: number
   POND_X: number; POND_Z: number; POND_R: number
@@ -301,7 +302,14 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       // FPV / cabin
       const inCabin = p.player.position.x > -8.2 && p.player.position.x < -1.5 && p.player.position.z > 11.0 && p.player.position.z < 18.5 && p.player.position.y > 0.8
       const inCabinOrBalcony = p.player.position.x > -8.2 && p.player.position.x < -1.5 && p.player.position.z > 9.0 && p.player.position.z < 18.5 && p.player.position.y > 1.0
-      st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, inCabinOrBalcony ? 1 : 0, delta * 5)
+      const px = p.player.position.x, pz = p.player.position.z
+      const inStore = (
+        (px > -55.90 && px < -50.70 && pz > -17.50 && pz < -12.30) || // Store A
+        (px > -56.00 && px < -50.40 && pz > -24.00 && pz < -19.20) || // Store B
+        (px > -56.10 && px < -50.90 && pz > -39.10 && pz < -31.90) || // Orange store
+        (px > -56.90 && px < -50.90 && pz > -59.00 && pz < -51.40)    // Slant store
+      )
+      st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : (p.isNightRef.current ? p.nightEnvRef.current : p.dayEnvRef.current) }
       const tgtAmbient = inCabin ? 0.06 : (p.isNightRef.current ? 0.12 : 1.2)
       const tgtSun     = inCabin ? 0.0  : (p.isNightRef.current ? 0.04 : 1.4)
@@ -384,6 +392,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
           const dx = p.player.position.x - cx, dz = p.player.position.z - cz, dist = Math.sqrt(dx * dx + dz * dz)
           if (dist < PR && dist > 0.001) { const nx = dx / dist, nz = dz / dist; p.player.position.x = cx + nx * PR; p.player.position.z = cz + nz * PR }
           else if (dist === 0) p.player.position.x += PR
+        })
+        p.ceilCols.forEach(c => {
+          const px = p.player.position.x, pz = p.player.position.z
+          if (px < c.x0 || px > c.x1 || pz < c.z0 || pz > c.z1) return
+          if (p.player.position.y + HEAD_H > c.minY && st.playerVelY > 0) {
+            p.player.position.y = c.minY - HEAD_H; st.playerVelY = 0
+          }
         })
         p.movablesRef.current.forEach(m => {
           if (!m.isHitbox || m.name.includes('Ramp') || m.name.includes('Floor')) return
@@ -505,14 +520,6 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       p.debugPanelRef.current.textContent = [
         '=== DEBUG (` to close) ===',
         `Player: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})  yaw: ${((st.camYaw * 180 / Math.PI) % 360).toFixed(1)}°`,
-        '', 'GAMES',
-        `  Bowling: center(${BOWL_CX},0,${BOWL_LANE_Z}) z:${BOWL_START_Z}..${BOWL_PINS_Z}`,
-        `  Ring Toss: center(${RTOSS_CX},0,${(RTOSS_START_Z+RTOSS_POST_Z)/2}) z:${RTOSS_START_Z}..${RTOSS_POST_Z}`,
-        `  Ball Pit: center(${PIT_CX},0,${PIT_CZ}) r:2.2`, `  Trampoline: center(${TRAMP_CX},${TRAMP_Y},${TRAMP_CZ}) r:${TRAMP_R}`,
-        `  Ladder: (${LADDER_X.toFixed(2)},0,${LADDER_Z}) prox:${LADDER_PROX}`,
-        '', 'STRUCTURES',
-        `  Cabin: center(${p.CABIN_X},0,${p.CABIN_Z})`, `  Pond: center(${p.POND_X},0,${p.POND_Z}) r:${p.POND_R}`,
-        `  Campfire: (${p.FIRE_POS.x},0,${p.FIRE_POS.z})`, '', 'WORLD BOUNDS: x:-78..78  z:-95..22',
       ].join('\n')
     }
 

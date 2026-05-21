@@ -129,8 +129,9 @@ export function createNature(
       function nearBuilding(x: number, z: number): boolean {
         if (Math.hypot(x - (-51),   z - (-15))   < 14) return true  // Duo
         if (Math.hypot(x - (-53.5), z - (-35.5)) < 8)  return true  // Orange store
-        if (Math.hypot(x - (-53),   z - (-55))   < 8)  return true  // Purple store
+        if (Math.hypot(x - (-53),   z - (-55))   < 8)  return true  // Slant store
         if (Math.hypot(x - 20,    z - (-8))  < 12) return true  // About Me
+        if (Math.hypot(x - 55,    z - (-16)) < 18) return true  // 2-story Memory Ln
         return false
       }
 
