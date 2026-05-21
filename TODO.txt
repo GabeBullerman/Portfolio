@@ -1,8 +1,8 @@
 1 - Make the park area more of a "park" make there be like a big lake or creek or something with a bridge over it that starts with a waterfall and terminates into a body of water
 adds park benches, lights, some sort of entrace like an arch or a sign, more paths, more structured layout, a playground or something maybe?
 2 - Add cliff behind cabin with my water shader code
-3 - Fix character walking animation as well as the sitting pose for bench
-4 - Fix animation of going back to the computer, pans to old chair location off to the side near the back wall of cabin instead of straight ahead where the chair is now
+3 - [DONE] Fix character walking animation as well as the sitting pose for bench
+4 - [DONE] Fix animation of going back to the computer, pans to old chair location off to the side near the back wall of cabin instead of straight ahead where the chair is now
 5 - [DONE] Add hitboxes to other buildings, add buildings to memory ln
 6 - Add more songs to jukebox, set f or something to go next song
 7 - [DONE] Improve 2D page a LOT, it's very basic black and white with very little effort, add more animations, randomize the theme on launch, add effects and

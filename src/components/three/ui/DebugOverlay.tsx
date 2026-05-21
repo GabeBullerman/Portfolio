@@ -28,7 +28,7 @@ export default function DebugOverlay({
       {/* Player-position debug pre — updated directly in animate loop */}
       <pre
         ref={debugPanelRef}
-        style={{ display: 'none' }}
+        style={{ display: debugOpen ? 'block' : 'none' }}
         className="absolute z-20 left-4 bottom-4 text-xs text-green-300 bg-black/80 rounded-lg p-3 leading-5 pointer-events-none font-mono whitespace-pre"
       />
 
@@ -43,6 +43,7 @@ export default function DebugOverlay({
           <div className="overflow-y-auto flex-1 p-2 flex flex-col gap-1">
             {(() => {
               const getGroup = (name: string) => {
+                if (name.startsWith('🦴')) return 'Bones'
                 if (name.startsWith('🛣')) return 'Roads'
                 if (name.startsWith('🚶')) return 'Sidewalks'
                 if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'
@@ -51,7 +52,7 @@ export default function DebugOverlay({
                 if (name.startsWith('🪨')) return 'Stone Paths'
                 return 'Props'
               }
-              const groupOrder = ['Buildings', 'Cabin', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
+              const groupOrder = ['Bones', 'Buildings', 'Cabin', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
               const grouped: Record<string, number[]> = {}
               movablesRef.current.forEach((m, i) => {
                 const g = getGroup(m.name)
@@ -256,6 +257,7 @@ export default function DebugOverlay({
                 return `${base}  ${rotStr}${scStr}`
               }
               const getGroup = (name: string) => {
+                if (name.startsWith('🦴')) return 'Bones'
                 if (name.startsWith('🛣')) return 'Roads'
                 if (name.startsWith('🚶')) return 'Sidewalks'
                 if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'

@@ -8,6 +8,7 @@ export interface CabinRefs {
   monLightRef:    React.MutableRefObject<THREE.SpotLight | null>
   switchNodeRef:  React.MutableRefObject<THREE.Object3D | null>
   radioGroupRef:  React.MutableRefObject<THREE.Group | null>
+  screenMatRef:   React.MutableRefObject<any>
 }
 
 export interface CabinResult {
@@ -266,12 +267,34 @@ export function createCabin(
   cabStep.position.set(0, 0.1, CD / 2 + 0.35); cabGrp.add(cabStep)
 
   // ── Gaming setup inside cabin ─────────────────────────────────────────────
+  const THEME_TO_SCREEN: Record<string, string> = {
+    azure:   'Blue.PNG',
+    rose:    'Pink.PNG',
+    crimson: 'Red.PNG',
+    gold:    'Gold.PNG',
+    emerald: 'Green.PNG',
+    silver:  'Silver.PNG',
+    violet:  'Purple.PNG',
+  }
+
+  // Start loading the themed texture immediately — runs in parallel with the GLTF load
+  // so it's usually ready by the time the traversal runs, eliminating the flash.
+  const theme = localStorage.getItem('theme') ?? 'azure'
+  const screenFile = THEME_TO_SCREEN[theme] ?? 'Blue.PNG'
+  let themedTex: THREE.Texture | null = null
+  let pendingScreenMat: any = null
+  new THREE.TextureLoader().load(`/assets/cabin/setup/textures/${screenFile}`, tex => {
+    tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
+    themedTex = tex
+    if (pendingScreenMat) { pendingScreenMat.map = tex; pendingScreenMat.needsUpdate = true }
+  })
+
   gltfLoader.load('/assets/cabin/setup/gaming setup.gltf', gltf => {
     const desk = gltf.scene
+
     desk.traverse(child => {
       if (!(child as THREE.Mesh).isMesh) return
       child.castShadow = true; child.receiveShadow = true
-      // GLTFLoader sets flipY=false; this model's UVs need the standard WebGL convention
       const mats = Array.isArray((child as THREE.Mesh).material)
         ? (child as THREE.Mesh).material as THREE.Material[]
         : [(child as THREE.Mesh).material as THREE.Material]
@@ -282,6 +305,11 @@ export function createCabin(
           anyM.map.repeat.set(1, -1)
           anyM.map.offset.set(0, 1)
           anyM.map.needsUpdate = true
+        }
+        if (m.name === '7355608') {
+          refs.screenMatRef.current = anyM
+          if (themedTex) { anyM.map = themedTex; anyM.needsUpdate = true }
+          else pendingScreenMat = anyM
         }
         m.needsUpdate = true
       })
@@ -298,7 +326,6 @@ export function createCabin(
     refs.monLightRef.current = monLight
 
     desk.position.set(2.0, 2.8, -2.20)
-
     cabGrp.add(desk)
     movables.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
   }, undefined, err => console.error('[cabin] gaming setup failed:', err))

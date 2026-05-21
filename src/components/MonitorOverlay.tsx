@@ -11,7 +11,7 @@ import InteractiveShowcase from './showcase/InteractiveShowcase'
 import { useTheme } from '../hooks/useTheme'
 
 type Props = {
-  onGoOutside: () => void
+  onGoOutside: (snapshot?: HTMLCanvasElement) => void
 }
 
 export default function MonitorOverlay({
@@ -47,15 +47,20 @@ export default function MonitorOverlay({
     setHasExplored(false)
   }, [])
 
-  const handleExplore = () => {
-    sessionStorage.setItem(
-      'gabe-explored',
-      'true'
-    )
-
+  const handleExplore = async () => {
+    sessionStorage.setItem('gabe-explored', 'true')
     setHasExplored(true)
-
-    onGoOutside()
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(document.body, {
+        scale: 0.5,
+        useCORS: true,
+        logging: false,
+      })
+      onGoOutside(canvas)
+    } catch {
+      onGoOutside()
+    }
   }
 
   useEffect(() => {

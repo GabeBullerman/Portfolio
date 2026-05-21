@@ -159,8 +159,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
   const _mat4   = new THREE.Matrix4()
   let animId: number
 
+
   const st: AnimateState = {
-    camYaw: 0, camPitch: 0.3, playerVelY: 0, fpvBlend: 0,
+    camYaw: 0, camPitch: -0.165, playerVelY: 0, fpvBlend: 0,
     walkPhase: 0, swingAmt: 0, elapsed: 0, lastTime: performance.now(), nearBowl: false,
   }
 
@@ -176,15 +177,42 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     // Bone animation
     const bones = p.playerBonesRef.current
     if (bones) {
-      const blend = THREE.MathUtils.lerp(p.playerWalkBlendRef.current === 1 ? 1 : 0, p.playerWalkBlendRef.current, Math.min(1, delta * 8))
-      const t = st.elapsed * Math.PI * 2, sw = 0.30, kb = 0.28, as2 = 0.20
-      if (bones.lUpLeg) bones.lUpLeg.rotation.x = Math.sin(t) * sw * blend
-      if (bones.rUpLeg) bones.rUpLeg.rotation.x = Math.sin(t + Math.PI) * sw * blend
-      if (bones.lLoLeg) bones.lLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 0.5)) * kb * blend
-      if (bones.rLoLeg) bones.rLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 1.5)) * kb * blend
-      if (bones.lUpArm) { bones.lUpArm.rotation.z = Math.PI / 2; bones.lUpArm.rotation.y = 0; bones.lUpArm.rotation.x = Math.sin(t + Math.PI) * as2 * blend }
-      if (bones.rUpArm) { bones.rUpArm.rotation.z = -Math.PI / 2; bones.rUpArm.rotation.y = 0; bones.rUpArm.rotation.x = Math.sin(t) * as2 * blend }
-      if (bones.spine)  bones.spine.rotation.x = Math.sin(st.elapsed * Math.PI) * 0.015
+      // Register bones in movablesRef once so they appear in debug panel
+      if (!p.movablesRef.current.find(m => m.name === '🦴 L Arm')) {
+        if (bones.lUpArm) p.movablesRef.current.push({ name: '🦴 L Arm',   group: bones.lUpArm as unknown as THREE.Group })
+        if (bones.rUpArm) p.movablesRef.current.push({ name: '🦴 R Arm',   group: bones.rUpArm as unknown as THREE.Group })
+        if (bones.lUpLeg) p.movablesRef.current.push({ name: '🦴 L UpLeg', group: bones.lUpLeg as unknown as THREE.Group })
+        if (bones.rUpLeg) p.movablesRef.current.push({ name: '🦴 R UpLeg', group: bones.rUpLeg as unknown as THREE.Group })
+        if (bones.lLoLeg) p.movablesRef.current.push({ name: '🦴 L LoLeg', group: bones.lLoLeg as unknown as THREE.Group })
+        if (bones.rLoLeg) p.movablesRef.current.push({ name: '🦴 R LoLeg', group: bones.rLoLeg as unknown as THREE.Group })
+      }
+
+      // Skip bone override when debug is open so user can adjust freely
+      if (!p.debugModeRef.current) {
+        if (p.sittingRef.current) {
+          // Sitting pose (tuned via debug panel)
+          const d = Math.PI / 180
+          if (bones.lUpLeg) bones.lUpLeg.rotation.set(-86.6 * d,  1.2 * d, -156.3 * d)
+          if (bones.rUpLeg) bones.rUpLeg.rotation.set(-86.4 * d,  5.0 * d,  176.0 * d)
+          if (bones.lLoLeg) bones.lLoLeg.rotation.set(-108.0 * d,  0.1 * d, -0.8 * d)
+          if (bones.rLoLeg) bones.rLoLeg.rotation.set(-108.0 * d, -0.1 * d,  0.8 * d)
+          if (bones.lUpArm) bones.lUpArm.rotation.set( 56.5 * d, -17.9 * d,  30.8 * d)
+          if (bones.rUpArm) bones.rUpArm.rotation.set( 72.1 * d,  19.0 * d, -31.8 * d)
+          if (bones.spine)  bones.spine.rotation.x = 0
+        } else {
+          // Walk / idle animation
+          const blend = THREE.MathUtils.lerp(p.playerWalkBlendRef.current === 1 ? 1 : 0, p.playerWalkBlendRef.current, Math.min(1, delta * 8))
+          const t = st.elapsed * Math.PI * 2, sw = 0.30, kb = 0.28
+          if (bones.lUpLeg) bones.lUpLeg.rotation.set(Math.sin(t) * sw * blend,            0,    -176.3 * Math.PI / 180)
+          if (bones.rUpLeg) bones.rUpLeg.rotation.set(Math.sin(t + Math.PI) * sw * blend,  0,     176.3 * Math.PI / 180)
+          if (bones.lLoLeg) bones.lLoLeg.rotation.set(Math.max(0, Math.sin(t + Math.PI * 0.5)) * kb * blend,  0.1 * Math.PI / 180, -0.8 * Math.PI / 180)
+          if (bones.rLoLeg) bones.rLoLeg.rotation.set(Math.max(0, Math.sin(t + Math.PI * 1.5)) * kb * blend, -0.1 * Math.PI / 180,  0.8 * Math.PI / 180)
+          const asw = 0.20, ta = t + Math.PI + 0.4
+          if (bones.lUpArm) bones.lUpArm.rotation.set(53.4 * Math.PI / 180,  8.9 * Math.PI / 180, -5.8 * Math.PI / 180 + Math.sin(ta) * asw * blend)
+          if (bones.rUpArm) bones.rUpArm.rotation.set(53.2 * Math.PI / 180, -7.6 * Math.PI / 180,  5.0 * Math.PI / 180 + Math.sin(ta) * asw * blend)
+          if (bones.spine)  bones.spine.rotation.x = Math.sin(st.elapsed * Math.PI) * 0.015
+        }
+      }
     }
 
     // Go Outside / Use Computer cinematics
@@ -193,7 +221,12 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       const cs = p.cinematicRef.current; cs.active = true; cs.t = 0; cs.duration = 2.8
       cs.fromPos.copy(p.cabGrp.localToWorld(new THREE.Vector3(p.CHAIR_LOCAL_POS.x, p.CHAIR_LOCAL_POS.y + 1.15, p.CHAIR_LOCAL_POS.z)))
       cs.fromLook.copy(p.cabGrp.localToWorld(p.MONITOR_LOCAL_POS.clone()))
-      cs.toPos.set(-4.0, 2.1 + 1.65, 14.0); cs.toLook.set(-7.5, 3.2, 14.5); cs.onDone = null
+      cs.toPos.set(-4.0, 2.1 + 1.65, 14.0); cs.toLook.set(-7.5, 2.1 + 1.65, 14.5)
+      cs.onDone = () => {
+        // Snap camera to third-person target so it doesn't lerp through a downward arc
+        p.camera.position.set(-4.0 + Math.sin(1.5) * 5.2, 2.1 + 1.2, 14.0 + Math.cos(1.5) * 5.2)
+        st.camPitch = 0
+      }
       p.camera.position.copy(cs.fromPos); p.camera.lookAt(cs.fromLook)
     }
     if (p.goToComputerRef.current) {
@@ -518,9 +551,21 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     // Debug
     if (p.debugModeRef.current && p.debugPanelRef.current) {
       const pos = p.player.position
+      const bones = p.playerBonesRef.current
+      const f = (n: number) => (n / Math.PI * 180).toFixed(1) + '°'
       p.debugPanelRef.current.textContent = [
         '=== DEBUG (` to close) ===',
         `Player: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})  yaw: ${((st.camYaw * 180 / Math.PI) % 360).toFixed(1)}°`,
+        '',
+        '--- Arm Bones (degrees) ---',
+        bones?.lUpArm ? `lUpArm  x:${f(bones.lUpArm.rotation.x)}  y:${f(bones.lUpArm.rotation.y)}  z:${f(bones.lUpArm.rotation.z)}\n         q(${bones.lUpArm.quaternion.x.toFixed(4)}, ${bones.lUpArm.quaternion.y.toFixed(4)}, ${bones.lUpArm.quaternion.z.toFixed(4)}, ${bones.lUpArm.quaternion.w.toFixed(4)})` : 'lUpArm: not found',
+        bones?.rUpArm ? `rUpArm  x:${f(bones.rUpArm.rotation.x)}  y:${f(bones.rUpArm.rotation.y)}  z:${f(bones.rUpArm.rotation.z)}\n         q(${bones.rUpArm.quaternion.x.toFixed(4)}, ${bones.rUpArm.quaternion.y.toFixed(4)}, ${bones.rUpArm.quaternion.z.toFixed(4)}, ${bones.rUpArm.quaternion.w.toFixed(4)})` : 'rUpArm: not found',
+        '',
+        '--- Leg Bones (degrees) ---',
+        bones?.lUpLeg ? `lUpLeg  x:${f(bones.lUpLeg.rotation.x)}  y:${f(bones.lUpLeg.rotation.y)}  z:${f(bones.lUpLeg.rotation.z)}` : 'lUpLeg: not found',
+        bones?.rUpLeg ? `rUpLeg  x:${f(bones.rUpLeg.rotation.x)}  y:${f(bones.rUpLeg.rotation.y)}  z:${f(bones.rUpLeg.rotation.z)}` : 'rUpLeg: not found',
+        bones?.lLoLeg ? `lLoLeg  x:${f(bones.lLoLeg.rotation.x)}  y:${f(bones.lLoLeg.rotation.y)}  z:${f(bones.lLoLeg.rotation.z)}` : 'lLoLeg: not found',
+        bones?.rLoLeg ? `rLoLeg  x:${f(bones.rLoLeg.rotation.x)}  y:${f(bones.rLoLeg.rotation.y)}  z:${f(bones.rLoLeg.rotation.z)}` : 'rLoLeg: not found',
       ].join('\n')
     }
 

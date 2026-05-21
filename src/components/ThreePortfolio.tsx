@@ -96,6 +96,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [nearSwitch, setNearSwitch] = useState(false)
   const cabCeilLightRef = useRef<THREE.PointLight | null>(null)
   const monLightRef     = useRef<THREE.SpotLight | null>(null)
+  const screenMatRef    = useRef<any>(null)
   const inCabinPrevRef  = useRef(true)
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(true)
@@ -187,7 +188,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Cabin ─────────────────────────────────────────────────────────────
     const { cabGrp, rampGrp, cabHitboxEntries, clockInterval } = createCabin(
       scene, movablesRef.current,
-      { doorPivotRef, cabCeilLightRef, monLightRef, switchNodeRef, radioGroupRef },
+      { doorPivotRef, cabCeilLightRef, monLightRef, switchNodeRef, radioGroupRef, screenMatRef },
       MONITOR_LOCAL_POS,
     )
 
@@ -415,7 +416,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   return (
     <div className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div ref={mountRef} className="w-full h-full touch-none" />
-      {monitorMode && (<MonitorOverlay onGoOutside={() => { setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.() }} />)}
+      {monitorMode && (<MonitorOverlay onGoOutside={(snapshot) => {
+        if (snapshot && screenMatRef.current) {
+          const tex = new THREE.CanvasTexture(snapshot)
+          tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
+          screenMatRef.current.map = tex
+          screenMatRef.current.needsUpdate = true
+        }
+        setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
+      }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
       <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} isNight={isNight} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearBed={nearBed} nearRadio={nearRadio} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} sleepOverlayRef={sleepOverlayRef} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} />
