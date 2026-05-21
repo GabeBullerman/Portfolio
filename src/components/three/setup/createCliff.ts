@@ -131,57 +131,20 @@ export function createCliff(scene: THREE.Scene): CliffResult {
   const W        = RIGHT_X - LEFT_X
   const D        = BACK_Z - FRONT_Z
 
-  // ── Rocky slope: fence edge (z=22, y=0) → water surface (z=46, y=WATER_Y) ──
-  const SLOPE_W    = 160   // wider than fence to cover side rim strips
-  const SLOPE_SEGS_X = 90
-  const SLOPE_SEGS_Z = 35
-
-  const slopeVerts: number[]   = []
-  const slopeUVs:   number[]   = []
-  const slopeIdx:   number[]   = []
-
-  for (let iz = 0; iz <= SLOPE_SEGS_Z; iz++) {
-    for (let ix = 0; ix <= SLOPE_SEGS_X; ix++) {
-      const x = -SLOPE_W / 2 + (ix / SLOPE_SEGS_X) * SLOPE_W
-      const wz = SLOPE_START_Z + (iz / SLOPE_SEGS_Z) * (SLOPE_END_Z - SLOPE_START_Z)
-      const t  = iz / SLOPE_SEGS_Z          // 0 = top (fence), 1 = bottom (water)
-      const baseY = 0 + (WATER_Y - 0) * t   // linear ramp 0 → WATER_Y
-
-      // Bumps fade in away from the top edge so z=22 stays flush with the ground plane
-      const fade = Math.min(1, t * 3)
-      const bump = fade * (
-        Math.sin(x * 0.28 + 1.3)  * Math.cos(wz * 0.9)         * 0.55
-        + Math.sin(x * 0.52 - 0.7) * Math.sin(wz * 1.5 + 0.5)  * 0.30
-        + Math.sin(x * 0.10 + wz * 0.20 + 2.1)                  * 0.40
-        + Math.sin(x * 0.78 + wz * 0.35 - 1.1)                  * 0.18
-      )
-
-      slopeVerts.push(x, baseY + bump, wz)
-      slopeUVs.push(ix / SLOPE_SEGS_X, iz / SLOPE_SEGS_Z)
-    }
-  }
-
-  for (let iz = 0; iz < SLOPE_SEGS_Z; iz++) {
-    for (let ix = 0; ix < SLOPE_SEGS_X; ix++) {
-      const a = iz * (SLOPE_SEGS_X + 1) + ix
-      const b = a + 1
-      const c = a + (SLOPE_SEGS_X + 1)
-      const d = c + 1
-      slopeIdx.push(a, c, b, b, c, d)
-    }
-  }
-
+  // ── Flat angled slope: fence edge (z=22, y=0) → water surface (z=46, y=WATER_Y) ──
+  const SLOPE_W = 160   // wider than fence to cover side rim strips
   const slopeGeo = new THREE.BufferGeometry()
-  slopeGeo.setAttribute('position', new THREE.Float32BufferAttribute(slopeVerts, 3))
-  slopeGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(slopeUVs, 2))
-  slopeGeo.setIndex(slopeIdx)
+  slopeGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    -SLOPE_W / 2, WATER_Y, SLOPE_END_Z,   //  BL
+     SLOPE_W / 2, WATER_Y, SLOPE_END_Z,   //  BR
+    -SLOPE_W / 2, 0,       SLOPE_START_Z, //  TL
+     SLOPE_W / 2, 0,       SLOPE_START_Z, //  TR
+  ], 3))
+  slopeGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0,0, 1,0, 0,1, 1,1], 2))
+  slopeGeo.setIndex([0, 1, 2, 1, 3, 2])
   slopeGeo.computeVertexNormals()
 
-  const slopeMat = new THREE.MeshStandardMaterial({
-    color: 0x7a7268,
-    roughness: 0.97,
-    metalness: 0.0,
-  })
+  const slopeMat = new THREE.MeshStandardMaterial({ color: 0x7a7268, roughness: 0.97, metalness: 0 })
   const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat)
   slopeMesh.receiveShadow = true
   slopeMesh.castShadow    = true
@@ -227,21 +190,28 @@ export function createCliff(scene: THREE.Scene): CliffResult {
   scene.add(waterMesh)
 
   // ── Boat ─────────────────────────────────────────────────────────────────
-  const BOAT_X = 4, BOAT_Z = 68
+  const BOAT_X = 0, BOAT_Z = 55
   const boatRef = { current: null as THREE.Object3D | null }
 
   new GLTFLoader().load('/assets/outdoor/boat/Boat.glb', gltf => {
     const boat = gltf.scene
-    // Compute natural size and scale to ~3 world units long
     const box = new THREE.Box3().setFromObject(boat)
     const size = new THREE.Vector3(); box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
-    const targetSize = 3.0
+    const targetSize = 8.0
     const scale = maxDim > 0 ? targetSize / maxDim : 1.0
     boat.scale.setScalar(scale)
-    console.log(`[cliff] Boat natural size: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)}, scale applied: ${scale.toFixed(3)}`)
-    boat.position.set(BOAT_X, WATER_Y + 0.2, BOAT_Z)
-    boat.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
+    boat.rotation.y = Math.PI   // face toward player
+    boat.position.set(BOAT_X, WATER_Y + 0.3, BOAT_Z)
+    boat.traverse(c => {
+      if ((c as THREE.Mesh).isMesh) {
+        c.castShadow = true; c.receiveShadow = true
+        // Ensure materials aren't accidentally invisible
+        const mat = (c as THREE.Mesh).material as THREE.MeshStandardMaterial
+        if (mat && 'transparent' in mat) { mat.transparent = false; mat.opacity = 1 }
+      }
+    })
+    console.log(`[cliff] Boat size: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}, scale: ${scale.toFixed(3)}`)
     scene.add(boat)
     boatRef.current = boat
   }, undefined, err => console.error('[cliff] Boat.glb load failed:', err))
@@ -257,7 +227,7 @@ export function createCliff(scene: THREE.Scene): CliffResult {
         Math.sin(BOAT_X * 4.0 + t * 0.75) *
         Math.sin(BOAT_Z * 1.5 + t * 0.75) *
         0.18
-      boatRef.current.position.y = WATER_Y + 0.2 + elev
+      boatRef.current.position.y = WATER_Y + 0.3 + elev
       boatRef.current.rotation.z = 0.05 * Math.cos(t * 0.6)
       boatRef.current.rotation.x = 0.03 * Math.sin(t * 0.8)
     }
