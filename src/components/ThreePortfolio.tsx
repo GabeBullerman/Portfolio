@@ -54,7 +54,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [nearChair, setNearChair] = useState(false)
   const nearChairRef = useRef(false)
   const sittingAtRef = useRef<'bench' | 'chair' | null>(null)
-  const CHAIR_LOCAL_POS = new THREE.Vector3(2.2, 2.085, -1.8)
+  const CHAIR_LOCAL_POS = new THREE.Vector3(1.8, 2.085, -1.8)
   const MONITOR_LOCAL_POS = new THREE.Vector3(2.0, 3.35, -2.20)
   const CHAIR_PROX = 1.25
   // Ring toss

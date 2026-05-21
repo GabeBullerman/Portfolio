@@ -21,22 +21,41 @@ type ThemePalette = {
 
 const PALETTES: ThemePalette[] = [
   {
-    name: 'forest',
-    bg: '#050b07',
-    bg2: '#08150c',
-    surface: 'rgba(8, 21, 12, 0.82)',
+    name: 'rose',
+    bg: '#0f0509',
+    bg2: '#1a0812',
+    surface: 'rgba(26,8,18,0.82)',
     card: 'rgba(255,255,255,0.05)',
-    cardHover: 'rgba(34,197,94,0.12)',
+    cardHover: 'rgba(236,72,153,0.12)',
     border: 'rgba(255,255,255,0.09)',
-    borderStrong: 'rgba(34,197,94,0.48)',
-    accent: '#22c55e',
-    accent2: '#86efac',
-    accentSoft: 'rgba(34,197,94,0.16)',
-    accentGlow: 'rgba(34,197,94,0.34)',
-    text: '#f0fdf4',
-    textMuted: '#bbf7d0',
-    textSubtle: '#86efac',
-    line: 'rgba(34,197,94,0.45)',
+    borderStrong: 'rgba(236,72,153,0.48)',
+    accent: '#ec4899',
+    accent2: '#f9a8d4',
+    accentSoft: 'rgba(236,72,153,0.16)',
+    accentGlow: 'rgba(236,72,153,0.34)',
+    text: '#fdf2f8',
+    textMuted: '#fbcfe8',
+    textSubtle: '#f9a8d4',
+    line: 'rgba(236,72,153,0.45)',
+  },
+
+  {
+    name: 'azure',
+    bg: '#030a14',
+    bg2: '#071220',
+    surface: 'rgba(7,18,32,0.82)',
+    card: 'rgba(255,255,255,0.05)',
+    cardHover: 'rgba(59,130,246,0.12)',
+    border: 'rgba(255,255,255,0.09)',
+    borderStrong: 'rgba(59,130,246,0.48)',
+    accent: '#3b82f6',
+    accent2: '#93c5fd',
+    accentSoft: 'rgba(59,130,246,0.16)',
+    accentGlow: 'rgba(59,130,246,0.34)',
+    text: '#eff6ff',
+    textMuted: '#bfdbfe',
+    textSubtle: '#93c5fd',
+    line: 'rgba(59,130,246,0.45)',
   },
 
   {
@@ -99,8 +118,10 @@ const PALETTES: ThemePalette[] = [
 
 export function useTheme() {
   useEffect(() => {
-    const palette =
-      PALETTES[Math.floor(Math.random() * PALETTES.length)]
+    const last = localStorage.getItem('theme')
+    const choices = PALETTES.filter(p => p.name !== last)
+    const palette = choices[Math.floor(Math.random() * choices.length)]
+    localStorage.setItem('theme', palette.name)
 
     const root = document.documentElement
 

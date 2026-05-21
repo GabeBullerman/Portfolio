@@ -182,8 +182,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       if (bones.rUpLeg) bones.rUpLeg.rotation.x = Math.sin(t + Math.PI) * sw * blend
       if (bones.lLoLeg) bones.lLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 0.5)) * kb * blend
       if (bones.rLoLeg) bones.rLoLeg.rotation.x = Math.max(0, Math.sin(t + Math.PI * 1.5)) * kb * blend
-      if (bones.lUpArm) { bones.lUpArm.rotation.x = -Math.PI / 2; bones.lUpArm.rotation.y = 0; bones.lUpArm.rotation.z = -Math.sin(t + Math.PI) * as2 * blend }
-      if (bones.rUpArm) { bones.rUpArm.rotation.x =  Math.PI / 2; bones.rUpArm.rotation.y = 0; bones.rUpArm.rotation.z =  Math.sin(t) * as2 * blend }
+      if (bones.lUpArm) { bones.lUpArm.rotation.z = Math.PI / 2; bones.lUpArm.rotation.y = 0; bones.lUpArm.rotation.x = Math.sin(t + Math.PI) * as2 * blend }
+      if (bones.rUpArm) { bones.rUpArm.rotation.z = -Math.PI / 2; bones.rUpArm.rotation.y = 0; bones.rUpArm.rotation.x = Math.sin(t) * as2 * blend }
       if (bones.spine)  bones.spine.rotation.x = Math.sin(st.elapsed * Math.PI) * 0.015
     }
 
@@ -202,7 +202,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       cs.fromPos.set(p.player.position.x, p.player.position.y + 1.65, p.player.position.z)
       cs.fromLook.set(p.player.position.x - Math.sin(st.camYaw) * 8, p.player.position.y + 1.65 + Math.sin(st.camPitch) * 3, p.player.position.z - Math.cos(st.camYaw) * 8)
       cs.toPos.copy(p.cabGrp.localToWorld(new THREE.Vector3(p.CHAIR_LOCAL_POS.x, p.CHAIR_LOCAL_POS.y + 1.15, p.CHAIR_LOCAL_POS.z)))
-      cs.toLook.copy(p.cabGrp.localToWorld(p.MONITOR_LOCAL_POS.clone()))
+      cs.toLook.copy(p.cabGrp.localToWorld(new THREE.Vector3(p.CHAIR_LOCAL_POS.x, p.CHAIR_LOCAL_POS.y + 1.15, p.CHAIR_LOCAL_POS.z - 8)))
       cs.onDone = () => { document.exitPointerLock(); p.setMonitorMode(true) }
     }
 
