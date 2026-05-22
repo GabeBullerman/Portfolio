@@ -63,10 +63,8 @@ export function createPark(scene: THREE.Scene, movables: Movable[], boxCols: Box
     { name: '🌿 Bush (sphere)',     path: '/assets/outdoor/park stuff/bushes/short sphere/Untitled.glb',         pos: null as [number,number,number] | null, scale: null as number | null, rot: null as number | null },
     { name: '🌿 Bush (short wide)', path: '/assets/outdoor/park stuff/bushes/short wide/Untitled.glb',           pos: null, scale: null, rot: null },
     { name: '🌿 Bush (tall wide)',  path: '/assets/outdoor/park stuff/bushes/tall wide/Untitled.glb',            pos: null, scale: null, rot: null },
-    { name: '🛝 Playground',       path: '/assets/outdoor/park stuff/playground/Untitled.glb',                  pos: [8.47, 0, -77.14] as [number,number,number], scale: null, rot: -Math.PI / 6 },
-    { name: '🛤️ Sidewalk (left)',  path: '/assets/outdoor/park stuff/sidewalks/sidewalk left turn/Untitled.glb', pos: null, scale: null, rot: null },
-    { name: '🛤️ Sidewalk (right)', path: '/assets/outdoor/park stuff/sidewalks/sidewalk right turn/Untitled.glb', pos: null, scale: null, rot: null },
-    { name: '🚩 Street Sign',      path: '/assets/outdoor/park stuff/street sign/Untitled.glb',                 pos: [-2.23, 0, -8.67] as [number,number,number], scale: 2, rot: null },
+    { name: '🛝 Playground',       path: '/assets/outdoor/park stuff/playground/Untitled.glb',   pos: [8.47, 0, -77.14] as [number,number,number], scale: null, rot: -Math.PI / 6 },
+    { name: '🚩 Street Sign',      path: '/assets/outdoor/park stuff/street sign/Untitled.glb',  pos: [-2.23, 0, -8.67] as [number,number,number], scale: 2, rot: null },
     { name: '🗑️ Trashcan',        path: '/assets/outdoor/park stuff/trashcan/Untitled.glb',                    pos: null, scale: null, rot: null },
   ]
 
@@ -134,28 +132,66 @@ export function createPark(scene: THREE.Scene, movables: Movable[], boxCols: Box
   ]).then(([treeBase, plainBase, endBase]) => {
 
     // ── Trees ─────────────────────────────────────────────────────────────
-    const FENCE_BUF = 4
-    const innerW = PARK.W + 7.40 + FENCE_BUF   // -25.6
-    const innerE = PARK.E + 6.50 - FENCE_BUF   //  41.5
-    const innerN = PARK.N + 6.00 - FENCE_BUF   //  -6
+    // Bounds derived from fence hitbox inner edges + buffer so trees stay inside:
+    //   West fence inner x ≈ -36.4  →  TREE_W = -33
+    //   East fence inner x ≈  38.3  →  TREE_E =  35
+    //   North fence inner z ≈  -8.6 →  TREE_N = -13  (well south of entrance fence)
+    //   South park boundary z = -91 →  TREE_S = -87
+    const TREE_W = -33
+    const TREE_E =  35
+    const TREE_N = -13
+    const TREE_S = -87
+
+    // Exclusion zones [xMin, xMax, zMin, zMax] — park features, games, sidewalks.
+    // Each entry uses world positions + a comfortable buffer so no tree overlaps anything.
+    const excl: [number, number, number, number][] = [
+      // Campfire seating (-10, -19.5)
+      [-16,  -4,  -26, -13],
+      // Pond (-24, -36) r=3.2
+      [-31, -17,  -43, -29],
+      // Ball Pit (28, -19) r≈2.5
+      [ 22,  34,  -25, -13],
+      // Ring Toss (12, -23) platform 3×14
+      [  8,  16,  -33, -13],
+      // Bowling Alley (19, -26) lane ≈2.6w × 20l
+      [ 13,  25,  -39, -13],
+      // Trampoline (20, -72) r=4.8
+      [ 12,  28,  -80, -64],
+      // Skatepark (19, -57.5) rot 90° — generous footprint
+      [  6,  32,  -71, -44],
+      // Playground (8.47, -77.14) rot -30°
+      [  1,  16,  -85, -69],
+      // Sidewalk 1 (1, -27.4) N-S spine
+      [ -2,   4,  -49,  -6],
+      // Sidewalk 2 (-18.4, -47.85) E-W cross arm
+      [-37,   2,  -51, -44],
+      // Sidewalk 3 (20.4, -47.8) E-W cross arm
+      [  0,  39,  -51, -44],
+      // Sidewalk 4 (1, -61.5) N-S lower spine
+      [ -2,   4,  -76, -47],
+    ]
+    const inExcl = (x: number, z: number) =>
+      excl.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)
 
     const treeRng = mulberry32(7777)
     ;[
-      { name: '🌳 Trees (NW)', xr: [innerW, -8]        as [number,number], zr: [innerN, -44]      as [number,number] },
-      { name: '🌳 Trees (NE)', xr: [8,  innerE]         as [number,number], zr: [innerN, -44]      as [number,number] },
-      { name: '🌳 Trees (SW)', xr: [innerW, -8]         as [number,number], zr: [-56, PARK.S + 5] as [number,number] },
-      { name: '🌳 Trees (SE)', xr: [8,  innerE]         as [number,number], zr: [-56, PARK.S + 5] as [number,number] },
+      { name: '🌳 Trees (NW)', xr: [TREE_W, -8] as [number,number], zr: [TREE_N, -44]    as [number,number] },
+      { name: '🌳 Trees (NE)', xr: [8,  TREE_E] as [number,number], zr: [TREE_N, -44]    as [number,number] },
+      { name: '🌳 Trees (SW)', xr: [TREE_W, -8] as [number,number], zr: [-58,   TREE_S]  as [number,number] },
+      { name: '🌳 Trees (SE)', xr: [8,  TREE_E] as [number,number], zr: [-58,   TREE_S]  as [number,number] },
     ].forEach(({ name, xr, zr }) => {
       const grp = new THREE.Group()
       for (let i = 0; i < 12; i++) {
+        // Always consume all 4 RNG values so later trees are unaffected by exclusions
+        const tx = xr[0] + treeRng() * (xr[1] - xr[0])
+        const tz = zr[0] + treeRng() * (zr[1] - zr[0])
+        const sc = 0.8 + treeRng() * 0.5
+        const ry = treeRng() * Math.PI * 2
+        if (inExcl(tx, tz)) continue
         const t = treeBase.clone(true)
-        t.position.set(
-          xr[0] + treeRng() * (xr[1] - xr[0]),
-          0,
-          zr[0] + treeRng() * (zr[1] - zr[0])
-        )
-        t.scale.setScalar(0.8 + treeRng() * 0.5)
-        t.rotation.y = treeRng() * Math.PI * 2
+        t.position.set(tx, 0, tz)
+        t.scale.setScalar(sc)
+        t.rotation.y = ry
         t.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
         grp.add(t)
       }
