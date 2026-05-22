@@ -61,7 +61,6 @@ export function createBuildings(
     bldg.updateMatrixWorld(true)
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏢 Project Blvd 1-2', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     addVisibleHitbox('🟥 Duo: Store A', -53.30, 1.28, -14.90, 8, 6, 8, 0.65, 0.50, 0.65)
     addDoor('🟩 Duo: Door A', -50.60, 1.0, -13.40)
     addVisibleHitbox('🟥 Duo: Store B', -53.20, 1.50, -21.60, 8, 6, 8, 0.70, 0.50, 0.60)
@@ -99,7 +98,6 @@ export function createBuildings(
     bldg.updateMatrixWorld(true)
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏪 Orange Store (Blvd)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     addVisibleHitbox('🟥 Orange Store: Box', -53.50, 1.60, -35.50, 8, 6, 8, 0.65, 0.60, 0.90)
     addDoor('🟩 Orange Store: Door', -50.90, 1.17, -35.50)
     // Orange — hollow box, door on east face at z=-35.50 (center)
@@ -127,7 +125,6 @@ export function createBuildings(
     bldg.updateMatrixWorld(true)
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏪 Slant Store (Blvd)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     addVisibleHitbox('🟥 Slant Store: Box', -53.90, 1.40, -55.20, 8, 6, 8, 0.750, 0.700, 0.950)
     addVisibleHitbox('🟩 Slant Store: Door', -51.70, 1.00, -55.50, 3, 4, 1, 0.400, 0.700, 0.050, doorMat, false, 55 * Math.PI / 180, -Math.PI, -Math.PI)
     // Slant store — hollow box, door opening on east face near z=-55.50
@@ -158,7 +155,6 @@ export function createBuildings(
       -hbb0.min.y + 0.04,
       19.6
     )
-    movables.push({ name: '🏘️ Other Houses', group: bldg as unknown as THREE.Group, scaleObj: bldg })
     // Visible hitboxes — one per house, user positions via debug overlay then we convert to boxCols
     addVisibleHitbox('🟥 House 1', -28.60, 3.0, 13.30, 8, 6, 8, 1.20, 1.00, 0.60, hitboxMat, true)
     addVisibleHitbox('🟥 House 2', -16.30, 3.0, 13.00, 8, 6, 8, 0.80, 1.00, 0.90, hitboxMat, true)
@@ -175,7 +171,7 @@ export function createBuildings(
       { name: '🪨 Stone Path 4', x:  29.04, z: 6.80, w: 1.8, l: 10.6 },
       { name: '🪨 Stone Path 5', x:  35.44, z: 5.60, w: 1.8, l:  8.2 },
     ]
-    pathDefs.forEach(({ name, x, z, w, l }) => {
+    pathDefs.forEach(({ x, z, w, l }) => {
       const tex = swBaseTex.clone()
       tex.needsUpdate = true
       tex.repeat.set(Math.max(1, w / TILE), Math.max(1, l / TILE))
@@ -188,53 +184,76 @@ export function createBuildings(
       grp.scale.set(w, 1, l)
       grp.add(mesh)
       scene.add(grp)
-      movables.push({ name, group: grp, scaleObj: grp })
     })
   }, undefined, err => console.error('[buildings] other houses failed:', err))
 
-  // 2-story building — Memory Lane
-  gltfLoader.load('/assets/outdoor/buildings/2story/Untitled.glb', gltf => {
+
+  // Four Buildings — Memory Lane (east side, user aligns via debug editor)
+  // Visible materials so boxes/doors can be seen during alignment
+  const memHitMat  = new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+  const memDoorMat = new THREE.MeshBasicMaterial({ color: 0x22ff66, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+  const addMemHitbox = (name: string, px: number, py: number, pz: number, w: number, h: number, d: number, sx = 1, sy = 1, sz = 1) =>
+    addVisibleHitbox(name, px, py, pz, w, h, d, sx, sy, sz, memHitMat, false)
+
+  gltfLoader.load('/assets/outdoor/buildings/Memory Ln/Four Buildings.glb', gltf => {
     const bldg = gltf.scene
     bldg.traverse(child => {
-      if (!(child as THREE.Mesh).isMesh) return
-      child.castShadow = true; child.receiveShadow = true
-      const mats = Array.isArray((child as THREE.Mesh).material) ? (child as THREE.Mesh).material as THREE.Material[] : [(child as THREE.Mesh).material as THREE.Material]
-      mats.forEach(m => { m.side = THREE.DoubleSide })
+      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
-    bldg.scale.setScalar(4.2)
-    bldg.position.set(55.00, -0.40, -16.00)
+    bldg.scale.set(1.167, 1.155, 1.303)
+    bldg.position.set(55.00, 0.00, -20.00)
     bldg.rotation.y = -Math.PI / 2
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏠 2Story (Memory Ln)', group: bldg as unknown as THREE.Group, scaleObj: bldg })
-    // Interior floor plane — covers building footprint so grass isn't visible inside
-    const floorMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshStandardMaterial({ color: 0xc8a878, roughness: 0.85, metalness: 0 })
-    )
-    floorMesh.rotation.x = -Math.PI / 2
-    floorMesh.receiveShadow = true
-    scene.add(floorMesh)
-    const floorGrp = new THREE.Group()
-    floorGrp.position.set(55.00, 0.02, -16.00)
-    floorGrp.scale.set(5.1, 1, 5.1)
-    floorGrp.add(floorMesh)
-    scene.add(floorGrp)
-    movables.push({ name: '🪵 2Story: Floor', group: floorGrp, scaleObj: floorGrp })
-    // Outer shell hitbox — visible red so user can align it
-    addVisibleHitbox('🟥 2Story: Box', 55.00, 3.00, -16.60, 8, 6, 8, 0.700, 1.200, 0.800)
-    addVisibleHitbox('🟩 2Story: Door', 52.60, 1.00, -17.70, 3, 4, 1, 0.350, 0.600, 1.000, doorMat, false, Math.PI / 2)
-    // 2Story — hollow box, door on west face at z=-17.70
-    // Hitbox: pos(55.00,3.00,-16.60) scale(0.700,1.200,0.800) → x[52.20,57.80] z[-19.80,-13.40]
-    // Door gap: z[-18.23,-17.18] (door width 3*0.350=1.05, centered at -17.70)
-    // maxY = 3.00 + 3*1.200 = 6.60
-    boxCols.push({ x0: 52.20, x1: 53.20, z0: -19.80, z1: -18.23, maxY: 6.60 }) // west wall south of door
-    boxCols.push({ x0: 52.20, x1: 53.20, z0: -17.18, z1: -13.40, maxY: 6.60 }) // west wall north of door
-    boxCols.push({ x0: 56.80, x1: 57.80, z0: -19.80, z1: -13.40, maxY: 6.60 }) // east wall
-    boxCols.push({ x0: 52.20, x1: 57.80, z0: -19.80, z1: -18.80, maxY: 6.60 }) // south wall
-    boxCols.push({ x0: 52.20, x1: 57.80, z0: -13.90, z1: -13.40, maxY: 6.60 }) // north wall
-    ceilCols.push({ x0: 52.20, x1: 57.80, z0: -19.80, z1: -13.40, minY: 6.60 }) // 2Story roof
-  }, undefined, err => console.error('[buildings] 2story failed:', err))
+    movables.push({ name: '🏢 Mem Ln: Four Buildings', group: bldg, scaleObj: bldg })
+
+    // Bldg 1 + 2 — aligned; hitboxes kept visible for reference, boxCols below
+    addMemHitbox('🟥 Mem Ln: Bldg 1', 56.75, 1.20, -10.70, 8, 6, 8, 0.45, 0.40, 0.60)
+    addMemHitbox('🟥 Mem Ln: Bldg 2', 56.80, 1.20, -16.50, 8, 6, 8, 0.45, 0.40, 0.60)
+    addMemHitbox('🟥 Mem Ln: Bldg 3', 56.70, 1.23, -23.50, 8, 6, 8, 0.45, 0.40, 0.60)
+    addMemHitbox('🟥 Mem Ln: Bldg 4', 56.70, 1.19, -29.35, 8, 6, 8, 0.45, 0.40, 0.60)
+
+    addVisibleHitbox('🟩 Mem Ln: Door 1', 55.00, 1.00,  -9.70, 3, 4, 1, 0.297, 0.561, 0.065, memDoorMat, false, Math.PI / 2)
+    addVisibleHitbox('🟩 Mem Ln: Door 2', 55.00, 1.00, -15.50, 3, 4, 1, 0.298, 0.564, 0.010, memDoorMat, false, Math.PI / 2)
+    addVisibleHitbox('🟩 Mem Ln: Door 3', 55.00, 1.00, -22.50, 3, 4, 1, 0.345, 0.573, 0.016, memDoorMat, false, Math.PI / 2)
+    addVisibleHitbox('🟩 Mem Ln: Door 4', 55.00, 1.00, -28.30, 3, 4, 1, 0.330, 0.570, 0.004, memDoorMat, false, Math.PI / 2)
+
+    // ── Collision walls — Bldg 1  x[54.95,58.55] z[-13.10,-8.30] maxY=2.40 ──
+    // door gap z[-10.15,-9.25]
+    boxCols.push({ x0: 54.95, x1: 55.45, z0: -13.10, z1: -10.15, maxY: 2.40 }) // west wall south of door
+    boxCols.push({ x0: 54.95, x1: 55.45, z0:  -9.25, z1:  -8.30, maxY: 2.40 }) // west wall north of door
+    boxCols.push({ x0: 58.05, x1: 58.55, z0: -13.10, z1:  -8.30, maxY: 2.40 }) // east wall
+    boxCols.push({ x0: 55.45, x1: 58.05, z0:  -8.55, z1:  -8.30, maxY: 2.40 }) // north wall
+    boxCols.push({ x0: 55.45, x1: 58.05, z0: -13.10, z1: -12.85, maxY: 2.40 }) // south wall
+    ceilCols.push({ x0: 54.95, x1: 58.55, z0: -13.10, z1:  -8.30, minY: 2.40 })
+
+    // ── Collision walls — Bldg 2  x[55.00,58.60] z[-18.90,-14.10] maxY=2.40 ──
+    // door gap z[-15.95,-15.05]
+    boxCols.push({ x0: 55.00, x1: 55.50, z0: -18.90, z1: -15.95, maxY: 2.40 }) // west wall south of door
+    boxCols.push({ x0: 55.00, x1: 55.50, z0: -15.05, z1: -14.10, maxY: 2.40 }) // west wall north of door
+    boxCols.push({ x0: 58.10, x1: 58.60, z0: -18.90, z1: -14.10, maxY: 2.40 }) // east wall
+    boxCols.push({ x0: 55.50, x1: 58.10, z0: -14.35, z1: -14.10, maxY: 2.40 }) // north wall
+    boxCols.push({ x0: 55.50, x1: 58.10, z0: -18.90, z1: -18.65, maxY: 2.40 }) // south wall
+    ceilCols.push({ x0: 55.00, x1: 58.60, z0: -18.90, z1: -14.10, minY: 2.40 })
+
+    // ── Collision walls — Bldg 3  x[54.90,58.50] z[-25.90,-21.10] maxY=2.43 ──
+    // door gap z[-23.02,-21.98]
+    boxCols.push({ x0: 54.90, x1: 55.40, z0: -25.90, z1: -23.02, maxY: 2.43 }) // west wall south of door
+    boxCols.push({ x0: 54.90, x1: 55.40, z0: -21.98, z1: -21.10, maxY: 2.43 }) // west wall north of door
+    boxCols.push({ x0: 58.00, x1: 58.50, z0: -25.90, z1: -21.10, maxY: 2.43 }) // east wall
+    boxCols.push({ x0: 55.40, x1: 58.00, z0: -21.35, z1: -21.10, maxY: 2.43 }) // north wall
+    boxCols.push({ x0: 55.40, x1: 58.00, z0: -25.90, z1: -25.65, maxY: 2.43 }) // south wall
+    ceilCols.push({ x0: 54.90, x1: 58.50, z0: -25.90, z1: -21.10, minY: 2.43 })
+
+    // ── Collision walls — Bldg 4  x[54.90,58.50] z[-31.75,-26.95] maxY=2.39 ──
+    // door gap z[-28.80,-27.81]
+    boxCols.push({ x0: 54.90, x1: 55.40, z0: -31.75, z1: -28.80, maxY: 2.39 }) // west wall south of door
+    boxCols.push({ x0: 54.90, x1: 55.40, z0: -27.81, z1: -26.95, maxY: 2.39 }) // west wall north of door
+    boxCols.push({ x0: 58.00, x1: 58.50, z0: -31.75, z1: -26.95, maxY: 2.39 }) // east wall
+    boxCols.push({ x0: 55.40, x1: 58.00, z0: -27.20, z1: -26.95, maxY: 2.39 }) // north wall
+    boxCols.push({ x0: 55.40, x1: 58.00, z0: -31.75, z1: -31.50, maxY: 2.39 }) // south wall
+    ceilCols.push({ x0: 54.90, x1: 58.50, z0: -31.75, z1: -26.95, minY: 2.39 })
+  }, undefined, err => console.error('[buildings] memory ln four buildings failed:', err))
 
   // Single building — About Me (near campfire, in park)
   gltfLoader.load('/assets/outdoor/buildings/scene.gltf', gltf => {
@@ -247,7 +266,6 @@ export function createBuildings(
     bldg.rotation.y = Math.PI
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏢 About Me', group: bldg as unknown as THREE.Group, scaleObj: bldg })
   }, undefined, err => console.error('[buildings] single failed:', err))
 
   // Parked car in driveway (centre x=6, driveway z=-1..11.5)
@@ -261,7 +279,6 @@ export function createBuildings(
     const carBox = new THREE.Box3().setFromObject(car)
     car.position.set(6, -carBox.min.y + 0.04, 3)
     scene.add(car)
-    movables.push({ name: '🚗 Car (driveway)', group: car as unknown as THREE.Group, scaleObj: car })
   }, undefined, err => console.error('[car] failed:', err))
 
   // Stone paths — fronts of Project Blvd stores (positions tunable via debug editor)
@@ -271,7 +288,7 @@ export function createBuildings(
     { name: '🪨 Blvd Path: Orange', x: -48.70, z: -35.50, w: 1.800, sy: 0.050, l: 4.500, ry: Math.PI / 2 },
     { name: '🪨 Blvd Path: Slant',  x: -49.40, z: -55.60, w: 1.500, sy: 1.400, l: 5.800, ry: Math.PI / 2 },
   ]
-  blvdPathDefs.forEach(({ name, x, z, w, sy, l, ry }) => {
+  blvdPathDefs.forEach(({ x, z, w, sy, l, ry }) => {
     const tex = swBaseTex.clone()
     tex.needsUpdate = true
     tex.repeat.set(Math.max(1, w / TILE), Math.max(1, l / TILE))
@@ -285,7 +302,6 @@ export function createBuildings(
     grp.rotation.y = ry
     grp.add(mesh)
     scene.add(grp)
-    movables.push({ name, group: grp, scaleObj: grp })
   })
 
   // Street sign — near campfire, position tunable via debug editor
@@ -297,6 +313,5 @@ export function createBuildings(
     sign.position.set(-5.0, 0, -9)
     sign.scale.set(2, 2, 2)
     scene.add(sign)
-    movables.push({ name: '🪧 Street sign', group: sign as unknown as THREE.Group, scaleObj: sign })
   }, undefined, err => console.error('[outdoor] street sign failed:', err))
 }

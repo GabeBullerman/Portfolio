@@ -207,22 +207,24 @@ export default function DebugOverlay({
                 {/* Per-axis scale controls for non-hitbox objects */}
                 {movablesRef.current[debugSel]?.scaleObj && (() => {
                   const sc = movablesRef.current[debugSel].scaleObj!
-                  const applyAxisScale = (axis: 'x' | 'y' | 'z', delta: number) => {
-                    sc.scale[axis] = Math.max(0.05, parseFloat((sc.scale[axis] + delta).toFixed(3)))
+                  // Multiplicative so the step is always proportional to current size
+                  const applyAxisScale = (axis: 'x' | 'y' | 'z', factor: number) => {
+                    sc.scale[axis] = Math.max(0.001, parseFloat((sc.scale[axis] * factor).toFixed(4)))
                     setSelPos(p => p ? { ...p } : { x: 0, y: 0, z: 0 })
                   }
+                  const factors: [string, number][] = [['÷2', 0.5], ['−10%', 0.9], ['−1%', 0.99], ['+1%', 1.01], ['+10%', 1.1], ['×2', 2]]
                   return (
                     <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
                       {(['x', 'y', 'z'] as const).map(axis => (
                         <div key={axis}>
                           <div className="text-xs text-white/50 mb-0.5">
-                            Scale {axis.toUpperCase()}: <span className="text-white font-mono">{sc.scale[axis].toFixed(3)}</span>
+                            Scale {axis.toUpperCase()}: <span className="text-white font-mono">{sc.scale[axis].toFixed(4)}</span>
                           </div>
                           <div className="flex gap-1">
-                            {[-0.5, -0.1, +0.1, +0.5].map(d => (
-                              <button key={d} onClick={() => applyAxisScale(axis, d)}
+                            {factors.map(([lbl, f]) => (
+                              <button key={lbl} onClick={() => applyAxisScale(axis, f)}
                                 className="flex-1 text-xs py-1 rounded bg-white/15 hover:bg-white/35 active:bg-white/60 font-mono">
-                                {d > 0 ? `+${d}` : d}
+                                {lbl}
                               </button>
                             ))}
                           </div>

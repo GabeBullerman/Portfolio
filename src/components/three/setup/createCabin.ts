@@ -24,7 +24,6 @@ export interface CabinResult {
 
 export function createCabin(
   scene: THREE.Scene,
-  movables: Movable[],
   refs: CabinRefs,
   MONITOR_LOCAL_POS: THREE.Vector3,
 ): CabinResult {
@@ -45,9 +44,6 @@ export function createCabin(
     cabMesh.position.set(-1.93, -0.50, 1.21)
     cabGrp.add(cabMesh)
 
-    // Log top-level children so swingset can be identified by name
-    cabMesh.children.forEach(c => console.log(`[cabin child] "${c.name}" type=${c.type}`))
-
     // Hide any mesh whose world Z is south of the cabin's front wall (world z < 9).
     // This catches the swingset that extends into the road without touching interior meshes.
     cabMesh.updateWorldMatrix(true, true)
@@ -59,7 +55,6 @@ export function createCabin(
       if (wp.z < 8) child.visible = false
     })
 
-    movables.push({ name: '🏠 Cabin shell (cabin local)', group: cabMesh as unknown as THREE.Group, scaleObj: cabMesh })
   }, undefined, err => console.error('[cabin] GLB failed:', err))
 
   // Stair ramp — visible orange plane, aligned to cabin stairs
@@ -108,7 +103,6 @@ export function createCabin(
   intCeil.position.set(-0.60, 5.05, -0.375)
   intCeil.receiveShadow = true
   cabGrp.add(intCeil)
-  movables.push({ name: '🟫 Interior ceiling', group: intCeil as unknown as THREE.Group, scaleObj: intCeil })
 
   // Ceiling PointLight — main room illumination, toggled by the wall switch
   const ceilLight = new THREE.PointLight(0xffeedd, 6.0, 11, 1.4)
@@ -233,7 +227,6 @@ export function createCabin(
   clockFrame.position.set(2.6, 3.75, -0.5)
   cabGrp.add(clockFrame)
 
-  movables.push({ name: '🕐 Wall clock', group: clockPlane as unknown as THREE.Group, scaleObj: clockPlane })
 
   gltfLoader.load('/assets/cabin/light/light.gltf', gltf => {
     const lamp = gltf.scene
@@ -245,7 +238,6 @@ export function createCabin(
     lamp.rotation.set(0, Math.PI / 2, -Math.PI / 2)
     lamp.position.set(1.70, 3.80, -3.1)
     cabGrp.add(lamp)
-    movables.push({ name: '💡 Lamp (cabin local)', group: lamp as unknown as THREE.Group, scaleObj: lamp })
   }, undefined, err => console.error('[cabin] lamp failed:', err))
 
   gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
@@ -260,7 +252,6 @@ export function createCabin(
     sw.position.set(-3.90, 3.22, 0.89)
     cabGrp.add(sw)
     refs.switchNodeRef.current = sw
-    movables.push({ name: '🔘 Switch (cabin local)', group: sw as unknown as THREE.Group, scaleObj: sw })
   }, undefined, err => console.error('[cabin] switch failed:', err))
 
   const cabStep = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W + 0.6, 0.2, 0.6), new THREE.MeshLambertMaterial({ color: 0x999999 }))
@@ -327,7 +318,6 @@ export function createCabin(
 
     desk.position.set(2.0, 2.8, -2.20)
     cabGrp.add(desk)
-    movables.push({ name: '🖥 Desk (cabin local)', group: desk as unknown as THREE.Group, scaleObj: desk })
   }, undefined, err => console.error('[cabin] gaming setup failed:', err))
 
   // ── Chair inside cabin ─────────────────────────────────────────────
@@ -342,7 +332,6 @@ export function createCabin(
     chair.scale.set(0.85, 0.85, 0.85)
 
     cabGrp.add(chair)
-    movables.push({ name: '🖥 Chair (cabin local)', group: chair as unknown as THREE.Group, scaleObj: chair })
   }, undefined, err => console.error('[cabin] gaming setup failed:', err))
 
   // ── Bed inside cabin ─────────────────────────────────────────────
@@ -376,11 +365,6 @@ export function createCabin(
 
     cabGrp.add(normalizedBed)
 
-    movables.push({
-      name: '🛏 Bed normalized (cabin local)',
-      group: normalizedBed,
-      scaleObj: normalizedBed,
-    })
   }, undefined, err => console.error('[bed] GLB failed:', err))
 
   // ── Radio / jukebox ───────────────────────────────────────────────────────
@@ -412,11 +396,6 @@ export function createCabin(
     cabGrp.add(radioGroup)
     refs.radioGroupRef.current = radioGroup
 
-    movables.push({
-      name: '📻 Radio (cabin local)',
-      group: radioGroup,
-      scaleObj: radioGroup,
-    })
   }, undefined, err => console.error('[radio] GLTF failed:', err))
 
   // ── Table ─────────────────────────────────────────────────────────────────
@@ -446,11 +425,6 @@ export function createCabin(
     tableGroup.position.set(-3.5, 2.35, -2.6)
     cabGrp.add(tableGroup)
 
-    movables.push({
-      name: '🪵 Table (cabin local)',
-      group: tableGroup,
-      scaleObj: tableGroup,
-    })
   }, undefined, err => console.error('[table] GLTF failed:', err))
 
   return { cabGrp, rampGrp, cabHitboxEntries, clockInterval, CABIN_X, CABIN_Z, CD, DOOR_W }

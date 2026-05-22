@@ -1,10 +1,8 @@
 import * as THREE from 'three'
-import { Movable } from '../types'
 import { mulberry32 } from '../helpers'
 
 export function createWorld(
-  scene: THREE.Scene,
-  movables: Movable[]
+  scene: THREE.Scene
 ): {
   swBaseTex: THREE.CanvasTexture
   TILE: number
@@ -93,7 +91,7 @@ export function createWorld(
   const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.95, metalness: 0 })
 
   let roadIdx = 0
-  const addRoad = (cx: number, cz: number, w: number, d: number, label?: string) => {
+  const addRoad = (cx: number, cz: number, w: number, d: number, _label?: string) => {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), asphaltMat)
     mesh.rotation.x = -Math.PI / 2
     mesh.receiveShadow = true
@@ -101,7 +99,6 @@ export function createWorld(
     grp.position.set(cx, 0.02, cz)
     grp.add(mesh)
     scene.add(grp)
-    movables.push({ name: `🛣 ${label ?? `Road ${roadIdx}`}`, group: grp, scaleObj: grp })
     roadIdx++
   }
 
@@ -190,7 +187,7 @@ export function createWorld(
   swBaseTex.wrapS = THREE.RepeatWrapping
   swBaseTex.wrapT = THREE.RepeatWrapping
 
-  const addSidewalk = (cx: number, cz: number, w: number, d: number, label: string) => {
+  const addSidewalk = (cx: number, cz: number, w: number, d: number, _label?: string) => {
     const tex = swBaseTex.clone()
     tex.needsUpdate = true
     tex.repeat.set(Math.max(1, w / TILE), Math.max(1, d / TILE))
@@ -202,7 +199,6 @@ export function createWorld(
     grp.position.set(cx, 0.03, cz)
     grp.add(mesh)
     scene.add(grp)
-    movables.push({ name: `🚶 ${label}`, group: grp, scaleObj: grp })
   }
 
   // ── Connector north edge, west of driveway ──  blvdOuter → drivLeft

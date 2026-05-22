@@ -5,12 +5,13 @@ import GameHUD from './three/ui/GameHUD'
 import MonitorOverlay from './MonitorOverlay'
 import { createScene } from './three/setup/createScene'
 import { createWorld } from './three/setup/createWorld'
-import { createNature } from './three/setup/createNature'
 import { createBuildings } from './three/setup/createBuildings'
 import { createCabin } from './three/setup/createCabin'
 import { createProps } from './three/setup/createProps'
 import { createPlayer } from './three/setup/createPlayer'
 import { createCliff } from './three/setup/createCliff'
+import { createProjectDisplays } from './three/setup/createProjectDisplays'
+import { createSkatepark } from './three/setup/createSkatepark'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
@@ -86,6 +87,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const [climbing, setClimbing] = useState(false)
   const [nearLadder, setNearLadder] = useState(false)
   const nearLadderRef   = useRef(false)
+  // Project screen interact zones
+  const [nearProject, setNearProject]   = useState(false)
+  const nearProjectRef                  = useRef(false)
+  const nearProjectLabelRef             = useRef('')
+  const nearProjectUrlRef               = useRef('')
   // Cabin door + smoke
   const doorOpenRef     = useRef(false)
   const doorRotRef      = useRef(0)
@@ -166,21 +172,25 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const POND_X = -28, POND_Z = -35, POND_R = 3.2
 
     // ── World: ground, fence, roads, sidewalks ────────────────────────────
-    const { swBaseTex, TILE } = createWorld(scene, movablesRef.current)
+    const { swBaseTex, TILE } = createWorld(scene)
 
     // ── Cliff + water lake behind cabin ──────────────────────────────────
-    const cliff = createCliff(scene)
+    const cliff = createCliff(scene, movablesRef.current)
 
-    // ── Nature: trees, bushes, stones, flowers ────────────────────────────
+    // ── Project building displays ─────────────────────────────────────────
+    const projectDisplays = createProjectDisplays(scene, movablesRef.current)
+
+    // ── Skatepark ─────────────────────────────────────────────────────────
+    createSkatepark(scene, movablesRef.current)
+
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
-    createNature(scene, cylCols, FIRE_POS, POND_X, POND_Z, POND_R)
 
     // ── Buildings ─────────────────────────────────────────────────────────
     createBuildings(scene, boxCols, ceilCols, movablesRef.current, swBaseTex, TILE, CABIN_X)
 
     // ── Cabin ─────────────────────────────────────────────────────────────
     const { cabGrp, rampGrp, cabHitboxEntries, clockInterval } = createCabin(
-      scene, movablesRef.current,
+      scene,
       { doorPivotRef, cabCeilLightRef, monLightRef, switchNodeRef, radioGroupRef, screenMatRef },
       MONITOR_LOCAL_POS,
     )
@@ -283,6 +293,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (nearBenchRef.current) { sittingRef.current = true; sittingAtRef.current = 'bench'; setSitting(true); document.exitPointerLock(); return }
         if (nearChairRef.current) { goToComputerRef.current = true; return }
         if (nearRadioRef.current && audioRef.current) { audioRef.current.muted = !audioRef.current.muted; musicMutedRef.current = audioRef.current.muted; setMusicMuted(audioRef.current.muted); return }
+        if (nearProjectRef.current && nearProjectUrlRef.current) { window.open(nearProjectUrlRef.current, '_blank'); return }
       }
       if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) { climbingRef.current = false; setClimbing(false); nearLadderRef.current = false; setNearLadder(false) }
       if (!climbingRef.current && nearLadderRef.current && mapped === 'w' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) { climbingRef.current = true; setClimbing(true) }
@@ -381,7 +392,11 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       setNearBowl, setNearRToss, setNearBench, setNearChair,
       setNearLadder, setNearSwitch, setNearRadio, setClimbing, setMonitorMode,
       setBowlDisplay, setRTossDisplay,
-      cliffUpdate: cliff.update,
+      cliffUpdate:          cliff.update,
+      projectDisplayUpdate: projectDisplays.update,
+      interactZones:        projectDisplays.interactZones,
+      nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
+      setNearProject,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -417,7 +432,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} />
     </div>
   )

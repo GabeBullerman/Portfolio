@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import { lerpAngle } from '../helpers'
 import { DuckData } from '../types'
+import type { InteractZone } from '../setup/createProjectDisplays'
 import {
   BOWL_CX, BOWL_START_Z, BOWL_PINS_Z,
   RTOSS_CX, RTOSS_START_Z, RTOSS_POST_Z, RTOSS_PROX, RTOSS_RINGS,
@@ -137,8 +138,14 @@ export interface AnimateParams {
   setNearLadder:    (v: boolean) => void
   setNearSwitch:    (v: boolean) => void
   setNearRadio:     (v: boolean) => void
-  cliffUpdate:      (elapsed: number) => void
-  setClimbing:      (v: boolean) => void
+  cliffUpdate:         (elapsed: number) => void
+  projectDisplayUpdate:(elapsed: number) => void
+  interactZones:       InteractZone[]
+  nearProjectRef:      React.MutableRefObject<boolean>
+  nearProjectLabelRef: React.MutableRefObject<string>
+  nearProjectUrlRef:   React.MutableRefObject<string>
+  setNearProject:      (v: boolean) => void
+  setClimbing:         (v: boolean) => void
   setMonitorMode:   (v: boolean) => void
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
   setRTossDisplay:  (v: { state: RTossState; thrown: number; score: number; hs: number } | ((p: { state: RTossState; thrown: number; score: number; hs: number }) => { state: RTossState; thrown: number; score: number; hs: number })) => void
@@ -165,6 +172,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     const delta = Math.min((now - st.lastTime) / 1000, 0.05)
     st.lastTime = now; st.elapsed += delta
     p.cliffUpdate(st.elapsed)
+    p.projectDisplayUpdate(st.elapsed)
 
     // Bone animation
     const bones = p.playerBonesRef.current
@@ -316,8 +324,11 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > -55.90 && px < -50.70 && pz > -17.50 && pz < -12.30) || // Store A
         (px > -56.00 && px < -50.40 && pz > -24.00 && pz < -19.20) || // Store B
         (px > -56.10 && px < -50.90 && pz > -39.10 && pz < -31.90) || // Orange store
-        (px > -56.90 && px < -50.90 && pz > -59.00 && pz < -51.40) ||  // Slant store
-        (px > 52.20  && px < 57.80  && pz > -19.80 && pz < -13.40)    // 2Story Memory Ln
+        (px > -56.90 && px < -50.90 && pz > -59.00 && pz < -51.40) || // Slant store
+        (px > 54.95  && px < 58.55  && pz > -13.10 && pz < -8.30)  || // Mem Ln Bldg 1
+        (px > 55.00  && px < 58.60  && pz > -18.90 && pz < -14.10) || // Mem Ln Bldg 2
+        (px > 54.90  && px < 58.50  && pz > -25.90 && pz < -21.10) || // Mem Ln Bldg 3
+        (px > 54.90  && px < 58.50  && pz > -31.75 && pz < -26.95)    // Mem Ln Bldg 4
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
@@ -360,6 +371,17 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
           const nrv = Math.hypot(p.player.position.x - rw.x, p.player.position.z - rw.z) < p.RADIO_PROX
           if (nrv !== p.nearRadioRef.current) { p.nearRadioRef.current = nrv; p.setNearRadio(nrv) }
         }
+        // Project screen interact zones
+        let nearAnyProject = false, projectLabel = '', projectUrl = ''
+        for (const zone of p.interactZones) {
+          if (Math.hypot(p.player.position.x - zone.pos.x, p.player.position.z - zone.pos.z) < zone.radius) {
+            nearAnyProject = true; projectLabel = zone.label; projectUrl = zone.url; break
+          }
+        }
+        if (nearAnyProject !== p.nearProjectRef.current) {
+          p.nearProjectRef.current = nearAnyProject; p.setNearProject(nearAnyProject)
+        }
+        if (nearAnyProject) { p.nearProjectLabelRef.current = projectLabel; p.nearProjectUrlRef.current = projectUrl }
       } else if (p.sittingAtRef.current === 'bench') {
         const s = BENCH_POSITIONS[p.seatIdxRef.current]
         p.player.position.set(s.x, -0.46, s.z); p.player.rotation.y = Math.atan2(p.FIRE_POS.x - s.x, p.FIRE_POS.z - s.z)

@@ -5,18 +5,20 @@ interface BowlDisplay  { state: BowlState;  score: number; hs: number }
 interface RTossDisplay { state: RTossState; thrown: number; score: number; hs: number }
 
 interface GameHUDProps {
-  monitorMode:    boolean
-  pointerLocked:  boolean
-  musicMuted:     boolean
-  nearBowl:       boolean
-  nearRToss:      boolean
-  nearBench:      boolean
-  nearChair:      boolean
-  nearLadder:     boolean
-  nearSwitch:     boolean
-  nearRadio:      boolean
-  sitting:        boolean
-  climbing:       boolean
+  monitorMode:      boolean
+  pointerLocked:    boolean
+  musicMuted:       boolean
+  nearBowl:         boolean
+  nearRToss:        boolean
+  nearBench:        boolean
+  nearChair:        boolean
+  nearLadder:       boolean
+  nearSwitch:       boolean
+  nearRadio:        boolean
+  nearProject:      boolean
+  nearProjectLabel: string
+  sitting:          boolean
+  climbing:         boolean
   bowlDisplay:    BowlDisplay
   rtossDisplay:   RTossDisplay
   joyPos:         { x: number; y: number }
@@ -30,6 +32,7 @@ interface GameHUDProps {
 export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
+  nearProject, nearProjectLabel,
   sitting, climbing,
   bowlDisplay, rtossDisplay,
   joyPos, powerBarRef, rPowerBarRef,
@@ -248,6 +251,14 @@ export default function GameHUD({
             <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
               Press <kbd className="font-bold mx-1">E</kbd> to toggle light
+            </div>
+          )}
+
+          {/* Project screen / GitHub hint */}
+          {nearProject && !nearBowl && !nearRToss && !sitting && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/70 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)', borderColor: '#9333ea', borderWidth: 1 }}>
+              Press <kbd className="font-bold mx-1">E</kbd> to open {nearProjectLabel}
             </div>
           )}
 

@@ -7,7 +7,7 @@ adds park benches, lights, some sort of entrace like an arch or a sign, more pat
 6 - Add more songs to jukebox, set f or something to go next song
 7 - [DONE] Improve 2D page a LOT, it's very basic black and white with very little effort, add more animations, randomize the theme on launch, add effects and
 more impressive visuals. Integrate things like my vercel scrolling-based-animation and particle-magic/galaxy-playground.
-8 - Fix world border visuals + fence alignment
+8 - [DONE] Fix world border visuals + fence alignment
 9 - [DONE] Remove sleeping thing, lighting at night is too complicated and the feature isn't worth adding
 10 - Add dotted yellow line to middle of road
 11 - [DONE] Fun overhaul: Fix ladder logic on trampoline to have larger hitbox further back a bit so I don't climb inside of it, and don't clip into the ladder while jumping, tighten net area to only be open at the width of the ladder x1.5, update bowling to actually hold for power rather than pressing while the power bar moves itself, get better bowling pin textures and wall behind.

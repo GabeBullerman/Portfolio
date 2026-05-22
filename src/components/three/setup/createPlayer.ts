@@ -81,7 +81,6 @@ export function createPlayer(
     // Debug: log actual bone names so we can verify the lookup keys
     const boneMap = new Map<string, THREE.Bone>()
     model.traverse(c => { if ((c as THREE.Bone).isBone) boneMap.set(c.name, c as THREE.Bone) })
-    console.log('[player] bones:', [...boneMap.keys()])
 
     const lUpLeg  = boneMap.get('mixamorigLeftUpLeg_28')
     const rUpLeg  = boneMap.get('mixamorigRightUpLeg_33')
@@ -90,7 +89,6 @@ export function createPlayer(
     const lUpArm  = boneMap.get('mixamorigLeftArm_11')
     const rUpArm  = boneMap.get('mixamorigRightArm_19')
     const spine   = boneMap.get('mixamorigSpine_23')
-    console.log('[player] mapped — lUpLeg:', lUpLeg?.name, 'rUpLeg:', rUpLeg?.name, 'spine:', spine?.name)
 
     // Hide procedural geometry
     proceduralMeshes.forEach(m => { m.visible = false })

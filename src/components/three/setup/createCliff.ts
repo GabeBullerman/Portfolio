@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { Movable } from '../types'
 
 export interface CliffResult {
   update: (elapsed: number) => void
@@ -119,8 +120,8 @@ void main() {
 `
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function createCliff(scene: THREE.Scene): CliffResult {
-  const WATER_Y  = -5.0
+export function createCliff(scene: THREE.Scene, movables: Movable[]): CliffResult {
+  const WATER_Y  = -0.8
   const SLOPE_START_Z = 22   // fence line
   const SLOPE_END_Z   = 46   // where rocky slope meets the water surface
   const FRONT_Z  = SLOPE_END_Z
@@ -144,7 +145,7 @@ export function createCliff(scene: THREE.Scene): CliffResult {
   slopeGeo.setIndex([0, 1, 2, 1, 3, 2])
   slopeGeo.computeVertexNormals()
 
-  const slopeMat = new THREE.MeshStandardMaterial({ color: 0x7a7268, roughness: 0.97, metalness: 0 })
+  const slopeMat = new THREE.MeshStandardMaterial({ color: 0xd4bc8a, roughness: 0.95, metalness: 0 })
   const slopeMesh = new THREE.Mesh(slopeGeo, slopeMat)
   slopeMesh.receiveShadow = true
   slopeMesh.castShadow    = true
@@ -164,13 +165,13 @@ export function createCliff(scene: THREE.Scene): CliffResult {
     transparent: true,
     uniforms: {
       uTime:                { value: 0 },
-      uBigWavesElevation:   { value: 0.18 },
-      uBigWavesFrequency:   { value: new THREE.Vector2(4.0, 1.5) },
-      uBigWavesSpeed:       { value: 0.75 },
-      uSmallWavesElevation: { value: 0.15 },
-      uSmallWavesFrequency: { value: 3.0 },
-      uSmallWavesSpeed:     { value: 0.2 },
-      uSmallWavesIterations:{ value: 4.0 },
+      uBigWavesElevation:   { value: 0.32 },
+      uBigWavesFrequency:   { value: new THREE.Vector2(1.2, 0.7) },
+      uBigWavesSpeed:       { value: 0.55 },
+      uSmallWavesElevation: { value: 0.04 },
+      uSmallWavesFrequency: { value: 0.6 },
+      uSmallWavesSpeed:     { value: 0.12 },
+      uSmallWavesIterations:{ value: 2.0 },
       uDepthColor:          { value: new THREE.Color('#5ec8f0') },
       uSurfaceColor:        { value: new THREE.Color('#d0f0ff') },
       uColorOffset:         { value: 0.08 },
@@ -190,31 +191,50 @@ export function createCliff(scene: THREE.Scene): CliffResult {
   scene.add(waterMesh)
 
   // ── Boat ─────────────────────────────────────────────────────────────────
-  const BOAT_X = 0, BOAT_Z = 55
+  const BOAT_X = -13, BOAT_Z = 73
   const boatRef = { current: null as THREE.Object3D | null }
 
-  new GLTFLoader().load('/assets/outdoor/boat/Boat.glb', gltf => {
+  new GLTFLoader().load('/assets/outdoor/boat/scene.gltf', gltf => {
     const boat = gltf.scene
     const box = new THREE.Box3().setFromObject(boat)
     const size = new THREE.Vector3(); box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
-    const targetSize = 8.0
-    const scale = maxDim > 0 ? targetSize / maxDim : 1.0
-    boat.scale.setScalar(scale)
-    boat.rotation.y = Math.PI   // face toward player
+    boat.scale.setScalar(maxDim > 0 ? 8.0 / maxDim : 1.0)
+    const D2R = Math.PI / 180
+    boat.rotation.set(-1.6 * D2R, 29.8 * D2R, 2.8 * D2R)
     boat.position.set(BOAT_X, WATER_Y + 0.3, BOAT_Z)
     boat.traverse(c => {
       if ((c as THREE.Mesh).isMesh) {
         c.castShadow = true; c.receiveShadow = true
-        // Ensure materials aren't accidentally invisible
-        const mat = (c as THREE.Mesh).material as THREE.MeshStandardMaterial
-        if (mat && 'transparent' in mat) { mat.transparent = false; mat.opacity = 1 }
+        const mats = Array.isArray((c as THREE.Mesh).material)
+          ? (c as THREE.Mesh).material as THREE.Material[]
+          : [(c as THREE.Mesh).material as THREE.Material]
+        mats.forEach(m => {
+          ;(m as THREE.MeshStandardMaterial).transparent = false
+          ;(m as THREE.MeshStandardMaterial).opacity = 1
+          ;(m as THREE.MeshStandardMaterial).depthWrite = true
+          m.needsUpdate = true
+        })
       }
     })
-    console.log(`[cliff] Boat size: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}, scale: ${scale.toFixed(3)}`)
     scene.add(boat)
     boatRef.current = boat
-  }, undefined, err => console.error('[cliff] Boat.glb load failed:', err))
+    movables.push({ name: '⛵ Boat', group: boat as unknown as THREE.Group })
+  }, undefined, err => console.error('[cliff] Boat load failed:', err))
+
+  // ── Beach prop ────────────────────────────────────────────────────────────
+  new GLTFLoader().load('/assets/outdoor/beach/Untitled.glb', gltf => {
+    const beach = gltf.scene
+    const box = new THREE.Box3().setFromObject(beach)
+    const size = new THREE.Vector3(); box.getSize(size)
+    const maxDim = Math.max(size.x, size.y, size.z)
+    beach.scale.setScalar(maxDim > 0 ? 12.0 / maxDim * 0.75 : 0.75)
+    beach.position.set(-6, -0.3, 34)
+    beach.rotation.y = -Math.PI / 2
+    beach.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
+    scene.add(beach)
+    movables.push({ name: '🏖 Beach prop', group: beach as unknown as THREE.Group, scaleObj: beach })
+  }, undefined, err => console.error('[cliff] Beach load failed:', err))
 
   // ── Per-frame update ──────────────────────────────────────────────────────
   function update(elapsed: number) {
