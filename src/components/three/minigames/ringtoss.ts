@@ -8,6 +8,7 @@ import {
 
 export interface RingTossResult {
   rtossMeshes:   THREE.Object3D[]
+  rtossGrp:      THREE.Group
   ringMeshes:    THREE.Mesh[]
   ringBodies:    CANNON.Body[]
   resetRingToss: () => void
@@ -23,17 +24,23 @@ export function createRingToss(
 ): RingTossResult {
   const rtossMeshes: THREE.Object3D[] = []
 
+  // Debug-movable group for static platform + post
+  const RTOSS_CTR_Z = (RTOSS_START_Z + RTOSS_POST_Z) / 2
+  const rtossGrp = new THREE.Group()
+  rtossGrp.position.set(RTOSS_CX, 0, RTOSS_CTR_Z)
+  scene.add(rtossGrp)
+
   // Ground platform
   const rtossPlatMesh = new THREE.Mesh(
     new THREE.BoxGeometry(3.0, 0.06, 14.0),
     new THREE.MeshPhongMaterial({ color: 0xc8a050, shininess: 20 })
   )
-  rtossPlatMesh.position.set(RTOSS_CX, 0.03, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
-  rtossPlatMesh.receiveShadow = true; scene.add(rtossPlatMesh); rtossMeshes.push(rtossPlatMesh)
-  // Physics for platform
+  rtossPlatMesh.position.set(0, 0.03, 0)
+  rtossPlatMesh.receiveShadow = true; rtossGrp.add(rtossPlatMesh); rtossMeshes.push(rtossPlatMesh)
+  // Physics for platform (world-space)
   const rtossPlatBody = new CANNON.Body({ mass: 0 })
   rtossPlatBody.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 0.03, 7.0)))
-  rtossPlatBody.position.set(RTOSS_CX, 0.03, (RTOSS_START_Z + RTOSS_POST_Z) / 2)
+  rtossPlatBody.position.set(RTOSS_CX, 0.03, RTOSS_CTR_Z)
   physWorld.addBody(rtossPlatBody)
 
   // Post / pole
@@ -41,8 +48,8 @@ export function createRingToss(
     new THREE.CylinderGeometry(RTOSS_POST_R, RTOSS_POST_R * 1.3, RTOSS_POST_H, 10),
     new THREE.MeshLambertMaterial({ color: 0x5a3010 })
   )
-  rtossPostMesh.position.set(RTOSS_CX, RTOSS_POST_H / 2, RTOSS_POST_Z)
-  rtossPostMesh.castShadow = true; scene.add(rtossPostMesh); rtossMeshes.push(rtossPostMesh)
+  rtossPostMesh.position.set(0, RTOSS_POST_H / 2, RTOSS_POST_Z - RTOSS_CTR_Z)
+  rtossPostMesh.castShadow = true; rtossGrp.add(rtossPostMesh); rtossMeshes.push(rtossPostMesh)
   // Post physics body
   const rtossPostBody = new CANNON.Body({ mass: 0 })
   rtossPostBody.addShape(new CANNON.Cylinder(RTOSS_POST_R, RTOSS_POST_R, RTOSS_POST_H, 8))
@@ -103,7 +110,7 @@ export function createRingToss(
   }
 
   return {
-    rtossMeshes, ringMeshes, ringBodies,
+    rtossMeshes, rtossGrp, ringMeshes, ringBodies,
     resetRingToss, throwRing, countRingers,
   }
 }

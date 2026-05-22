@@ -5,7 +5,8 @@ import * as CANNON from 'cannon-es'
 export interface BoxCol  { x0: number; x1: number; z0: number; z1: number; maxY: number }
 export interface CeilCol { x0: number; x1: number; z0: number; z1: number; minY: number }
 export interface CylCol  { x: number; z: number; r: number; maxY?: number }
-export interface Movable { name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D; isHitbox?: boolean }
+export interface MovableExtra { label: string; getValue: () => number; min: number; max: number; step: number; onChange: (v: number) => void }
+export interface Movable { name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D; isHitbox?: boolean; extra?: MovableExtra }
 
 // ─── Animation / scene objects ───────────────────────────────────────────────
 export interface PhysBall { body: CANNON.Body; mesh: THREE.Mesh; idx: number }

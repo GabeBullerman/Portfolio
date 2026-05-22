@@ -11,6 +11,7 @@ import {
 
 export interface PropsResult {
   FIRE_POS:      THREE.Vector3
+  campfireGrp:   THREE.Group
   flameMat:      THREE.MeshBasicMaterial
   flameMesh:     THREE.Mesh
   innerFlameMesh: THREE.Mesh
@@ -19,6 +20,8 @@ export interface PropsResult {
   ffData:        { bx: number; by: number; bz: number; ph: number; sp: number; am: number }[]
   ducks:         DuckData[]
   pondGrp:       THREE.Group
+  pitGrp:        THREE.Group
+  trampGrp:      THREE.Group
   balls:         { mesh: THREE.Mesh; body: CANNON.Body }[]
   ringLine:      THREE.Line
   ringGeo:       THREE.BufferGeometry
@@ -33,7 +36,7 @@ export function createProps(
   POND_Z: number,
   POND_R: number,
 ): PropsResult {
-  const FIRE_POS = new THREE.Vector3(0, 0, -14)
+  const FIRE_POS = new THREE.Vector3(-10, 0, -19.5)
 
   // ── Proximity progress ring ───────────────────────────────────────────
   const RING_SEGS = 80
@@ -52,46 +55,52 @@ export function createProps(
   ringLine.visible = false
   scene.add(ringLine)
 
-  // ── Campfire ─────────────────────────────────────────────────────────
+  // ── Campfire + Benches (single movable group) ─────────────────────────────
+  const campfireGrp = new THREE.Group()
+  campfireGrp.position.copy(FIRE_POS)
+  campfireGrp.rotation.y = Math.PI / 4
+  campfireGrp.updateMatrixWorld(true)
+  scene.add(campfireGrp)
+
   const logMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
   const logGeo = new THREE.CylinderGeometry(0.08, 0.11, 1.6, 6)
   ;[0, Math.PI / 3, -Math.PI / 3].forEach(ry => {
     const log = new THREE.Mesh(logGeo, logMat)
-    log.position.copy(FIRE_POS); log.position.y = 0.09
-    log.rotation.z = Math.PI / 2; log.rotation.y = ry; scene.add(log)
+    log.position.set(0, 0.09, 0)
+    log.rotation.z = Math.PI / 2; log.rotation.y = ry; campfireGrp.add(log)
   })
   for (let i = 0; i < 9; i++) {
     const stone = new THREE.Mesh(new THREE.SphereGeometry(0.13, 5, 4), new THREE.MeshLambertMaterial({ color: 0x888888 }))
-    stone.position.set(FIRE_POS.x + Math.sin(i * Math.PI * 2 / 9) * 0.68, 0.09, FIRE_POS.z + Math.cos(i * Math.PI * 2 / 9) * 0.68)
-    scene.add(stone)
+    stone.position.set(Math.sin(i * Math.PI * 2 / 9) * 0.68, 0.09, Math.cos(i * Math.PI * 2 / 9) * 0.68)
+    campfireGrp.add(stone)
   }
 
-  // ── Benches ──────────────────────────────────────────────────────────────
   const benchLogMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
   const benchPlankMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
   BENCH_POSITIONS.forEach(({ x, z, ry }) => {
     cylCols.push({ x, z, r: 0.9 })
     const g = new THREE.Group()
-    // Seat plank
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.42), benchPlankMat)
     seat.position.y = 0.48; g.add(seat)
-    // Legs
     ;[-0.55, 0.55].forEach(ox => {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.48, 6), benchLogMat)
       leg.position.set(ox, 0.24, 0); g.add(leg)
     })
-    g.position.set(x, 0, z); g.rotation.y = ry
-    g.castShadow = true; scene.add(g)
+    // Inverse-transform world position into campfireGrp local space
+    const localPos = new THREE.Vector3(x, 0, z)
+    campfireGrp.worldToLocal(localPos)
+    g.position.copy(localPos); g.rotation.y = ry
+    campfireGrp.add(g)
   })
 
   const flameMat  = new THREE.MeshBasicMaterial({ color: 0xff6600 })
   const flameMesh = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.85, 8), flameMat)
-  flameMesh.position.set(FIRE_POS.x, 0.52, FIRE_POS.z); scene.add(flameMesh)
+  flameMesh.position.set(0, 0.52, 0); campfireGrp.add(flameMesh)
   const innerFlameMat  = new THREE.MeshBasicMaterial({ color: 0xffee00 })
   const innerFlameMesh = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.54, 8), innerFlameMat)
-  innerFlameMesh.position.set(FIRE_POS.x, 0.52, FIRE_POS.z); scene.add(innerFlameMesh)
+  innerFlameMesh.position.set(0, 0.52, 0); campfireGrp.add(innerFlameMesh)
   const fireLight = new THREE.PointLight(0xff7700, 1.6, 9)
-  fireLight.position.set(FIRE_POS.x, 1.0, FIRE_POS.z); scene.add(fireLight)
+  fireLight.position.set(0, 1.0, 0); campfireGrp.add(fireLight)
 
   // ── Fireflies ─────────────────────────────────────────────────────────
   const FF_COUNT = 40
@@ -170,6 +179,11 @@ export function createProps(
 
   const balls: { mesh: THREE.Mesh; body: CANNON.Body }[] = []
 
+  // Debug-movable group for pit structure (walls + floor)
+  const pitGrp = new THREE.Group()
+  pitGrp.position.set(PIT_CX, 0, PIT_CZ)
+  scene.add(pitGrp)
+
   // Pit walls (4 sides, low box barriers)
   const pitWallMat = new THREE.MeshLambertMaterial({ color: 0x3a5faa })
   ;[
@@ -178,10 +192,10 @@ export function createProps(
     { w: 0.18, d: PIT_R * 2,        px: PIT_CX - PIT_R, pz: PIT_CZ         },
     { w: 0.18, d: PIT_R * 2,        px: PIT_CX + PIT_R, pz: PIT_CZ         },
   ].forEach(({ w, d, px, pz }) => {
-    // Box collider for player
+    // Box collider for player (world-space)
     boxCols.push({ x0: px - w / 2, x1: px + w / 2, z0: pz - d / 2, z1: pz + d / 2, maxY: PIT_WALL_H })
     const wm = new THREE.Mesh(new THREE.BoxGeometry(w, PIT_WALL_H, d), pitWallMat)
-    wm.position.set(px, PIT_WALL_H / 2, pz); wm.castShadow = true; scene.add(wm)
+    wm.position.set(px - PIT_CX, PIT_WALL_H / 2, pz - PIT_CZ); wm.castShadow = true; pitGrp.add(wm)
     const wb = new CANNON.Body({ mass: 0 })
     wb.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, PIT_WALL_H / 2, d / 2)))
     wb.position.set(px, PIT_WALL_H / 2, pz); physWorld.addBody(wb)
@@ -192,8 +206,8 @@ export function createProps(
     new THREE.MeshLambertMaterial({ color: 0x4a80ee })
   )
   pitFloor.rotation.x = -Math.PI / 2
-  pitFloor.position.set(PIT_CX, 0.005, PIT_CZ)
-  scene.add(pitFloor)
+  pitFloor.position.set(0, 0.005, 0)
+  pitGrp.add(pitFloor)
 
   // Fill pit with 80 physics-backed balls using InstancedMesh for visuals
   const pitBallColors = [0xff4444, 0x44cc44, 0x4488ff, 0xffcc22, 0xff44dd, 0x44ffee, 0xff8800, 0xaa44ff, 0xff9999, 0x99ff99]
@@ -221,13 +235,18 @@ export function createProps(
   const frameMat2 = new THREE.MeshLambertMaterial({ color: 0x888888 })
   const netMat = new THREE.MeshBasicMaterial({ color: 0x2255cc, transparent: true, opacity: 0.55, side: THREE.DoubleSide, wireframe: false })
 
+  // Debug-movable group for trampoline structure
+  const trampGrp = new THREE.Group()
+  trampGrp.position.set(TRAMP_CX, 0, TRAMP_CZ)
+  scene.add(trampGrp)
+
   // Main fabric disc (dark grey)
   const trampFabric = new THREE.Mesh(
     new THREE.CylinderGeometry(TRAMP_R - 0.15, TRAMP_R - 0.15, 0.08, TRAMP_SEGMENTS),
     trampFabricMat
   )
-  trampFabric.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
-  trampFabric.castShadow = true; scene.add(trampFabric)
+  trampFabric.position.set(0, TRAMP_Y, 0)
+  trampFabric.castShadow = true; trampGrp.add(trampFabric)
 
   // Frame ring (grey torus-like cylinder)
   const trampFrame = new THREE.Mesh(
@@ -235,16 +254,16 @@ export function createProps(
     frameMat2
   )
   trampFrame.rotation.x = Math.PI / 2
-  trampFrame.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
-  scene.add(trampFrame)
+  trampFrame.position.set(0, TRAMP_Y, 0)
+  trampGrp.add(trampFrame)
 
   // Blue net — gap on south side (+Z) where the ladder is.
   // Gap width = ladder rung width (0.54) × 1.5 ÷ radius ≈ 0.17 rad; use 0.20 for comfort.
   const NET_GAP = 0.20
   const netGeo = new THREE.CylinderGeometry(TRAMP_R + 0.05, TRAMP_R + 0.05, 1.2, TRAMP_SEGMENTS, 1, true, NET_GAP / 2, Math.PI * 2 - NET_GAP)
   const netMesh = new THREE.Mesh(netGeo, netMat)
-  netMesh.position.set(TRAMP_CX, TRAMP_Y + 0.6, TRAMP_CZ)
-  scene.add(netMesh)
+  netMesh.position.set(0, TRAMP_Y + 0.6, 0)
+  trampGrp.add(netMesh)
 
   // Net support poles — 12 evenly spaced, skip gap at south (+Z, math-angle π/2)
   const LADDER_GAP_HALF = NET_GAP / 2 + 0.06
@@ -253,11 +272,9 @@ export function createProps(
     const a = (i / 12) * Math.PI * 2
     const na = a > Math.PI ? a - Math.PI * 2 : a
     if (Math.abs(na - Math.PI / 2) < LADDER_GAP_HALF) continue
-    const px = TRAMP_CX + Math.cos(a) * (TRAMP_R + 0.05)
-    const pz = TRAMP_CZ + Math.sin(a) * (TRAMP_R + 0.05)
     const pole = new THREE.Mesh(poleGeo, frameMat2)
-    pole.position.set(px, (TRAMP_Y + 1.2) / 2, pz)
-    scene.add(pole)
+    pole.position.set(Math.cos(a) * (TRAMP_R + 0.05), (TRAMP_Y + 1.2) / 2, Math.sin(a) * (TRAMP_R + 0.05))
+    trampGrp.add(pole)
   }
 
   // Dense rim colliders — prevent walking under trampoline; gap left at ladder (south, a≈π/2)
@@ -273,14 +290,12 @@ export function createProps(
   // Leg supports — 4 legs from ground up to frame
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-    const lx = TRAMP_CX + Math.cos(a) * TRAMP_R * 0.8
-    const lz = TRAMP_CZ + Math.sin(a) * TRAMP_R * 0.8
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, TRAMP_Y, 6), frameMat2)
-    leg.position.set(lx, TRAMP_Y / 2, lz)
-    scene.add(leg)
+    leg.position.set(Math.cos(a) * TRAMP_R * 0.8, TRAMP_Y / 2, Math.sin(a) * TRAMP_R * 0.8)
+    trampGrp.add(leg)
   }
 
-  // Trampoline physics platform
+  // Trampoline physics platform (world-space)
   const trampBody = new CANNON.Body({ mass: 0 })
   trampBody.addShape(new CANNON.Cylinder(TRAMP_R, TRAMP_R, 0.1, 16))
   trampBody.position.set(TRAMP_CX, TRAMP_Y, TRAMP_CZ)
@@ -290,17 +305,18 @@ export function createProps(
   const ladderMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
   const railGeo   = new THREE.BoxGeometry(0.07, TRAMP_Y, 0.07)
   const rungGeo   = new THREE.BoxGeometry(0.54, 0.05, 0.07)
+  const LADDER_REL_Z = TRAMP_R + 0.12   // LADDER_Z - TRAMP_CZ
 
   ;[-0.27, 0.27].forEach(ox => {
     const rail = new THREE.Mesh(railGeo, ladderMat)
-    rail.position.set(LADDER_X + ox, TRAMP_Y / 2, LADDER_Z)
-    scene.add(rail)
+    rail.position.set(ox, TRAMP_Y / 2, LADDER_REL_Z)
+    trampGrp.add(rail)
   })
   const rungCount = Math.floor(TRAMP_Y / 0.30)
   for (let i = 0; i < rungCount; i++) {
     const rung = new THREE.Mesh(rungGeo, ladderMat)
-    rung.position.set(LADDER_X, 0.28 + i * (TRAMP_Y / rungCount), LADDER_Z)
-    scene.add(rung)
+    rung.position.set(0, 0.28 + i * (TRAMP_Y / rungCount), LADDER_REL_Z)
+    trampGrp.add(rung)
   }
 
   // Box collider for ladder — prevents clipping through while jumping
@@ -309,9 +325,10 @@ export function createProps(
 
   return {
     FIRE_POS,
+    campfireGrp,
     flameMat, flameMesh, innerFlameMesh, fireLight,
     ffMesh, ffData,
-    ducks, pondGrp,
+    ducks, pondGrp, pitGrp, trampGrp,
     balls,
     ringLine, ringGeo,
   }

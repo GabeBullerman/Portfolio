@@ -11,7 +11,7 @@ import { createProps } from './three/setup/createProps'
 import { createPlayer } from './three/setup/createPlayer'
 import { createCliff } from './three/setup/createCliff'
 import { createProjectDisplays } from './three/setup/createProjectDisplays'
-import { createSkatepark } from './three/setup/createSkatepark'
+import { createPark } from './three/setup/createPark'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
@@ -131,11 +131,13 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D; isHitbox?: boolean }[]>([])
-  const [debugOpen, setDebugOpen]   = useState(false)
-  const [debugSel,  setDebugSel]    = useState(-1)
-  const [debugStep, setDebugStep]   = useState(1)
-  const [selPos,    setSelPos]      = useState<{ x: number; y: number; z: number } | null>(null)
-  const [selRot,    setSelRot]      = useState<{ x: number; y: number; z: number } | null>(null)
+  const addSidewalkRef  = useRef<(() => void) | null>(null)
+  const [debugOpen, setDebugOpen]         = useState(false)
+  const [debugSel,  setDebugSel]          = useState(-1)
+  const [debugStep, setDebugStep]         = useState(1)
+  const [selPos,    setSelPos]            = useState<{ x: number; y: number; z: number } | null>(null)
+  const [selRot,    setSelRot]            = useState<{ x: number; y: number; z: number } | null>(null)
+  const [movablesVersion, setMovablesVersion] = useState(0)
 
   function exitFocus() {
     focusActiveRef.current  = false
@@ -169,7 +171,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     const ceilCols: { x0: number; x1: number; z0: number; z1: number; minY: number }[] = []
 
     const CABIN_X = -5, CABIN_Z = 15
-    const POND_X = -28, POND_Z = -35, POND_R = 3.2
+    const POND_X = -24, POND_Z = -36, POND_R = 3.2
 
     // ── World: ground, fence, roads, sidewalks ────────────────────────────
     const { swBaseTex, TILE } = createWorld(scene)
@@ -180,8 +182,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Project building displays ─────────────────────────────────────────
     const projectDisplays = createProjectDisplays(scene, movablesRef.current)
 
-    // ── Skatepark ─────────────────────────────────────────────────────────
-    createSkatepark(scene, movablesRef.current)
+    // ── Park ──────────────────────────────────────────────────────────────
+    const { addSidewalk } = createPark(scene, movablesRef.current, boxCols)
+    addSidewalkRef.current = addSidewalk
 
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
 
@@ -198,30 +201,38 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     // ── Props: campfire, benches, pond, ducks, balls, trampoline ──────────
     const {
       FIRE_POS: _fp,
+      campfireGrp,
       flameMat, flameMesh, innerFlameMesh, fireLight,
       ffMesh, ffData,
-      ducks, pondGrp,
+      ducks, pondGrp, pitGrp, trampGrp,
       balls,
       ringLine, ringGeo,
     } = createProps(scene, physWorld, cylCols, boxCols, POND_X, POND_Z, POND_R)
-    // Use FIRE_POS from props (same value, defined in createProps too)
     void _fp
+    movablesRef.current.push({ name: '🔥 Campfire Seating', group: campfireGrp, scaleObj: campfireGrp })
+    movablesRef.current.push({ name: '🪴 Pond', group: pondGrp })
+    movablesRef.current.push({ name: '🎱 Ball Pit', group: pitGrp })
+    movablesRef.current.push({ name: '🤸 Trampoline', group: trampGrp })
 
     // ── Bowling ───────────────────────────────────────────────────────────
     const {
+      bowlGrp,
       pinMeshes, pinBodies,
       bowlBallMesh, bowlBallBody,
       aimArrow,
       resetBowling: _resetBowling,
       throwBowl: _throwBowl,
     } = createBowling(scene, physWorld, bowlAimRef, bowlPowerRef)
+    movablesRef.current.push({ name: '🎳 Bowling Alley', group: bowlGrp })
 
     // ── Ring Toss ─────────────────────────────────────────────────────────
     const {
+      rtossGrp,
       ringMeshes, ringBodies,
       resetRingToss: _resetRingToss,
       throwRing: _throwRing,
     } = createRingToss(scene, physWorld, rtossAimRef, rPowerRef)
+    movablesRef.current.push({ name: '🥏 Ring Toss', group: rtossGrp })
 
     function resetBowling() {
       _resetBowling()
@@ -433,7 +444,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
       <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
-      <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} />
+      <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
     </div>
   )
 }

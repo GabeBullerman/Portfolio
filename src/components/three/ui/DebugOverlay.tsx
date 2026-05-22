@@ -16,12 +16,15 @@ interface DebugOverlayProps {
   setSelPos:    React.Dispatch<React.SetStateAction<XYZ | null>>
   setSelRot:    React.Dispatch<React.SetStateAction<XYZ | null>>
   setDebugStep: (s: number) => void
+  onAddSidewalk?: () => void
+  movablesVersion?: number
 }
 
 export default function DebugOverlay({
   debugOpen, debugSel, debugStep, selPos, selRot,
   movablesRef, debugPanelRef,
   setDebugSel, setSelPos, setSelRot, setDebugStep,
+  onAddSidewalk,
 }: DebugOverlayProps) {
   return (
     <>
@@ -50,9 +53,14 @@ export default function DebugOverlay({
                 if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜') || name.startsWith('🟫')) return 'Cabin'
                 if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
                 if (name.startsWith('🪨')) return 'Stone Paths'
+                if (name.startsWith('🧱') || name.startsWith('🌳') || name.startsWith('🛹') ||
+                    name.startsWith('🌿') || name.startsWith('🛝') || name.startsWith('🚩') ||
+                    name.startsWith('🗑') || name.startsWith('🛤') || name.startsWith('🔥')) return 'Park'
+                if (name.startsWith('🎳') || name.startsWith('🥏') || name.startsWith('🎱') ||
+                    name.startsWith('🤸') || name.startsWith('🪴')) return 'Games'
                 return 'Props'
               }
-              const groupOrder = ['Bones', 'Buildings', 'Cabin', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
+              const groupOrder = ['Bones', 'Buildings', 'Cabin', 'Park', 'Games', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
               const grouped: Record<string, number[]> = {}
               movablesRef.current.forEach((m, i) => {
                 const g = getGroup(m.name)
@@ -61,7 +69,15 @@ export default function DebugOverlay({
               })
               return groupOrder.filter(g => grouped[g]?.length).map(g => (
                 <div key={g}>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-1 pt-2 pb-1">{g}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-1 pt-2 pb-1 flex items-center justify-between">
+                    <span>{g}</span>
+                    {g === 'Park' && onAddSidewalk && (
+                      <button
+                        onClick={onAddSidewalk}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-semibold normal-case tracking-normal"
+                      >+ Sidewalk</button>
+                    )}
+                  </div>
                   {grouped[g].map(i => {
                     const m = movablesRef.current[i]
                     return (
@@ -176,6 +192,23 @@ export default function DebugOverlay({
                   ))}
                 </div>
 
+                {/* Extra tunable (e.g. fence spacing) */}
+                {movablesRef.current[debugSel]?.extra && (() => {
+                  const ex = movablesRef.current[debugSel].extra!
+                  return (
+                    <div className="mt-2 pt-2 border-t border-white/10">
+                      <div className="text-xs text-white/50 mb-1">{ex.label}: <span className="text-white font-mono">{ex.getValue().toFixed(3)}</span></div>
+                      <input
+                        type="range"
+                        min={ex.min} max={ex.max} step={ex.step}
+                        value={ex.getValue()}
+                        onChange={e => { ex.onChange(parseFloat(e.target.value)); setSelPos(p => p ? { ...p } : null) }}
+                        className="w-full accent-blue-400"
+                      />
+                    </div>
+                  )
+                })()}
+
                 {/* Per-axis size controls for hitbox planes */}
                 {movablesRef.current[debugSel]?.isHitbox && (() => {
                   const mesh = (movablesRef.current[debugSel].group as any).__hitMesh as THREE.Mesh | undefined
@@ -266,6 +299,9 @@ export default function DebugOverlay({
                 if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜')) return 'Cabin'
                 if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
                 if (name.startsWith('🪨')) return 'Stone Paths'
+                if (name.startsWith('🧱') || name.startsWith('🌳') || name.startsWith('🛹') ||
+                    name.startsWith('🌿') || name.startsWith('🛝') || name.startsWith('🚩') ||
+                    name.startsWith('🗑') || name.startsWith('🛤') || name.startsWith('🔥')) return 'Park'
                 return 'Props'
               }
               const selGroup = debugSel >= 0 && movablesRef.current[debugSel]

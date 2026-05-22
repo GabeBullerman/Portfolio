@@ -7,6 +7,7 @@ import {
 
 export interface BowlingResult {
   bowlMeshes:   THREE.Object3D[]
+  bowlGrp:      THREE.Group
   pinMeshes:    THREE.Mesh[]
   pinBodies:    CANNON.Body[]
   bowlBallMesh: THREE.Mesh
@@ -24,6 +25,11 @@ export function createBowling(
   bowlPowerRef: React.MutableRefObject<number>,
 ): BowlingResult {
   const bowlMeshes: THREE.Object3D[] = []
+
+  // Debug-movable group for static lane structure
+  const bowlGrp = new THREE.Group()
+  bowlGrp.position.set(BOWL_CX, 0, BOWL_LANE_Z)
+  scene.add(bowlGrp)
 
   const laneLen = Math.abs(BOWL_PINS_Z - BOWL_START_Z) + 4
   const laneW   = 2.6
@@ -52,12 +58,12 @@ export function createBowling(
   const laneMat = new THREE.MeshPhongMaterial({ map: laneTex, shininess: 60 })
   const laneMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW, 0.04, laneLen), laneMat)
   laneMesh.receiveShadow = true
-  laneMesh.position.set(BOWL_CX, 0.02, BOWL_LANE_Z); scene.add(laneMesh); bowlMeshes.push(laneMesh)
+  laneMesh.position.set(0, 0.02, 0); bowlGrp.add(laneMesh); bowlMeshes.push(laneMesh)
 
   // Gutters
   ;[-(laneW / 2 + 0.12), (laneW / 2 + 0.12)].forEach(ox => {
     const gutter = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, laneLen), new THREE.MeshLambertMaterial({ color: 0x6b4a1a }))
-    gutter.position.set(BOWL_CX + ox, 0.02, BOWL_LANE_Z); scene.add(gutter); bowlMeshes.push(gutter)
+    gutter.position.set(ox, 0.02, 0); bowlGrp.add(gutter); bowlMeshes.push(gutter)
   })
 
   // Static lane body so balls roll on it
@@ -79,7 +85,8 @@ export function createBowling(
   ;[-1, 1].forEach(side => {
     const wx = BOWL_CX + side * (laneW / 2 + bumperThk / 2)
     const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(bumperThk, bumperH, deckLen), bumperMat)
-    wallMesh.position.set(wx, bumperH / 2, deckCtrZ); scene.add(wallMesh); bowlMeshes.push(wallMesh)
+    wallMesh.position.set(side * (laneW / 2 + bumperThk / 2), bumperH / 2, deckCtrZ - BOWL_LANE_Z)
+    bowlGrp.add(wallMesh); bowlMeshes.push(wallMesh)
     const wallBody = new CANNON.Body({ mass: 0 })
     wallBody.addShape(new CANNON.Box(new CANNON.Vec3(bumperThk / 2, bumperH / 2, deckLen / 2)))
     wallBody.position.set(wx, bumperH / 2, deckCtrZ)
@@ -88,7 +95,8 @@ export function createBowling(
 
   // Back wall — low physics bumper (keeps pins/ball in)
   const backMesh = new THREE.Mesh(new THREE.BoxGeometry(laneW + bumperThk * 2, bumperH, bumperThk), bumperMat)
-  backMesh.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2); scene.add(backMesh); bowlMeshes.push(backMesh)
+  backMesh.position.set(0, bumperH / 2, deckBack - bumperThk / 2 - BOWL_LANE_Z)
+  bowlGrp.add(backMesh); bowlMeshes.push(backMesh)
   const backBody = new CANNON.Body({ mass: 0 })
   backBody.addShape(new CANNON.Box(new CANNON.Vec3((laneW + bumperThk * 2) / 2, bumperH / 2, bumperThk / 2)))
   backBody.position.set(BOWL_CX, bumperH / 2, deckBack - bumperThk / 2)
@@ -203,7 +211,7 @@ export function createBowling(
   }
 
   return {
-    bowlMeshes, pinMeshes, pinBodies,
+    bowlMeshes, bowlGrp, pinMeshes, pinBodies,
     bowlBallMesh, bowlBallBody,
     aimArrow,
     resetBowling, throwBowl, countKnockedPins,

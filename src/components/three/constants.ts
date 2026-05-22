@@ -3,10 +3,10 @@ export type BowlState = 'idle' | 'aiming' | 'thrown' | 'result'
 export type RTossState = 'idle' | 'aiming' | 'thrown' | 'result'
 
 // ─── Bowling constants ────────────────────────────────────────────────────────
-export const BOWL_CX      = 30          // lane centre X
-export const BOWL_START_Z = -32         // where player throws from
-export const BOWL_PINS_Z  = -48         // front pin Z
-export const BOWL_LANE_Z  = -40         // lane visual centre Z
+export const BOWL_CX      = 19          // lane centre X
+export const BOWL_START_Z = -18         // where player throws from
+export const BOWL_PINS_Z  = -34         // front pin Z
+export const BOWL_LANE_Z  = -26         // lane visual centre Z
 export const BOWL_PROX    = 5.5         // approach distance to start game
 export const PIN_H        = 0.40        // pin height
 export const PIN_R_BOT    = 0.07        // pin base radius
@@ -34,15 +34,15 @@ export const PIN_POSITIONS: [number, number, number][] = [
 
 // ─── Bench constants ──────────────────────────────────────────────────────────
 export const BENCH_POSITIONS = [
-  { x: -2.3, z: -15.7, ry: Math.PI * 0.3 },
-  { x:  2.3, z: -15.7, ry: -Math.PI * 0.3 },
+  { x: -12.83, z: -19.08, ry: Math.PI * 0.3 },
+  { x:  -9.58, z: -22.33, ry: -Math.PI * 0.3 },
 ] as const
 export const BENCH_PROX = 2.3
 
 // ─── Ring toss constants ──────────────────────────────────────────────────────
-export const RTOSS_CX      = 23
-export const RTOSS_START_Z = -32
-export const RTOSS_POST_Z  = -44
+export const RTOSS_CX      = 12
+export const RTOSS_START_Z = -17
+export const RTOSS_POST_Z  = -29
 export const RTOSS_PROX    = 5.5
 export const RTOSS_RING_R  = 0.36
 export const RTOSS_RING_TUBE = 0.048
@@ -51,10 +51,10 @@ export const RTOSS_POST_H  = 1.5
 export const RTOSS_POST_R  = 0.044
 
 // ─── Ball pit + trampoline constants ─────────────────────────────────────────
-export const PIT_CX   = -10
-export const PIT_CZ   = -51
-export const TRAMP_CX = 25
-export const TRAMP_CZ = -63
+export const PIT_CX   = 28
+export const PIT_CZ   = -19
+export const TRAMP_CX = 20
+export const TRAMP_CZ = -72
 export const TRAMP_R  = 4.8
 export const TRAMP_Y  = 2.0   // trampoline surface height
 export const LADDER_X = TRAMP_CX                       // south side — centered in X
