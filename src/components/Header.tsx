@@ -15,10 +15,13 @@ interface Props {
 export default function Header({ onExplore }: Props) {
   const cols = navLinks.length + (onExplore ? 1 : 0)
   const [hovered, setHovered] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const closeMenu = () => setMenuOpen(false)
 
   return (
     <header
-      className="sticky top-0 z-50 h-20"
+      className="sticky top-0 z-50 h-16 md:h-20"
       style={{
         background: 'rgba(0,0,0,0.6)',
         backdropFilter: 'blur(16px)',
@@ -26,7 +29,8 @@ export default function Header({ onExplore }: Props) {
         borderBottom: '1px solid rgba(255,255,255,0.08)',
       }}
     >
-      <nav className="h-full">
+      {/* Desktop nav */}
+      <nav className="hidden md:block h-full">
         <ul
           className="grid h-full m-0 p-0 list-none"
           style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
@@ -75,6 +79,55 @@ export default function Header({ onExplore }: Props) {
           )}
         </ul>
       </nav>
+
+      {/* Mobile nav bar */}
+      <div className="flex md:hidden h-full items-center justify-between px-5">
+        <span className="font-bold text-base" style={{ color: 'var(--text)' }}>Portfolio</span>
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          className="flex flex-col gap-1.5 p-2 rounded-lg transition-colors"
+          style={{ background: menuOpen ? 'rgba(255,255,255,0.08)' : 'transparent', border: 'none', cursor: 'pointer' }}
+          aria-label="Toggle menu"
+        >
+          <span className="block w-5 h-0.5 rounded-full transition-all duration-200" style={{ background: 'var(--text)', transform: menuOpen ? 'translateY(8px) rotate(45deg)' : 'none' }} />
+          <span className="block w-5 h-0.5 rounded-full transition-all duration-200" style={{ background: 'var(--text)', opacity: menuOpen ? 0 : 1 }} />
+          <span className="block w-5 h-0.5 rounded-full transition-all duration-200" style={{ background: 'var(--text)', transform: menuOpen ? 'translateY(-8px) rotate(-45deg)' : 'none' }} />
+        </button>
+      </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div
+          className="md:hidden absolute top-16 left-0 right-0 z-50 py-2"
+          style={{
+            background: 'rgba(0,0,0,0.92)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          {navLinks.map(({ label, href }) => (
+            <a
+              key={href}
+              href={href}
+              onClick={closeMenu}
+              className="flex items-center px-6 py-3.5 font-semibold text-sm no-underline transition-colors"
+              style={{ color: 'var(--text)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+            >
+              {label}
+            </a>
+          ))}
+          {onExplore && (
+            <button
+              onClick={() => { closeMenu(); onExplore() }}
+              className="w-full flex items-center px-6 py-3.5 font-semibold text-sm bg-transparent border-none cursor-pointer transition-colors"
+              style={{ color: 'var(--accent)' }}
+            >
+              Explore 3D World →
+            </button>
+          )}
+        </div>
+      )}
     </header>
   )
 }

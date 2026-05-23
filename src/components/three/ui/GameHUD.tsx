@@ -27,6 +27,10 @@ interface GameHUDProps {
   touchMoveRef:   React.MutableRefObject<{ x: number; y: number }>
   touchActiveRef: React.MutableRefObject<boolean>
   setJoyPos:      (p: { x: number; y: number }) => void
+  lookMoveRef:    React.MutableRefObject<{ x: number; y: number }>
+  lookActiveRef:  React.MutableRefObject<boolean>
+  lookJoyPos:     { x: number; y: number }
+  setLookJoyPos:  (p: { x: number; y: number }) => void
 }
 
 export default function GameHUD({
@@ -37,7 +41,9 @@ export default function GameHUD({
   bowlDisplay, rtossDisplay,
   joyPos, powerBarRef, rPowerBarRef,
   touchMoveRef, touchActiveRef, setJoyPos,
+  lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
+  const hasNearby = nearBowl || nearRToss || nearBench || nearLadder || nearSwitch || nearProject || nearChair
   return (
     <>
       {/* "Use computer" prompt when near the chair */}
@@ -75,6 +81,9 @@ export default function GameHUD({
           <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
             <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
             {musicMuted ? 'Unmute Music' : 'Mute Music'}
+            <span className="text-white/40">·</span>
+            <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">F</kbd>
+            Next Track
           </div>
         </div>
       )}
@@ -282,8 +291,8 @@ export default function GameHUD({
           </div>
           )}
 
-          {/* Mobile: Joystick — left side, hidden during bowling/rtoss/sitting */}
-          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
+          {/* Mobile: Joystick — left side, hidden during bowling/rtoss/sitting/monitor */}
+          {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
             className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
             onTouchStart={(e) => { e.preventDefault(); touchActiveRef.current = true }}
@@ -313,6 +322,51 @@ export default function GameHUD({
               />
             </div>
           </div>}
+
+          {/* Mobile: Look joystick — right side, hidden during bowling/rtoss/sitting/monitor */}
+          {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
+            className="absolute right-6 z-30 w-28 h-28 md:hidden touch-none select-none"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+            onTouchStart={(e) => { e.preventDefault(); lookActiveRef.current = true }}
+            onTouchMove={(e) => {
+              e.preventDefault()
+              const rect = e.currentTarget.getBoundingClientRect()
+              const touch = e.touches[0]
+              const x = Math.max(-1, Math.min(1, ((touch.clientX - rect.left) / rect.width) * 2 - 1))
+              const y = Math.max(-1, Math.min(1, ((touch.clientY - rect.top) / rect.height) * 2 - 1))
+              lookMoveRef.current = { x, y }
+              setLookJoyPos({ x, y })
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault()
+              lookActiveRef.current = false
+              lookMoveRef.current = { x: 0, y: 0 }
+              setLookJoyPos({ x: 0, y: 0 })
+            }}
+          >
+            <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
+              <div
+                className="absolute w-10 h-10 rounded-full bg-white/50"
+                style={{
+                  left: `calc(50% + ${lookJoyPos.x * 35}px - 20px)`,
+                  top:  `calc(50% + ${lookJoyPos.y * 35}px - 20px)`,
+                }}
+              />
+            </div>
+          </div>}
+
+          {/* Mobile: Interact button — center, shown when near interactable */}
+          {!monitorMode && hasNearby && !sitting && !climbing &&
+           bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
+            <button
+              className="md:hidden absolute left-1/2 -translate-x-1/2 z-30 px-6 py-3 bg-white/20 backdrop-blur-sm text-white border border-white/40 rounded-full font-bold text-sm pointer-events-auto"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+              onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true })) }}
+              onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { key: 'e', bubbles: true })) }}
+            >
+              Inspect
+            </button>
+          )}
         </>
       )}
     </>

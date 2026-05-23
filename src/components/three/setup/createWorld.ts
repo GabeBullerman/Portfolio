@@ -169,6 +169,35 @@ export function createWorld(
   addRoadLine(BLVD_X, vertSouth + 0.1, VERT_W, 0.25)
   addRoadLine(MEML_X, vertSouth + 0.1, VERT_W, 0.25)
 
+  // ── Dashed yellow centre lines ─────────────────────────────────────────────
+  const dashMat  = new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+  const DASH_LEN = 2.0
+  const DASH_GAP = 2.0
+  const DASH_W   = 0.18
+  const DASH_Y   = 0.04
+  const dashGeoV = new THREE.PlaneGeometry(DASH_W, DASH_LEN)  // for N-S roads
+  const dashGeoH = new THREE.PlaneGeometry(DASH_LEN, DASH_W)  // for E-W roads
+
+  const addDashedCenter = (cx: number, cz: number, totalLen: number, axis: 'x' | 'z') => {
+    const period = DASH_LEN + DASH_GAP
+    const count  = Math.floor(totalLen / period)
+    const start  = -(count * period) / 2 + DASH_LEN / 2
+    const geo    = axis === 'z' ? dashGeoV : dashGeoH
+    for (let i = 0; i < count; i++) {
+      const off = start + i * period
+      const mesh = new THREE.Mesh(geo, dashMat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set(axis === 'z' ? cx : cx + off, DASH_Y, axis === 'z' ? cz + off : cz)
+      scene.add(mesh)
+    }
+  }
+
+  // Project Blvd and Memory Ln — full vertical span below connector
+  addDashedCenter(BLVD_X, vertLineCZ, vertLineLen, 'z')
+  addDashedCenter(MEML_X, vertLineCZ, vertLineLen, 'z')
+  // Connector — middle section only (skip intersection zones covered by vertical lines)
+  addDashedCenter(midCX, CONN_Z, midW, 'x')
+
   // ── Sidewalks ─────────────────────────────────────────────────────────────
   const SW   = 1.5   // sidewalk strip width (world units)
   const TILE = 2.5   // paving-slab size (world units)

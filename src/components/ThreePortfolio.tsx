@@ -17,16 +17,28 @@ import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
 import { BowlState, RTossState } from './three/constants'
 
+// ─── Music playlist ───────────────────────────────────────────────────────────
+const PLAYLIST = [
+  { src: '/audio/[no copyright music] Space Aquarium - Lofi Study & Relaxation Music for Deep Focus.mp3', label: 'Space Aquarium' },
+  { src: '/audio/[no copyright music] \'Gameplay\' cute background music.mp3',  label: 'Gameplay' },
+  { src: '/audio/[no copyright music] \'Loading\' cute background music.mp3',   label: 'Loading' },
+  { src: '/audio/[no copyright music] \'On The Top\' lofi background music.mp3', label: 'On The Top' },
+  { src: '/audio/[no copyright music] \'little break\' lofi background music.mp3', label: 'little break' },
+] as const
+
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const mountRef          = useRef<HTMLDivElement>(null)
   const [pointerLocked, setPointerLocked] = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
-  // Background music
-  const audioRef      = useRef<HTMLAudioElement | null>(null)
+  // Background music / playlist
+  const audioRef         = useRef<HTMLAudioElement | null>(null)
   const [musicMuted, setMusicMuted] = useState(false)
-  const musicMutedRef = useRef(false)
-  const musicStarted  = useRef(false)
+  const musicMutedRef    = useRef(false)
+  const musicStarted     = useRef(false)
+  const trackIdxRef      = useRef(0)
+  const [nowPlaying, setNowPlaying] = useState<string | null>(null)
+  const nowPlayingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Radio proximity
   const radioGroupRef = useRef<THREE.Group | null>(null)
   const [nearRadio, setNearRadio] = useState(false)
@@ -34,6 +46,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const RADIO_PROX    = 1.4
   const touchMoveRef    = useRef({ x: 0, y: 0 })
   const touchActiveRef  = useRef(false)
+  const lookMoveRef     = useRef({ x: 0, y: 0 })
+  const lookActiveRef   = useRef(false)
+  const isMobileRef     = useRef(typeof window !== 'undefined' && window.innerWidth < 768)
+  const [lookJoyPos, setLookJoyPos] = useState({ x: 0, y: 0 })
   // Bowling mini-game
   const [nearBowl, setNearBowl]           = useState(false)
   const [bowlDisplay, setBowlDisplay]     = useState<{ state: BowlState; score: number; hs: number }>({ state: 'idle', score: 0, hs: 0 })
@@ -277,6 +293,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         if (debugPanelRef.current) debugPanelRef.current.style.display = debugModeRef.current ? 'block' : 'none'
         setDebugOpen(d => !d); return
       }
+      if (e.key.toLowerCase() === 'f' && musicStarted.current) {
+        playTrack(trackIdxRef.current + 1); return
+      }
       const mapped = keyToWASD(e.key.toLowerCase())
       keys.add(mapped)
       if (['w', 'a', 's', 'd'].includes(mapped) && (focusActiveRef.current || overlayShownRef.current)) { exitFocus(); return }
@@ -351,6 +370,22 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
     window.addEventListener('keyup',   onKeyUp)
     window.addEventListener('blur',    onBlur)
 
+    // ── Music helpers ─────────────────────────────────────────────────────
+    const playTrack = (idx: number) => {
+      const next = ((idx % PLAYLIST.length) + PLAYLIST.length) % PLAYLIST.length
+      trackIdxRef.current = next
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+      const audio = new Audio(PLAYLIST[next].src)
+      audio.volume = 0.35
+      audio.muted = musicMutedRef.current
+      audio.play().catch(() => {})
+      audio.addEventListener('ended', () => playTrack(trackIdxRef.current + 1))
+      audioRef.current = audio
+      if (nowPlayingTimer.current) clearTimeout(nowPlayingTimer.current)
+      setNowPlaying(PLAYLIST[next].label)
+      nowPlayingTimer.current = setTimeout(() => setNowPlaying(null), 3500)
+    }
+
     // ── Pointer lock ──────────────────────────────────────────────────────
     const MOUSE_SENS = 0.0022
     const animStateHolder: { st: { camYaw: number; camPitch: number } | null } = { st: null }
@@ -365,8 +400,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       setPointerLocked(document.pointerLockElement === renderer.domElement)
       if (document.pointerLockElement === renderer.domElement && !musicStarted.current) {
         musicStarted.current = true
-        const audio = new Audio('/audio/Space Aquarium - Lofi Study & Relaxation Music for Deep Focus.mp3')
-        audio.loop = true; audio.volume = 0.35; audio.play().catch(() => {}); audioRef.current = audio
+        playTrack(0)
       }
     }
     const onCanvasClick = () => { if (!focusActiveRef.current && bowlStateRef.current === 'idle') renderer.domElement.requestPointerLock() }
@@ -387,7 +421,7 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       cylCols, boxCols, ceilCols,
       CABIN_X, CABIN_Z, POND_X, POND_Z, POND_R,
       FIRE_POS, CHAIR_LOCAL_POS, MONITOR_LOCAL_POS, CHAIR_PROX, RADIO_PROX,
-      keys, touchMoveRef,
+      keys, touchMoveRef, lookMoveRef, isMobileRef,
       bowlStateRef, rtossStateRef, focusActiveRef, overlayShownRef,
       sittingRef, sittingAtRef, seatIdxRef, climbingRef,
       jumpPressedRef, onRampRef, onFloorRef,
@@ -423,7 +457,9 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', onBlur); window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('click', onCanvasClick); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('pointerlockchange', onPointerLockChange)
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock()
-      clearInterval(clockInterval); audioRef.current?.pause(); renderer.dispose()
+      clearInterval(clockInterval)
+      if (nowPlayingTimer.current) clearTimeout(nowPlayingTimer.current)
+      audioRef.current?.pause(); renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
       while (physWorld.bodies.length > 0) physWorld.removeBody(physWorld.bodies[0])
     }
@@ -443,8 +479,15 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
         setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
+      {nowPlaying && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full pointer-events-none select-none animate-fade-in">
+          <span className="text-white/60">♪</span>
+          <span>{nowPlaying}</span>
+          <span className="text-white/40 text-[10px]">F to skip</span>
+        </div>
+      )}
     </div>
   )
 }
