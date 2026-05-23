@@ -266,7 +266,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       const lookX = p.lookMoveRef.current.x, lookY = p.lookMoveRef.current.y
       if (Math.abs(lookX) > 0.08 || Math.abs(lookY) > 0.08) {
         st.camYaw -= lookX * 2.5 * delta
-        st.camPitch = THREE.MathUtils.clamp(st.camPitch - lookY * 2.0 * delta, -1.3, 1.3)
+        st.camPitch = THREE.MathUtils.clamp(st.camPitch + lookY * 2.0 * delta, -1.3, 1.3)
       }
 
       // WASD movement
@@ -347,7 +347,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       if (p.ambientLightRef.current) p.ambientLightRef.current.intensity = THREE.MathUtils.lerp(p.ambientLightRef.current.intensity, tgtAmbient, delta * 3)
       if (p.sunLightRef.current)     p.sunLightRef.current.intensity     = THREE.MathUtils.lerp(p.sunLightRef.current.intensity,     tgtSun,     delta * 3)
       p.renderer.toneMappingExposure = THREE.MathUtils.lerp(p.renderer.toneMappingExposure, tgtExp, delta * 3)
-      p.player.visible = !p.isMobileRef.current && st.fpvBlend < 0.5
+      p.player.visible = st.fpvBlend < 0.5
       const HEAD_H = 1.65, camDist = 5.2
       st.camPitch = Math.max(st.camPitch, Math.asin(Math.max(-1, (0.3 - p.player.position.y - 1.2) / camDist)))
       const tpTarget = new THREE.Vector3(p.player.position.x + Math.sin(st.camYaw) * Math.cos(st.camPitch) * camDist, p.player.position.y + Math.sin(st.camPitch) * camDist + 1.2, p.player.position.z + Math.cos(st.camYaw) * Math.cos(st.camPitch) * camDist)
