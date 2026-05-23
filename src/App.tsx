@@ -72,7 +72,7 @@ function TwoDApp({ onExplore }: { onExplore: () => void }) {
 }
 
 export default function App() {
-  const [mode3D, setMode3D] = useState(false)
+  const [mode3D, setMode3D] = useState(() => window.innerWidth >= 768)
   const [showMobileWarning, setShowMobileWarning] = useState(false)
 
   const handleExplore = () => {
