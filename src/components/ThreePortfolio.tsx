@@ -199,7 +199,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const projectDisplays = createProjectDisplays(scene, movablesRef.current)
 
     // ── Park ──────────────────────────────────────────────────────────────
-    const { addSidewalk } = createPark(scene, movablesRef.current, boxCols)
+    const { addSidewalk } = createPark(scene, movablesRef.current, cylCols, boxCols)
     addSidewalkRef.current = addSidewalk
 
     const FIRE_POS = new THREE.Vector3(0, 0, -14)

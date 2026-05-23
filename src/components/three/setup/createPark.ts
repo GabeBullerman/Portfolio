@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { BoxCol, Movable } from '../types'
+import { BoxCol, CylCol, Movable } from '../types'
 import { mulberry32 } from '../helpers'
+
+const TREE_HIT_R = 0.42
 
 // Park boundaries — match world.ts road geometry exactly
 const PARK = { W: -37, E: 39, N: -8, S: -91 }
@@ -10,7 +12,7 @@ export interface ParkResult {
   addSidewalk: () => void
 }
 
-export function createPark(scene: THREE.Scene, movables: Movable[], boxCols: BoxCol[]): ParkResult {
+export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: CylCol[], boxCols: BoxCol[]): ParkResult {
   const gltfLoader = new GLTFLoader()
 
   const loadGLB = (path: string): Promise<THREE.Group> =>
@@ -193,7 +195,16 @@ export function createPark(scene: THREE.Scene, movables: Movable[], boxCols: Box
         t.scale.setScalar(sc)
         t.rotation.y = ry
         t.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
+
+        // Use bounding box center XZ to find the actual trunk world position
+        t.updateWorldMatrix(false, true)
+        const bbox = new THREE.Box3().setFromObject(t)
+        const center = new THREE.Vector3()
+        bbox.getCenter(center)
+        const hx = center.x, hz = center.z, hr = TREE_HIT_R * sc
+
         grp.add(t)
+        cylCols.push({ x: hx, z: hz, r: hr })
       }
       movables.push({ name, group: grp, scaleObj: grp })
       scene.add(grp)

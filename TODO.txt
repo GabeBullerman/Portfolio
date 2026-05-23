@@ -12,9 +12,9 @@ more impressive visuals. Integrate things like my vercel scrolling-based-animati
 10 - [DONE] Add dotted yellow line to middle of road
 11 - [DONE] Fun overhaul: Fix ladder logic on trampoline to have larger hitbox further back a bit so I don't climb inside of it, and don't clip into the ladder while jumping, tighten net area to only be open at the width of the ladder x1.5, update bowling to actually hold for power rather than pressing while the power bar moves itself, get better bowling pin textures and wall behind.
 12 - [DONE] Populate the project blvd and memory ln buildings (once they have hitboxes and/or are added if not already) with information about me
-13 - Add cube/rectangular hitboxes to other objects (car, trees, rocks, other houses) current "other houses" hitbox is just a huge border around the entirety of the mesh area they cover I think, want to tighten those to "per house" hitboxes
-14 - [DONE] Add warning while clicking "Explore" in nav on mobile regarding the quality and performance on the experience, recommend computer use.
-15 - [DONE] Add "look" joystick on mobile rather than just move so they can move the camera, have tapping be the equivalent of "E" so they can tap things like the computer, benches, jukebox, bowling, etc. to be able to interact
+13 - Add hitboxes to remaining objects that lack them: trees, bushes, car, skatepark, playground, bed, setup (desk/PC area). Houses and buildings already have their own hitboxes.
+14 - [DONE] Add warning while clicking "Explore" in nav on mobile regarding the quality and performance on the experience, recommend computer use. Fix mobile nav crush, skip MonitorOverlay on mobile entry, contextual inspect button, hide keyboard hints on mobile.
+15 - [DONE] Add "look" joystick on mobile rather than just move so they can move the camera, have tapping be the equivalent of "E" so they can tap things like the computer, benches, jukebox, bowling, etc. to be able to interact. Added leave buttons for bowling/ring toss, Stand Up button, look joystick while seated, stickman hidden on mobile.
 
 Priority order:
 7 > 5 > 4/3 > 8 > 12 > 13 > 11 > 9 > 2 > 1 > 10 > 14/15 > 6
