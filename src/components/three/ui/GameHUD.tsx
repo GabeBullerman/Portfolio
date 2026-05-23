@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { BowlState, RTossState, RTOSS_RINGS } from '../constants'
 
 interface BowlDisplay  { state: BowlState;  score: number; hs: number }
@@ -44,6 +44,8 @@ export default function GameHUD({
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   const hasNearby = nearBowl || nearRToss || nearBench || nearLadder || nearSwitch || nearProject || nearChair
+  const moveTouchId = useRef(-1)
+  const lookTouchId = useRef(-1)
   return (
     <>
       {/* "Use computer" prompt when near the chair */}
@@ -295,11 +297,16 @@ export default function GameHUD({
           {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
             className="absolute left-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
-            onTouchStart={(e) => { e.preventDefault(); touchActiveRef.current = true }}
+            onTouchStart={(e) => {
+              e.preventDefault()
+              moveTouchId.current = e.changedTouches[0].identifier
+              touchActiveRef.current = true
+            }}
             onTouchMove={(e) => {
               e.preventDefault()
+              const touch = Array.from(e.touches).find(t => t.identifier === moveTouchId.current)
+              if (!touch) return
               const rect = e.currentTarget.getBoundingClientRect()
-              const touch = e.touches[0]
               const x = Math.max(-1, Math.min(1, ((touch.clientX - rect.left) / rect.width) * 2 - 1))
               const y = Math.max(-1, Math.min(1, ((touch.clientY - rect.top) / rect.height) * 2 - 1))
               touchMoveRef.current = { x, y }
@@ -307,9 +314,12 @@ export default function GameHUD({
             }}
             onTouchEnd={(e) => {
               e.preventDefault()
-              touchActiveRef.current = false
-              touchMoveRef.current = { x: 0, y: 0 }
-              setJoyPos({ x: 0, y: 0 })
+              if (Array.from(e.changedTouches).some(t => t.identifier === moveTouchId.current)) {
+                moveTouchId.current = -1
+                touchActiveRef.current = false
+                touchMoveRef.current = { x: 0, y: 0 }
+                setJoyPos({ x: 0, y: 0 })
+              }
             }}
           >
             <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">
@@ -327,11 +337,16 @@ export default function GameHUD({
           {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
             className="absolute right-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
-            onTouchStart={(e) => { e.preventDefault(); lookActiveRef.current = true }}
+            onTouchStart={(e) => {
+              e.preventDefault()
+              lookTouchId.current = e.changedTouches[0].identifier
+              lookActiveRef.current = true
+            }}
             onTouchMove={(e) => {
               e.preventDefault()
+              const touch = Array.from(e.touches).find(t => t.identifier === lookTouchId.current)
+              if (!touch) return
               const rect = e.currentTarget.getBoundingClientRect()
-              const touch = e.touches[0]
               const x = Math.max(-1, Math.min(1, ((touch.clientX - rect.left) / rect.width) * 2 - 1))
               const y = Math.max(-1, Math.min(1, ((touch.clientY - rect.top) / rect.height) * 2 - 1))
               lookMoveRef.current = { x, y }
@@ -339,9 +354,12 @@ export default function GameHUD({
             }}
             onTouchEnd={(e) => {
               e.preventDefault()
-              lookActiveRef.current = false
-              lookMoveRef.current = { x: 0, y: 0 }
-              setLookJoyPos({ x: 0, y: 0 })
+              if (Array.from(e.changedTouches).some(t => t.identifier === lookTouchId.current)) {
+                lookTouchId.current = -1
+                lookActiveRef.current = false
+                lookMoveRef.current = { x: 0, y: 0 }
+                setLookJoyPos({ x: 0, y: 0 })
+              }
             }}
           >
             <div className="relative w-full h-full rounded-full bg-black/40 border border-white/30">

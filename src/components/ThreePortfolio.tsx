@@ -397,8 +397,10 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
       st.camPitch = THREE.MathUtils.clamp(st.camPitch + e.movementY * MOUSE_SENS, -1.3, 1.3)
     }
     const onPointerLockChange = () => {
-      setPointerLocked(document.pointerLockElement === renderer.domElement)
-      if (document.pointerLockElement === renderer.domElement && !musicStarted.current) {
+      const locked = document.pointerLockElement === renderer.domElement
+      setPointerLocked(locked)
+      if (!locked) keys.clear()
+      if (locked && !musicStarted.current) {
         musicStarted.current = true
         playTrack(0)
       }
