@@ -27,7 +27,7 @@ const PLAYLIST = [
 ] as const
 
 // ─── Main component ──────────────────────────────────────────────────────────
-export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
+export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit: () => void; skipMonitor?: boolean }) {
   const mountRef          = useRef<HTMLDivElement>(null)
   const [pointerLocked, setPointerLocked] = useState(false)
   const [joyPos, setJoyPos]               = useState({ x: 0, y: 0 })
@@ -122,8 +122,8 @@ export default function ThreePortfolio({ onExit }: { onExit: () => void }) {
   const screenMatRef    = useRef<any>(null)
   const inCabinPrevRef  = useRef(true)
   // Monitor / go-outside
-  const [monitorMode, setMonitorMode] = useState(true)
-  const goOutsideRef    = useRef(false)
+  const [monitorMode, setMonitorMode] = useState(!skipMonitor)
+  const goOutsideRef    = useRef(skipMonitor)
   const goToComputerRef = useRef(false)
   const dayEnvRef = useRef<THREE.Texture | null>(null)
   // Cinematic camera transition

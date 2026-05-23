@@ -74,12 +74,14 @@ function TwoDApp({ onExplore }: { onExplore: () => void }) {
 export default function App() {
   const [mode3D, setMode3D] = useState(() => window.innerWidth >= 768)
   const [showMobileWarning, setShowMobileWarning] = useState(false)
+  const [skipMonitor, setSkipMonitor] = useState(false)
 
   const handleExplore = () => {
     const isMobile = window.innerWidth < 768
     if (isMobile) {
       setShowMobileWarning(true)
     } else {
+      setSkipMonitor(false)
       setMode3D(true)
     }
   }
@@ -91,7 +93,7 @@ export default function App() {
           Loading 3D world...
         </div>
       }>
-        <ThreePortfolio onExit={() => setMode3D(false)} />
+        <ThreePortfolio onExit={() => setMode3D(false)} skipMonitor={skipMonitor} />
       </Suspense>
     )
   }
@@ -101,7 +103,7 @@ export default function App() {
       <TwoDApp onExplore={handleExplore} />
       {showMobileWarning && (
         <MobileWarningModal
-          onConfirm={() => { setShowMobileWarning(false); setMode3D(true) }}
+          onConfirm={() => { setShowMobileWarning(false); setSkipMonitor(true); setMode3D(true) }}
           onCancel={() => setShowMobileWarning(false)}
         />
       )}

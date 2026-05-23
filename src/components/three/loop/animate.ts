@@ -395,7 +395,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         const s = BENCH_POSITIONS[p.seatIdxRef.current]
         p.player.position.set(s.x, -0.46, s.z); p.player.rotation.y = Math.atan2(p.FIRE_POS.x - s.x, p.FIRE_POS.z - s.z)
         p.lLegPivot.rotation.x = -Math.PI / 2.8; p.rLegPivot.rotation.x = -Math.PI / 2.8; p.lKnee.rotation.x = Math.PI / 2.0; p.rKnee.rotation.x = Math.PI / 2.0; p.lArmPivot.rotation.x = 0.1; p.rArmPivot.rotation.x = 0.1
-        p.camera.position.lerp(new THREE.Vector3(s.x - (p.FIRE_POS.x - s.x) * 0.5, 1.8, s.z - (p.FIRE_POS.z - s.z) * 0.5), 0.07); p.camera.lookAt(new THREE.Vector3(p.FIRE_POS.x, 0.7, p.FIRE_POS.z))
+        // Camera handled by general tpTarget code — look joystick can freely orbit while seated
       } else if (p.sittingAtRef.current === 'chair') {
         const chairWorld = p.CHAIR_LOCAL_POS.clone(); p.cabGrp.localToWorld(chairWorld)
         const monitorWorld = p.MONITOR_LOCAL_POS.clone(); p.cabGrp.localToWorld(monitorWorld)

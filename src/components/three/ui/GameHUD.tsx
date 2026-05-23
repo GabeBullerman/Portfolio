@@ -107,12 +107,13 @@ export default function GameHUD({
 
       {/* Bowling overlay */}
       {bowlDisplay.state !== 'idle' && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
           <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
             <span>Score: <span className="text-yellow-300">{bowlDisplay.score}</span></span>
             <span className="opacity-40">|</span>
             <span>Best: <span className="text-green-300">{bowlDisplay.hs}</span></span>
           </div>
+          <div className="flex-1 flex items-center">
           <div className="text-center">
             {bowlDisplay.state === 'aiming' && (
               <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-4 rounded-2xl text-sm space-y-3 min-w-64">
@@ -151,6 +152,7 @@ export default function GameHUD({
               </div>
             )}
           </div>
+          </div>
         </div>
       )}
 
@@ -166,9 +168,21 @@ export default function GameHUD({
         </button>
       )}
 
+      {/* Mobile bowling leave button */}
+      {(bowlDisplay.state === 'aiming' || bowlDisplay.state === 'result') && (
+        <button
+          className="md:hidden absolute left-6 z-30 px-5 py-3 bg-white/15 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm pointer-events-auto"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+          onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) }}
+          onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true })) }}
+        >
+          Leave Lane
+        </button>
+      )}
+
       {/* Ring toss overlay */}
       {rtossDisplay.state !== 'idle' && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between"
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center"
           style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
           <div className="flex gap-8 bg-black/70 backdrop-blur-sm text-white px-8 py-3 rounded-full text-sm font-bold">
             <span>Ring <span className="text-yellow-300">{rtossDisplay.thrown}</span>/{RTOSS_RINGS}</span>
@@ -177,6 +191,7 @@ export default function GameHUD({
             <span className="opacity-40">|</span>
             <span>Best: <span className="text-green-300">{rtossDisplay.hs}</span></span>
           </div>
+          <div className="flex-1 flex items-center">
           <div className="text-center">
             {rtossDisplay.state === 'aiming' && (
               <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-4 rounded-2xl text-sm space-y-3 min-w-64">
@@ -213,6 +228,7 @@ export default function GameHUD({
               </div>
             )}
           </div>
+          </div>
         </div>
       )}
 
@@ -225,6 +241,18 @@ export default function GameHUD({
           onTouchEnd={(e) => { e.preventDefault(); dispatchE('keyup') }}
         >
           {rtossDisplay.state === 'aiming' ? 'Throw' : 'Play Again'}
+        </button>
+      )}
+
+      {/* Mobile ring toss leave button */}
+      {(rtossDisplay.state === 'aiming' || rtossDisplay.state === 'result') && (
+        <button
+          className="md:hidden absolute left-6 z-30 px-5 py-3 bg-white/15 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm pointer-events-auto"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+          onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) }}
+          onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true })) }}
+        >
+          Leave
         </button>
       )}
 
@@ -386,7 +414,7 @@ export default function GameHUD({
           </div>}
 
           {/* Mobile look joystick — right side */}
-          {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && <div
+          {!monitorMode && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && <div
             className="absolute right-6 z-30 w-28 h-28 md:hidden touch-none select-none"
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
             onTouchStart={(e) => {

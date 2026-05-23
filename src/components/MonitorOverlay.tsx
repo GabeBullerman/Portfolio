@@ -125,7 +125,7 @@ export default function MonitorOverlay({
 
         {/* Stick figure — original pose/layout with themed colors */}
         <div
-          className="fixed z-50 pointer-events-none select-none"
+          className="hidden md:block fixed z-50 pointer-events-none select-none"
           style={{
             right: 0,
             top: 'clamp(170px, 40%, 72vh)',
