@@ -268,20 +268,7 @@ export function createBuildings(
     scene.add(bldg)
   }, undefined, err => console.error('[buildings] single failed:', err))
 
-  // Parked car in driveway (centre x=6, driveway z=-1..11.5)
-  gltfLoader.load('/assets/outdoor/car/scene.gltf', gltf => {
-    const car = gltf.scene
-    car.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
-    })
-    car.rotation.y = Math.PI / 2
-    car.scale.setScalar(1.0)
-    const carBox = new THREE.Box3().setFromObject(car)
-    car.position.set(6, -carBox.min.y + 0.04, 3)
-    scene.add(car)
-  }, undefined, err => console.error('[car] failed:', err))
-
-  // Stone paths — fronts of Project Blvd stores (positions tunable via debug editor)
+// Stone paths — fronts of Project Blvd stores (positions tunable via debug editor)
   const blvdPathDefs = [
     { name: '🪨 Blvd Path: Duo',    x: -48.00, z: -13.40, w: 1.800, sy: 1.000, l: 6.000, ry: Math.PI / 2 },
     { name: '🪨 Blvd Path: Duo 2',  x: -49.50, z: -22.65, w: 1.800, sy: 1.000, l: 6.000, ry: Math.PI / 2 },

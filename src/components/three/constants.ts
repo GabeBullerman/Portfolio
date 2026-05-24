@@ -53,6 +53,7 @@ export const RTOSS_POST_R  = 0.044
 // ─── Ball pit + trampoline constants ─────────────────────────────────────────
 export const PIT_CX   = 28
 export const PIT_CZ   = -19
+export const PIT_R    = 2.2   // half-side of the square pit
 export const TRAMP_CX = 20
 export const TRAMP_CZ = -72
 export const TRAMP_R  = 4.8
@@ -60,4 +61,11 @@ export const TRAMP_Y  = 2.0   // trampoline surface height
 export const LADDER_X = TRAMP_CX                       // south side — centered in X
 export const LADDER_Z = TRAMP_CZ + TRAMP_R + 0.12     // flush with south rim
 export const LADDER_PROX = 2.2
+
+// ─── Car constants ────────────────────────────────────────────────────────────
+export const CAR_X             = 6.15
+export const CAR_Y             = 0
+export const CAR_Z             = 6.75
+export const CAR_INITIAL_ANGLE = 88.4 * Math.PI / 180
+export const CAR_PROX          = 3.5
 

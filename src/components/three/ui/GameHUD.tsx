@@ -19,6 +19,8 @@ interface GameHUDProps {
   nearProjectLabel: string
   sitting:          boolean
   climbing:         boolean
+  nearCar:          boolean
+  driving:          boolean
   bowlDisplay:    BowlDisplay
   rtossDisplay:   RTossDisplay
   joyPos:         { x: number; y: number }
@@ -37,14 +39,14 @@ export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
   nearProject, nearProjectLabel,
-  sitting, climbing,
+  sitting, climbing, nearCar, driving,
   bowlDisplay, rtossDisplay,
   joyPos, powerBarRef, rPowerBarRef,
   touchMoveRef, touchActiveRef, setJoyPos,
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   // nearLadder excluded: climbing uses joystick-up (W), not the E/Inspect button
-  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio
+  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar
   const moveTouchId = useRef(-1)
   const lookTouchId = useRef(-1)
 
@@ -54,6 +56,7 @@ export default function GameHUD({
     : nearRToss  ? 'Ring Toss'
     : nearChair  ? 'Use Computer'
     : nearBench  ? 'Sit Down'
+    : nearCar    ? 'Enter Car'
     : nearRadio  ? (musicMuted ? 'Unmute Music' : 'Mute Music')
     : nearSwitch ? 'Toggle Light'
     : 'Interact'
@@ -279,6 +282,34 @@ export default function GameHUD({
             </div>
           )}
 
+          {/* Near car hint — desktop only */}
+          {nearCar && !sitting && !driving && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
+            <div
+              className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to drive
+            </div>
+          )}
+
+          {/* Driving hints */}
+          {driving && (
+            <>
+              <div className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}>
+                WASD drive &nbsp;·&nbsp; <kbd className="font-bold mx-1">E</kbd> or <kbd className="font-bold mx-1">Esc</kbd> exit
+              </div>
+              <button
+                className="md:hidden absolute left-1/2 -translate-x-1/2 z-30 px-6 py-3 bg-white/20 backdrop-blur-sm text-white border border-white/40 rounded-full font-bold text-sm pointer-events-auto"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
+                onTouchStart={(e) => { e.preventDefault(); dispatchE('keydown') }}
+                onTouchEnd={(e) => { e.preventDefault(); dispatchE('keyup') }}
+              >
+                Exit Car
+              </button>
+            </>
+          )}
+
           {/* Bench sit hint — desktop only */}
           {nearBench && !sitting && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
             <div
@@ -354,7 +385,7 @@ export default function GameHUD({
           )}
 
           {/* Desktop controls bar */}
-          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && (
+          {bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && !sitting && !driving && (
             <div
               className="hidden md:flex absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/50 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}

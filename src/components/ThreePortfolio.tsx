@@ -12,6 +12,7 @@ import { createPlayer } from './three/setup/createPlayer'
 import { createCliff } from './three/setup/createCliff'
 import { createProjectDisplays } from './three/setup/createProjectDisplays'
 import { createPark } from './three/setup/createPark'
+import { createCar } from './three/setup/createCar'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
@@ -66,6 +67,10 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const [nearBench, setNearBench] = useState(false)
   const [sitting, setSitting]     = useState(false)
   const sittingRef    = useRef(false)
+  const [nearCar, setNearCar]   = useState(false)
+  const [driving, setDriving]   = useState(false)
+  const nearCarRef  = useRef(false)
+  const drivingRef  = useRef(false)
   const nearBenchRef  = useRef(false)
   const seatIdxRef    = useRef(0)
   // Chair sit
@@ -202,6 +207,9 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const { addSidewalk } = createPark(scene, movablesRef.current, cylCols, boxCols)
     addSidewalkRef.current = addSidewalk
 
+    // ── Car ───────────────────────────────────────────────────────────────────
+    const { carGrp, carCol, carHitboxGrp } = createCar(scene, movablesRef.current, cylCols)
+
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
 
     // ── Buildings ─────────────────────────────────────────────────────────
@@ -312,6 +320,16 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (mapped === 'e' || e.key === ' ') { e.preventDefault(); resetBowling(); bowlStateRef.current = 'aiming'; setBowlDisplay(p => ({ ...p, state: 'aiming', score: 0 })) }
         else if (e.key === 'Escape') { resetBowling(); bowlStateRef.current = 'idle'; setBowlDisplay(p => ({ ...p, state: 'idle' })); setNearBowl(false); nearBowlRef.current = false }
         return
+      }
+      // Exit car on E or Escape (WASD steers while driving, so don't exit on movement)
+      if (drivingRef.current && (mapped === 'e' || e.key === 'Escape')) {
+        drivingRef.current = false; setDriving(false)
+        nearCarRef.current = false; setNearCar(false)
+        relockRef.current?.(); return
+      }
+      // Enter car
+      if (mapped === 'e' && nearCarRef.current && !drivingRef.current && !sittingRef.current && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle') {
+        drivingRef.current = true; setDriving(true); document.exitPointerLock(); return
       }
       if (sittingRef.current && (mapped === 'e' || ['w', 'a', 's', 'd'].includes(mapped))) {
         sittingRef.current = false; sittingAtRef.current = null; setSitting(false)
@@ -444,6 +462,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       interactZones:        projectDisplays.interactZones,
       nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
       setNearProject,
+      carGrp, carCol, carHitboxGrp, drivingRef, nearCarRef, setNearCar, setDriving,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -481,7 +500,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
       {nowPlaying && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full pointer-events-none select-none animate-fade-in">

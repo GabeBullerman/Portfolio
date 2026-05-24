@@ -4,7 +4,7 @@ import { mulberry32 } from '../helpers'
 import { CylCol, BoxCol, DuckData } from '../types'
 import {
   BENCH_POSITIONS,
-  PIT_CX, PIT_CZ,
+  PIT_CX, PIT_CZ, PIT_R as PIT_R_CONST,
   TRAMP_CX, TRAMP_CZ, TRAMP_R, TRAMP_Y,
   LADDER_X, LADDER_Z,
 } from '../constants'
@@ -174,7 +174,7 @@ export function createProps(
   }
 
   // ── Ball pit ──────────────────────────────────────────────────────────
-  const PIT_R  = 2.2, PIT_WALL_H = 0.55
+  const PIT_R  = PIT_R_CONST, PIT_WALL_H = 0.55
   const BALL_R = 0.14
 
   const balls: { mesh: THREE.Mesh; body: CANNON.Body }[] = []
@@ -324,7 +324,7 @@ export function createProps(
   boxCols.push({ x0: LADDER_X - 0.45, x1: LADDER_X + 0.45, z0: LADDER_Z - 0.18, z1: LADDER_Z + 0.18, maxY: TRAMP_Y + 0.2 })
 
   return {
-    FIRE_POS,
+    FIRE_POS: campfireGrp.position, // live reference — always tracks actual group position
     campfireGrp,
     flameMat, flameMesh, innerFlameMesh, fireLight,
     ffMesh, ffData,

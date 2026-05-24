@@ -60,12 +60,48 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     addDebug(sk, '🛹 Skatepark')
   }, undefined, err => console.error('[skatepark]', err))
 
+  // ── Skatepark + Playground collision ─────────────────────────────────────
+  // Skatepark Col A: center(29.00, 0.63, -58.50) size(7.10 × 1.60 × 7.10) rot 0°
+  boxCols.push({ x0: 25.45, x1: 32.55, z0: -62.05, z1: -54.95, maxY: 1.43 })
+  // Skatepark Col B: center(12.00, 1.28, -57.20) size(7.50 × 2.55 × 4.90) rot 0°
+  boxCols.push({ x0:  8.25, x1: 15.75, z0: -59.65, z1: -54.75, maxY: 2.56 })
+  // Playground Col A: center(5.50,-76.50) size(1.50×5.05) rot-30° → cylCols chain along long axis
+  // long-axis dir: (sin-30°, cos-30°) = (-0.5, 0.866), r = short-half = 0.75, spaced 1.7
+  ;[{ x: 5.50, z: -76.50 }, { x: 4.65, z: -75.03 }, { x: 6.35, z: -77.97 }]
+    .forEach(c => cylCols.push({ x: c.x, z: c.z, r: 0.75, maxY: 3.75 }))
+  // Playground Col B: center(10.00,-76.00) size(4.00×2.00) rot-30° → cylCols chain, r=1.0 spaced 1.5
+  ;[{ x: 9.25, z: -74.70 }, { x: 10.00, z: -76.00 }, { x: 10.75, z: -77.30 }]
+    .forEach(c => cylCols.push({ x: c.x, z: c.z, r: 1.0, maxY: 3.60 }))
+
+  // ── Fence-lining short-wide bushes (baked from debug tuning) ─────────────
+  loadGLB('/assets/outdoor/park stuff/bushes/short wide/Untitled.glb').then(bushRef => {
+    const SP = 1.5
+    const segments: { cx: number; cz: number; sx: number; sz: number; len: number; axis: 'x'|'z'; bushRy: number }[] = [
+      { cx: -23.55, cz:  -2.00, sx: 0.984, sz: 1.000, len: 26.5, axis: 'x', bushRy:           0 },
+      { cx:  22.10, cz:  -2.00, sx: 0.951, sz: 1.000, len: 30.0, axis: 'x', bushRy:           0 },
+      { cx: -29.05, cz: -24.95, sx: 1.000, sz: 0.970, len: 33.9, axis: 'z', bushRy:  Math.PI / 2 },
+      { cx: -29.00, cz: -72.55, sx: 1.000, sz: 0.990, len: 32.0, axis: 'z', bushRy:  Math.PI / 2 },
+      { cx:  30.90, cz: -26.50, sx: 1.000, sz: 1.000, len: 33.9, axis: 'z', bushRy: -Math.PI / 2 },
+      { cx:  30.90, cz: -74.60, sx: 1.000, sz: 0.990, len: 32.0, axis: 'z', bushRy: -Math.PI / 2 },
+    ]
+    segments.forEach(({ cx, cz, sx, sz, len, axis, bushRy }) => {
+      const grp = new THREE.Group()
+      grp.position.set(cx, 0, cz)
+      grp.scale.set(sx, 1, sz)
+      const half = len / 2
+      for (let t = -half; t <= half; t += SP) {
+        const b = bushRef.clone(true)
+        b.position.set(axis === 'x' ? t : 0, 0, axis === 'z' ? t : 0)
+        b.rotation.y = bushRy
+        grp.add(b)
+      }
+      scene.add(grp)
+    })
+  }).catch(err => console.error('[bush-lines]', err))
+
   // ── Individual park pieces ─────────────────────────────────────────────
   const singles = [
-    { name: '🌿 Bush (sphere)',     path: '/assets/outdoor/park stuff/bushes/short sphere/Untitled.glb',         pos: null as [number,number,number] | null, scale: null as number | null, rot: null as number | null },
-    { name: '🌿 Bush (short wide)', path: '/assets/outdoor/park stuff/bushes/short wide/Untitled.glb',           pos: null, scale: null, rot: null },
-    { name: '🌿 Bush (tall wide)',  path: '/assets/outdoor/park stuff/bushes/tall wide/Untitled.glb',            pos: null, scale: null, rot: null },
-    { name: '🛝 Playground',       path: '/assets/outdoor/park stuff/playground/Untitled.glb',   pos: [8.47, 0, -77.14] as [number,number,number], scale: null, rot: -Math.PI / 6 },
+{ name: '🛝 Playground',       path: '/assets/outdoor/park stuff/playground/Untitled.glb',   pos: [8.47, 0, -77.14] as [number,number,number], scale: null, rot: -Math.PI / 6 },
     { name: '🚩 Street Sign',      path: '/assets/outdoor/park stuff/street sign/Untitled.glb',  pos: [-2.23, 0, -8.67] as [number,number,number], scale: 2, rot: null },
     { name: '🗑️ Trashcan',        path: '/assets/outdoor/park stuff/trashcan/Untitled.glb',                    pos: null, scale: null, rot: null },
   ]
@@ -85,12 +121,68 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
         mesh.position.set(x, 0, z)
         if (scale) mesh.scale.setScalar(scale)
         if (rot != null) mesh.rotation.y = rot
+        mesh.traverse(c => {
+          if ((c as THREE.Mesh).isMesh) {
+            const mat = (c as THREE.Mesh).material as THREE.MeshStandardMaterial
+            if (mat) {
+              mat.side = THREE.DoubleSide
+              if (mat.transparent && mat.opacity > 0.9) { mat.alphaTest = 0.4; mat.transparent = false }
+            }
+          }
+        })
         addDebug(mesh, name)
       }
       // Consume rng slots for non-pinned items to keep other items' positions stable
       if (pos) { rng(); rng() }
     })
   }).catch(err => console.error('[park-singles]', err))
+
+  // ── Sphere bushes — scattered randomly, no hitboxes ─────────────────────
+  loadGLB('/assets/outdoor/park stuff/bushes/short sphere/Untitled.glb').then(sphereBase => {
+    const bushExcl: [number, number, number, number][] = [
+      // Campfire seating
+      [-20,  0,  -28, -11],
+      // Pond
+      [-33, -15,  -44, -27],
+      // Ball Pit
+      [ 22, 34,  -25, -13],
+      // Ring Toss
+      [  8, 16,  -33, -13],
+      // Bowling Alley
+      [ 13, 25,  -39, -13],
+      // Trampoline
+      [ 12, 28,  -80, -64],
+      // Skatepark
+      [  6, 32,  -71, -44],
+      // Playground
+      [  1, 16,  -85, -69],
+      // Sidewalk N-S spine
+      [ -3,  5,  -50,  -6],
+      // Sidewalk E-W arms + 4-way
+      [-37,  2,  -52, -43],
+      [  0, 39,  -52, -43],
+      // Sidewalk lower spine
+      [ -3,  5,  -77, -46],
+      // West fence bush line corridor (x≈-29, full z range)
+      [-36, -25,  -87, -13],
+      // East fence bush line corridor (x≈31, full z range)
+      [ 26,  37,  -87, -13],
+    ]
+    const inBushExcl = (x: number, z: number) =>
+      bushExcl.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)
+    const bushRng = mulberry32(8321)
+    for (let i = 0; i < 20; i++) {
+      const bx = -33 + bushRng() * 68
+      const bz = -13 - bushRng() * 74
+      const sc = 0.7 + bushRng() * 0.8
+      const ry = bushRng() * Math.PI * 2
+      if (inBushExcl(bx, bz)) continue
+      const b = sphereBase.clone(true)
+      b.position.set(bx, 0, bz)
+      b.scale.setScalar(sc); b.rotation.y = ry
+      scene.add(b)
+    }
+  }).catch(err => console.error('[park-bushes]', err))
 
   // ── Pre-placed sidewalks: 4 straight arms + 1 4-way connector ─────────────
   Promise.all([
@@ -148,9 +240,9 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     // Each entry uses world positions + a comfortable buffer so no tree overlaps anything.
     const excl: [number, number, number, number][] = [
       // Campfire seating (-10, -19.5)
-      [-16,  -4,  -26, -13],
-      // Pond (-24, -36) r=3.2
-      [-31, -17,  -43, -29],
+      [-18,  -2,  -28, -11],
+      // Pond (-24, -36) r=3.2 — extra buffer so large tree canopies don't reach water
+      [-33, -15,  -44, -27],
       // Ball Pit (28, -19) r≈2.5
       [ 22,  34,  -25, -13],
       // Ring Toss (12, -23) platform 3×14
@@ -164,16 +256,25 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       // Playground (8.47, -77.14) rot -30°
       [  1,  16,  -85, -69],
       // Sidewalk 1 (1, -27.4) N-S spine
-      [ -2,   4,  -49,  -6],
+      [ -3,   5,  -50,  -6],
       // Sidewalk 2 (-18.4, -47.85) E-W cross arm
-      [-37,   2,  -51, -44],
+      [-37,   2,  -52, -43],
       // Sidewalk 3 (20.4, -47.8) E-W cross arm
-      [  0,  39,  -51, -44],
+      [  0,  39,  -52, -43],
       // Sidewalk 4 (1, -61.5) N-S lower spine
-      [ -2,   4,  -76, -47],
+      [ -3,   5,  -77, -46],
+      // West fence interior — keep trees away from fence line
+      [-33, -26,  -87, -13],
+      // East fence interior — keep trees away from fence line
+      [ 26,  35,  -87, -13],
     ]
-    const inExcl = (x: number, z: number) =>
-      excl.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)
+    // Pond gets a circular check — rectangular zones miss trees whose canopies hang over water
+    const POND_CX = -24, POND_CZ = -36, POND_EXCL_R2 = 10 * 10
+    const inExcl = (x: number, z: number) => {
+      const dx = x - POND_CX, dz = z - POND_CZ
+      if (dx * dx + dz * dz < POND_EXCL_R2) return true
+      return excl.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)
+    }
 
     const treeRng = mulberry32(7777)
     ;[
@@ -323,7 +424,9 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       })
     })
 
+
   }).catch(err => console.error('[park-trees-fences]', err))
+
 
   // ── Add Sidewalk (button in debug overlay) ───────────────────────────────
   const addSidewalk = () => {
