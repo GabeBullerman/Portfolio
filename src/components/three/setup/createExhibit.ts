@@ -30,17 +30,36 @@ export function createExhibit(
   const updateFns: Array<(elapsed: number, delta: number) => void> = []
   let startCradle = () => { /* assigned below */ }
 
+  // ── Pedestal GLB — loaded once, cloned for every placement ─────────────────
+  const gltfLoader = new GLTFLoader()
+  let pedestalBase: THREE.Group | null = null
+  const pedestalPending: Array<{ grp: THREE.Group; h: number }> = []
+
+  function applyPedestalGLB(grp: THREE.Group, base: THREE.Group, h: number) {
+    const clone = base.clone(true)
+    clone.traverse(c => {
+      if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
+    })
+    const box = new THREE.Box3().setFromObject(clone)
+    const modelH = box.max.y - box.min.y
+    const s = modelH > 0 ? h / modelH : 1
+    clone.scale.setScalar(s)
+    clone.position.y = -box.min.y * s
+    grp.add(clone)
+  }
+
+  gltfLoader.load('/assets/outdoor/park stuff/exhibit/pedestals/Pedestal.glb', gltf => {
+    pedestalBase = gltf.scene
+    pedestalPending.forEach(({ grp, h }) => applyPedestalGLB(grp, pedestalBase!, h))
+    pedestalPending.length = 0
+  }, undefined, err => console.error('[pedestal]', err))
+
   function pedestal(x: number, z: number, h = 1.1, name?: string) {
     const grp = new THREE.Group()
     grp.position.set(x, 0, z)
-    const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.36, h, 8),
-      new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.9, metalness: 0.2 }),
-    )
-    mesh.position.y = h / 2
-    mesh.castShadow = true; mesh.receiveShadow = true
-    grp.add(mesh)
     scene.add(grp)
+    if (pedestalBase) applyPedestalGLB(grp, pedestalBase, h)
+    else pedestalPending.push({ grp, h })
     if (name) movables.push({ name, group: grp, scaleObj: grp })
     return grp
   }
@@ -406,12 +425,7 @@ export function createExhibit(
   // ── Orbital Orrery ───────────────────────────────────────────────────────
   {
     const OX = EXHIBIT_CX, OZ = EXHIBIT_CZ + 3, PH = 2.4
-    const pedMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.3, 0.4, PH, 10),
-      new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.9, metalness: 0.3 }),
-    )
-    pedMesh.position.set(OX, PH / 2, OZ); pedMesh.castShadow = true; pedMesh.receiveShadow = true
-    scene.add(pedMesh)
+    pedestal(OX, OZ, PH)
 
     const orreryGrp = new THREE.Group()
     orreryGrp.position.set(OX, PH + 0.1, OZ); scene.add(orreryGrp)
@@ -521,13 +535,7 @@ export function createExhibit(
 
     // Pedestal
     const pedH = 0.9
-    const pedMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35, 0.45, pedH, 10),
-      new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.9, metalness: 0.3 }),
-    )
-    pedMesh.position.set(SX, pedH / 2, SZ)
-    pedMesh.castShadow = true; pedMesh.receiveShadow = true
-    scene.add(pedMesh)
+    pedestal(SX, SZ, pedH)
 
     // Plaque
     const plaqCanvas = document.createElement('canvas')
