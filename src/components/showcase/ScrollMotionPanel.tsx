@@ -20,17 +20,9 @@ type DragState = {
   lastY: number
 }
 
-function getCssVariable(name: string, fallback: string) {
-  if (typeof window === 'undefined') return fallback
+type SceneColors = { muted: string; subtle: string; accent2: string }
 
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim()
-
-  return value || fallback
-}
-
-function ScrollScene({ progress }: { progress: number }) {
+function ScrollScene({ progress, sceneColors }: { progress: number; sceneColors: SceneColors }) {
   const groupRef = useRef<THREE.Group>(null)
   const torusRef = useRef<THREE.Mesh>(null)
   const coneRef = useRef<THREE.Mesh>(null)
@@ -42,30 +34,7 @@ function ScrollScene({ progress }: { progress: number }) {
     lastY: 0,
   })
 
-  const [themeVersion, setThemeVersion] = useState(0)
   const { camera } = useThree()
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setThemeVersion((current) => current + 1)
-    })
-
-    const onThemeChange = () => setThemeVersion((v) => v + 1)
-    window.addEventListener('theme-change', onThemeChange)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('theme-change', onThemeChange)
-    }
-  }, [])
-
-  const sceneColors = useMemo(() => {
-    return {
-      muted: getCssVariable('--text-muted', '#cbd5e1'),
-      subtle: getCssVariable('--text-subtle', '#94a3b8'),
-      accent2: getCssVariable('--accent-2', '#cbd5e1'),
-    }
-  }, [themeVersion])
 
   const particles = useMemo(() => {
     const count = 500
@@ -238,9 +207,28 @@ function ScrollScene({ progress }: { progress: number }) {
   )
 }
 
+function getCssVar(name: string, fallback: string) {
+  if (typeof window === 'undefined') return fallback
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
 export default function ScrollMotionPanel() {
   const [progress, setProgress] = useState(0)
+  const [sceneColors, setSceneColors] = useState<SceneColors>(() => ({
+    muted: getCssVar('--text-muted', '#cbd5e1'),
+    subtle: getCssVar('--text-subtle', '#94a3b8'),
+    accent2: getCssVar('--accent-2', '#cbd5e1'),
+  }))
   const scrollBoxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onThemeChange = (e: Event) => {
+      const p = (e as CustomEvent).detail
+      setSceneColors({ muted: p.textMuted, subtle: p.textSubtle, accent2: p.accent2 })
+    }
+    window.addEventListener('theme-change', onThemeChange)
+    return () => window.removeEventListener('theme-change', onThemeChange)
+  }, [])
 
   const progressPercent = Math.round(progress * 100)
 
@@ -329,7 +317,7 @@ export default function ScrollMotionPanel() {
         >
           <Canvas camera={{ position: [0, 0, 6], fov: 35 }} dpr={[1, 1.75]}>
             <color attach="background" args={['#05070a']} />
-            <ScrollScene progress={progress} />
+            <ScrollScene progress={progress} sceneColors={sceneColors} />
           </Canvas>
 
           <div className="absolute left-5 top-5 flex flex-wrap gap-2">

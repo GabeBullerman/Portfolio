@@ -12,44 +12,23 @@ const galaxyParameters = {
   randomnessPower: 2.3,
 }
 
-function getCssVariable(name: string, fallback: string) {
+function getCssVar(name: string, fallback: string) {
   if (typeof window === 'undefined') return fallback
-
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim()
-
-  return value || fallback
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }
 
-function GalaxyParticles() {
+type GalaxyColors = { accent: string; accent2: string }
+
+function GalaxyParticles({ colors: themeColors }: { colors: GalaxyColors }) {
   const pointsRef = useRef<THREE.Points>(null)
   const [hovered, setHovered] = useState(false)
-  const [themeVersion, setThemeVersion] = useState(0)
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setThemeVersion((current) => current + 1)
-    })
-
-    const onThemeChange = () => setThemeVersion((v) => v + 1)
-    window.addEventListener('theme-change', onThemeChange)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('theme-change', onThemeChange)
-    }
-  }, [])
 
   const { positions, colors } = useMemo(() => {
     const positionsArray = new Float32Array(galaxyParameters.count * 3)
     const colorsArray = new Float32Array(galaxyParameters.count * 3)
 
-    const accent = getCssVariable('--accent', '#8b5cf6')
-    const accent2 = getCssVariable('--accent-2', '#c4b5fd')
-
-    const colorInside = new THREE.Color(accent2)
-    const colorOutside = new THREE.Color(accent)
+    const colorInside = new THREE.Color(themeColors.accent2)
+    const colorOutside = new THREE.Color(themeColors.accent)
 
     for (let i = 0; i < galaxyParameters.count; i++) {
       const i3 = i * 3
@@ -93,7 +72,7 @@ function GalaxyParticles() {
       positions: positionsArray,
       colors: colorsArray,
     }
-  }, [themeVersion])
+  }, [themeColors.accent, themeColors.accent2])
 
   useFrame((state) => {
     if (!pointsRef.current) return
@@ -146,6 +125,20 @@ function GalaxyParticles() {
 }
 
 export default function GalaxyPreview() {
+  const [themeColors, setThemeColors] = useState<GalaxyColors>(() => ({
+    accent: getCssVar('--accent', '#8b5cf6'),
+    accent2: getCssVar('--accent-2', '#c4b5fd'),
+  }))
+
+  useEffect(() => {
+    const onThemeChange = (e: Event) => {
+      const p = (e as CustomEvent).detail
+      setThemeColors({ accent: p.accent, accent2: p.accent2 })
+    }
+    window.addEventListener('theme-change', onThemeChange)
+    return () => window.removeEventListener('theme-change', onThemeChange)
+  }, [])
+
   return (
     <div
       className="group relative overflow-hidden rounded-3xl"
@@ -224,7 +217,7 @@ export default function GalaxyPreview() {
               speed={0.35}
             />
 
-            <GalaxyParticles />
+            <GalaxyParticles colors={themeColors} />
 
             <OrbitControls
   target={[0, 0, 0]}

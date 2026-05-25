@@ -182,7 +182,7 @@ export function setTheme(name: string) {
   if (!palette) return
   localStorage.setItem('theme', name)
   applyPalette(palette)
-  window.dispatchEvent(new CustomEvent('theme-change', { detail: name }))
+  window.dispatchEvent(new CustomEvent('theme-change', { detail: palette }))
 }
 
 export { PALETTES }
@@ -194,6 +194,7 @@ export function useTheme(onApplied?: (name: string) => void) {
     // Random every load unless user explicitly saved a preference
     const palette = saved ?? PALETTES[Math.floor(Math.random() * PALETTES.length)]
     applyPalette(palette)
+    window.dispatchEvent(new CustomEvent('theme-change', { detail: palette }))
     onApplied?.(palette.name)
 
     return () => {
