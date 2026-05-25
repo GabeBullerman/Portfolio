@@ -381,9 +381,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
-      const tgtAmbient = inCabin ? 0.5  : 1.2
-      const tgtSun     = inCabin ? 0.25 : 1.4
-      const tgtExp     = inCabin ? 0.65 : 0.65
+      // 0 = door closed, 1 = door fully open
+      const doorFraction = p.doorPivotRef.current
+        ? Math.min(1, -p.doorRotRef.current / (Math.PI * 0.72))
+        : 0
+      const tgtAmbient = inCabin ? THREE.MathUtils.lerp(0.5,  1.2, doorFraction) : 1.2
+      const tgtSun     = inCabin ? THREE.MathUtils.lerp(0.25, 1.4, doorFraction) : 1.4
+      const tgtExp     = inCabin ? THREE.MathUtils.lerp(0.65, 0.85, doorFraction) : 0.65
       if (p.ambientLightRef.current) p.ambientLightRef.current.intensity = THREE.MathUtils.lerp(p.ambientLightRef.current.intensity, tgtAmbient, delta * 3)
       if (p.sunLightRef.current)     p.sunLightRef.current.intensity     = THREE.MathUtils.lerp(p.sunLightRef.current.intensity,     tgtSun,     delta * 3)
       p.renderer.toneMappingExposure = THREE.MathUtils.lerp(p.renderer.toneMappingExposure, tgtExp, delta * 3)

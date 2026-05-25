@@ -434,7 +434,8 @@ export function createCabin(
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.85, metalness: 0.02 })
 
   const doorPivot = new THREE.Group()
-  doorPivot.position.set(-4.00, 2.05, 0.25)
+  doorPivot.position.set(-4.00, 2.05, 0.45)
+  doorPivot.scale.set(1.020, 1.100, 1.377)
   cabGrp.add(doorPivot)
   refs.doorPivotRef.current = doorPivot
 

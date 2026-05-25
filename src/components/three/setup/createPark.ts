@@ -141,7 +141,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       grp.rotation.set(...rot)
       grp.scale.setScalar(scale)
       scene.add(grp)
-      movables.push({ name, group: grp, scaleObj: grp })
     }).catch(err => console.error(`[${name}]`, err))
   })
 
@@ -404,7 +403,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       grp.position.set(cx, cy, cz)
       scene.add(grp)
       ;(grp as any).__hitMesh = mesh
-      movables.push({ name, group: grp, isHitbox: true })
       boxCols.push({
         x0: cx - w / 2, x1: cx + w / 2,
         z0: cz - d / 2, z1: cz + d / 2,
@@ -422,6 +420,18 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     sidewalkCount++
     addSidewalkMesh(sidewalkBase.clone(true), `🛤️ Sidewalk #${sidewalkCount}`, 1, -32)
   }
+
+  // ── Fountain hitbox — tune position in debug editor (`) then hardcode ───────
+  const fountainHitMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.8, 1.8, 0.9, 32),
+    new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+  )
+  const fountainHitGrp = new THREE.Group()
+  fountainHitGrp.position.set(1.00, 0.30, -47.80)
+  fountainHitGrp.add(fountainHitMesh)
+  scene.add(fountainHitGrp)
+  cylCols.push({ x: 1.00, z: -47.80, r: 1.8 })
+  movables.push({ name: '⛲ Fountain hitbox', group: fountainHitGrp, isHitbox: true, scaleObj: fountainHitGrp })
 
   return { addSidewalk }
 }
