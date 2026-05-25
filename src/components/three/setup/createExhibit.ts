@@ -163,7 +163,7 @@ export function createExhibit(
       const bz = NC_Z
 
       // Physics ball — collides with nothing (we do transfer analytically)
-      const body = new CANNON.Body({ mass: 1, linearDamping: 0.008, angularDamping: 1 })
+      const body = new CANNON.Body({ mass: 1, linearDamping: 0.014, angularDamping: 1 })
       body.addShape(new CANNON.Sphere(BALL_R))
       body.position.set(bx, by, bz)
       body.collisionFilterGroup = 2
