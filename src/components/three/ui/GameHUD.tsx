@@ -21,6 +21,7 @@ interface GameHUDProps {
   climbing:         boolean
   nearCar:          boolean
   driving:          boolean
+  nearCradle:       boolean
   bowlDisplay:    BowlDisplay
   rtossDisplay:   RTossDisplay
   joyPos:         { x: number; y: number }
@@ -39,14 +40,14 @@ export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
   nearProject, nearProjectLabel,
-  sitting, climbing, nearCar, driving,
+  sitting, climbing, nearCar, driving, nearCradle,
   bowlDisplay, rtossDisplay,
   joyPos, powerBarRef, rPowerBarRef,
   touchMoveRef, touchActiveRef, setJoyPos,
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   // nearLadder excluded: climbing uses joystick-up (W), not the E/Inspect button
-  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar
+  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle
   const moveTouchId = useRef(-1)
   const lookTouchId = useRef(-1)
 
@@ -57,6 +58,7 @@ export default function GameHUD({
     : nearChair  ? 'Use Computer'
     : nearBench  ? 'Sit Down'
     : nearCar    ? 'Enter Car'
+    : nearCradle ? 'Start Cradle'
     : nearRadio  ? (musicMuted ? 'Unmute Music' : 'Mute Music')
     : nearSwitch ? 'Toggle Light'
     : 'Interact'
@@ -289,6 +291,16 @@ export default function GameHUD({
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
             >
               Press <kbd className="font-bold mx-1">E</kbd> to drive
+            </div>
+          )}
+
+          {/* Near Newton's Cradle hint — desktop only */}
+          {nearCradle && !sitting && !driving && bowlDisplay.state === 'idle' && rtossDisplay.state === 'idle' && (
+            <div
+              className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to start Newton&apos;s Cradle
             </div>
           )}
 

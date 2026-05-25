@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { Movable } from '../types'
 
 export interface PlayerResult {
   player:      THREE.Group
@@ -16,7 +15,6 @@ export interface PlayerResult {
 
 export function createPlayer(
   scene: THREE.Scene,
-  movables: Movable[],
   playerBonesRef: React.MutableRefObject<{
     lUpLeg?: THREE.Bone; rUpLeg?: THREE.Bone
     lLoLeg?: THREE.Bone; rLoLeg?: THREE.Bone
@@ -101,7 +99,6 @@ export function createPlayer(
     const bbox = new THREE.Box3().setFromObject(model)
     model.position.y = -bbox.min.y
     player.add(model)
-    movables.push({ name: '🧑 Scout boy (player)', group: model as unknown as THREE.Group, scaleObj: model })
 
     // Store bone refs for direct per-frame manipulation (bypasses PropertyBinding colon issue)
     playerBonesRef.current = { lUpLeg, rUpLeg, lLoLeg, rLoLeg, lUpArm, rUpArm, spine }

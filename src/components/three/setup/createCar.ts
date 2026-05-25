@@ -1,11 +1,11 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { Movable, CylCol } from '../types'
+import { CylCol } from '../types'
 import { CAR_X, CAR_Y, CAR_Z } from '../constants'
 
 export const CAR_COL_R = 1.8   // collision radius while driving
 
-export function createCar(scene: THREE.Scene, movables: Movable[], cylCols: CylCol[]): { carGrp: THREE.Group; carCol: CylCol; carHitboxGrp: THREE.Group } {
+export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THREE.Group; carCol: CylCol; carHitboxGrp: THREE.Group } {
   const carGrp = new THREE.Group()
   carGrp.position.set(CAR_X, CAR_Y, CAR_Z)
   scene.add(carGrp)
@@ -30,7 +30,6 @@ export function createCar(scene: THREE.Scene, movables: Movable[], cylCols: CylC
     const bbox = new THREE.Box3().setFromObject(model)
     model.position.y -= bbox.min.y
     modelGrp.add(model)
-    movables.push({ name: '🚗 Car', group: carGrp, scaleObj: model })
   }, undefined, err => console.error('[car]', err))
 
   // Visible hitbox — child of carGrp so it auto-tracks position & rotation
@@ -43,7 +42,6 @@ export function createCar(scene: THREE.Scene, movables: Movable[], cylCols: CylC
   hMesh.position.y = 0.8   // lift so the box floor sits at carGrp origin
   hMesh.visible = false
   carHitboxGrp.add(hMesh)
-  movables.push({ name: '🚗 Car Hitbox', group: carHitboxGrp })
 
   return { carGrp, carCol, carHitboxGrp }
 }

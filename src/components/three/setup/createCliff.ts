@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { Movable } from '../types'
 
 export interface CliffResult {
   update: (elapsed: number) => void
@@ -120,7 +119,7 @@ void main() {
 `
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function createCliff(scene: THREE.Scene, movables: Movable[]): CliffResult {
+export function createCliff(scene: THREE.Scene): CliffResult {
   const WATER_Y  = -0.8
   const SLOPE_START_Z = 22   // fence line
   const SLOPE_END_Z   = 46   // where rocky slope meets the water surface
@@ -219,7 +218,6 @@ export function createCliff(scene: THREE.Scene, movables: Movable[]): CliffResul
     })
     scene.add(boat)
     boatRef.current = boat
-    movables.push({ name: '⛵ Boat', group: boat as unknown as THREE.Group })
   }, undefined, err => console.error('[cliff] Boat load failed:', err))
 
   // ── Beach prop ────────────────────────────────────────────────────────────
@@ -233,7 +231,6 @@ export function createCliff(scene: THREE.Scene, movables: Movable[]): CliffResul
     beach.rotation.y = -Math.PI / 2
     beach.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
     scene.add(beach)
-    movables.push({ name: '🏖 Beach prop', group: beach as unknown as THREE.Group, scaleObj: beach })
   }, undefined, err => console.error('[cliff] Beach load failed:', err))
 
   // ── Per-frame update ──────────────────────────────────────────────────────

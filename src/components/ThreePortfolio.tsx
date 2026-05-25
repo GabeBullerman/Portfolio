@@ -12,6 +12,7 @@ import { createPlayer } from './three/setup/createPlayer'
 import { createCliff } from './three/setup/createCliff'
 import { createProjectDisplays } from './three/setup/createProjectDisplays'
 import { createPark } from './three/setup/createPark'
+import { createExhibit } from './three/setup/createExhibit'
 import { createCar } from './three/setup/createCar'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
@@ -70,6 +71,8 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const [nearCar, setNearCar]   = useState(false)
   const [driving, setDriving]   = useState(false)
   const nearCarRef  = useRef(false)
+  const [nearCradle, setNearCradle] = useState(false)
+  const nearCradleRef = useRef(false)
   const drivingRef  = useRef(false)
   const nearBenchRef  = useRef(false)
   const seatIdxRef    = useRef(0)
@@ -198,22 +201,25 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const { swBaseTex, TILE } = createWorld(scene)
 
     // ── Cliff + water lake behind cabin ──────────────────────────────────
-    const cliff = createCliff(scene, movablesRef.current)
+    const cliff = createCliff(scene)
 
     // ── Project building displays ─────────────────────────────────────────
-    const projectDisplays = createProjectDisplays(scene, movablesRef.current)
+    const projectDisplays = createProjectDisplays(scene)
+
+    // ── Three.js Exhibit (SW quadrant) ────────────────────────────────────
+    const exhibit = createExhibit(scene, movablesRef.current, physWorld, camera)
 
     // ── Park ──────────────────────────────────────────────────────────────
     const { addSidewalk } = createPark(scene, movablesRef.current, cylCols, boxCols)
     addSidewalkRef.current = addSidewalk
 
     // ── Car ───────────────────────────────────────────────────────────────────
-    const { carGrp, carCol, carHitboxGrp } = createCar(scene, movablesRef.current, cylCols)
+    const { carGrp, carCol, carHitboxGrp } = createCar(scene, cylCols)
 
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
 
     // ── Buildings ─────────────────────────────────────────────────────────
-    createBuildings(scene, boxCols, ceilCols, movablesRef.current, swBaseTex, TILE, CABIN_X)
+    createBuildings(scene, boxCols, ceilCols, swBaseTex, TILE, CABIN_X)
 
     // ── Cabin ─────────────────────────────────────────────────────────────
     const { cabGrp, rampGrp, cabHitboxEntries, clockInterval } = createCabin(
@@ -228,6 +234,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       campfireGrp,
       flameMat, flameMesh, innerFlameMesh, fireLight,
       ffMesh, ffData,
+      benchGrp: _benchGrp,
       ducks, pondGrp, pitGrp, trampGrp,
       balls,
       ringLine, ringGeo,
@@ -283,7 +290,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
 
     // ── Player ────────────────────────────────────────────────────────────
     const { player, lArmPivot, rArmPivot, lLegPivot, rLegPivot, lKnee, rKnee, lElbow, rElbow } =
-      createPlayer(scene, movablesRef.current, playerBonesRef, effectDisposedRef)
+      createPlayer(scene, playerBonesRef, effectDisposedRef)
 
     // ── Input ─────────────────────────────────────────────────────────────
     const keys = new Set<string>()
@@ -342,6 +349,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (nearChairRef.current) { goToComputerRef.current = true; return }
         if (nearRadioRef.current && audioRef.current) { audioRef.current.muted = !audioRef.current.muted; musicMutedRef.current = audioRef.current.muted; setMusicMuted(audioRef.current.muted); return }
         if (nearProjectRef.current && nearProjectUrlRef.current) { window.open(nearProjectUrlRef.current, '_blank'); return }
+        if (nearCradleRef.current) { exhibit.startCradle(); return }
       }
       if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) { climbingRef.current = false; setClimbing(false); nearLadderRef.current = false; setNearLadder(false) }
       if (!climbingRef.current && nearLadderRef.current && mapped === 'w' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) { climbingRef.current = true; setClimbing(true) }
@@ -459,10 +467,12 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       setBowlDisplay, setRTossDisplay,
       cliffUpdate:          cliff.update,
       projectDisplayUpdate: projectDisplays.update,
+      exhibitUpdate:        exhibit.update,
       interactZones:        projectDisplays.interactZones,
       nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
       setNearProject,
       carGrp, carCol, carHitboxGrp, drivingRef, nearCarRef, setNearCar, setDriving,
+      nearCradleRef, setNearCradle,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -500,7 +510,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
       {nowPlaying && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full pointer-events-none select-none animate-fade-in">

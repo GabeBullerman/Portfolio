@@ -1,12 +1,11 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { BoxCol, Movable } from '../types'
+import { BoxCol } from '../types'
 
 export function createBuildings(
   scene: THREE.Scene,
   boxCols: BoxCol[],
   ceilCols: { x0: number; x1: number; z0: number; z1: number; minY: number }[],
-  movables: Movable[],
   swBaseTex: THREE.CanvasTexture,
   TILE: number,
   CABIN_X: number,
@@ -32,7 +31,7 @@ export function createBuildings(
   })
   // collidable=true  → mesh bounding box used for collision (house hitboxes, not yet converted to boxCols)
   // collidable=false → visual/debug only; collision handled by boxCols instead
-  function addVisibleHitbox(name: string, px: number, py: number, pz: number, w: number, h: number, d: number, sx = 1, sy = 1, sz = 1, mat = hitboxMat, collidable = false, ry = 0, rx = 0, rz = 0) {
+  function addVisibleHitbox(_name: string, px: number, py: number, pz: number, w: number, h: number, d: number, sx = 1, sy = 1, sz = 1, mat = hitboxMat, _collidable = false, ry = 0, rx = 0, rz = 0) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
     mesh.position.set(px, py, pz)
     mesh.scale.set(sx, sy, sz)
@@ -43,7 +42,6 @@ export function createBuildings(
     grp.rotation.set(rx, ry, rz)
     scene.add(grp)
     ;(grp as any).__hitMesh = mesh
-    movables.push({ name, group: grp, isHitbox: collidable, scaleObj: collidable ? undefined : mesh })
   }
   const addDoor = (name: string, px: number, py: number, pz: number, ry = 0) =>
     addVisibleHitbox(name, px, py, pz, 3, 4, 1, 1, 1, 1, doorMat, false, ry)
@@ -205,8 +203,6 @@ export function createBuildings(
     bldg.rotation.y = -Math.PI / 2
     groundBldg(bldg)
     scene.add(bldg)
-    movables.push({ name: '🏢 Mem Ln: Four Buildings', group: bldg, scaleObj: bldg })
-
     // Bldg 1 + 2 — aligned; hitboxes kept visible for reference, boxCols below
     addMemHitbox('🟥 Mem Ln: Bldg 1', 56.75, 1.20, -10.70, 8, 6, 8, 0.45, 0.40, 0.60)
     addMemHitbox('🟥 Mem Ln: Bldg 2', 56.80, 1.20, -16.50, 8, 6, 8, 0.45, 0.40, 0.60)

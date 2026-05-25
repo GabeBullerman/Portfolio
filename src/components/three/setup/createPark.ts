@@ -24,9 +24,8 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     })
   }
 
-  const addDebug = (grp: THREE.Group, name: string) => {
+  const addDebug = (grp: THREE.Group, _name: string) => {
     prepare(grp)
-    movables.push({ name, group: grp, scaleObj: grp })
     scene.add(grp)
   }
 
@@ -43,11 +42,10 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     return { wrapper, center }
   }
 
-  const addSidewalkMesh = (mesh: THREE.Group, name: string, x: number, z: number) => {
+  const addSidewalkMesh = (mesh: THREE.Group, _name: string, x: number, z: number) => {
     prepare(mesh)
     const { wrapper, center } = centerXZ(mesh)
     wrapper.position.set(x, center.y > 0.01 ? 0 : 0, z)
-    movables.push({ name, group: wrapper, scaleObj: wrapper })
     scene.add(wrapper)
   }
 
@@ -65,13 +63,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
   boxCols.push({ x0: 25.45, x1: 32.55, z0: -62.05, z1: -54.95, maxY: 1.43 })
   // Skatepark Col B: center(12.00, 1.28, -57.20) size(7.50 × 2.55 × 4.90) rot 0°
   boxCols.push({ x0:  8.25, x1: 15.75, z0: -59.65, z1: -54.75, maxY: 2.56 })
-  // Playground Col A: center(5.50,-76.50) size(1.50×5.05) rot-30° → cylCols chain along long axis
-  // long-axis dir: (sin-30°, cos-30°) = (-0.5, 0.866), r = short-half = 0.75, spaced 1.7
-  ;[{ x: 5.50, z: -76.50 }, { x: 4.65, z: -75.03 }, { x: 6.35, z: -77.97 }]
-    .forEach(c => cylCols.push({ x: c.x, z: c.z, r: 0.75, maxY: 3.75 }))
-  // Playground Col B: center(10.00,-76.00) size(4.00×2.00) rot-30° → cylCols chain, r=1.0 spaced 1.5
-  ;[{ x: 9.25, z: -74.70 }, { x: 10.00, z: -76.00 }, { x: 10.75, z: -77.30 }]
-    .forEach(c => cylCols.push({ x: c.x, z: c.z, r: 1.0, maxY: 3.60 }))
 
   // ── Fence-lining short-wide bushes (baked from debug tuning) ─────────────
   loadGLB('/assets/outdoor/park stuff/bushes/short wide/Untitled.glb').then(bushRef => {
@@ -101,9 +92,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
 
   // ── Individual park pieces ─────────────────────────────────────────────
   const singles = [
-{ name: '🛝 Playground',       path: '/assets/outdoor/park stuff/playground/Untitled.glb',   pos: [8.47, 0, -77.14] as [number,number,number], scale: null, rot: -Math.PI / 6 },
-    { name: '🚩 Street Sign',      path: '/assets/outdoor/park stuff/street sign/Untitled.glb',  pos: [-2.23, 0, -8.67] as [number,number,number], scale: 2, rot: null },
-    { name: '🗑️ Trashcan',        path: '/assets/outdoor/park stuff/trashcan/Untitled.glb',                    pos: null, scale: null, rot: null },
+    { name: '🚩 Street Sign', path: '/assets/outdoor/park stuff/street sign/Untitled.glb', pos: [-2.23, 0, -8.67] as [number,number,number], scale: 2, rot: null },
   ]
 
   const rng = mulberry32(1234)
@@ -137,6 +126,25 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     })
   }).catch(err => console.error('[park-singles]', err))
 
+  // ── New Blender park props (fountain, picnic table, trashcan) ────────────
+  const newProps: { name: string; path: string; pos: [number,number,number]; rot: [number,number,number]; scale: number }[] = [
+    { name: '⛲ Fountain',     path: '/assets/outdoor/park stuff/fountain/Park.glb',      pos: [ 1.00, -0.50, -48.00], rot: [0,           0,          0         ], scale: 1 },
+    { name: '🪑 Picnic Table', path: '/assets/outdoor/park stuff/picnic table/Park.glb', pos: [-9.00,  0.00, -35.00], rot: [0,           Math.PI/6,  0         ], scale: 1 },
+    { name: '🗑️ Trashcan',   path: '/assets/outdoor/park stuff/trashcan/Park.glb',      pos: [-1.00, -0.25, -35.00], rot: [-Math.PI,   0,         -Math.PI   ], scale: 1 },
+  ]
+  newProps.forEach(({ name, path, pos, rot, scale }) => {
+    loadGLB(path).then(grp => {
+      grp.traverse(c => {
+        if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
+      })
+      grp.position.set(...pos)
+      grp.rotation.set(...rot)
+      grp.scale.setScalar(scale)
+      scene.add(grp)
+      movables.push({ name, group: grp, scaleObj: grp })
+    }).catch(err => console.error(`[${name}]`, err))
+  })
+
   // ── Sphere bushes — scattered randomly, no hitboxes ─────────────────────
   loadGLB('/assets/outdoor/park stuff/bushes/short sphere/Untitled.glb').then(sphereBase => {
     const bushExcl: [number, number, number, number][] = [
@@ -154,8 +162,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       [ 12, 28,  -80, -64],
       // Skatepark
       [  6, 32,  -71, -44],
-      // Playground
-      [  1, 16,  -85, -69],
       // Sidewalk N-S spine
       [ -3,  5,  -50,  -6],
       // Sidewalk E-W arms + 4-way
@@ -163,6 +169,8 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       [  0, 39,  -52, -43],
       // Sidewalk lower spine
       [ -3,  5,  -77, -46],
+      // Three.js Exhibit (SW quadrant)
+      [-32,  -9,  -82, -58],
       // West fence bush line corridor (x≈-29, full z range)
       [-36, -25,  -87, -13],
       // East fence bush line corridor (x≈31, full z range)
@@ -197,14 +205,13 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       { name: '🛤️ Straight 3', pos: [20.40,  0, -47.80] as [number,number,number], rot: Math.PI / 2,  scale: [2.144, 1.006, 37.139] as [number,number,number] },
       { name: '🛤️ Straight 4', pos: [1.00,   0, -61.50] as [number,number,number], rot: 0,            scale: [1.754, 1.000, 25.273] as [number,number,number] },
     ]
-    straights.forEach(({ name, pos, rot, scale }) => {
+    straights.forEach(({ pos, rot, scale }) => {
       const mesh = straightBase.clone(true)
       prepare(mesh)
       const { wrapper } = centerXZ(mesh)
       wrapper.position.set(...pos)
       wrapper.rotation.y = rot
       wrapper.scale.set(...scale)
-      movables.push({ name, group: wrapper, scaleObj: wrapper })
       scene.add(wrapper)
     })
 
@@ -213,7 +220,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     const { wrapper: fw } = centerXZ(fwMesh)
     fw.position.set(1, 0, -47.80)
     fw.scale.set(1.772, 1.000, 2.144)
-    movables.push({ name: '🛤️ 4-Way', group: fw, scaleObj: fw })
     scene.add(fw)
 
   }).catch(err => console.error('[park-sidewalks]', err))
@@ -253,8 +259,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       [ 12,  28,  -80, -64],
       // Skatepark (19, -57.5) rot 90° — generous footprint
       [  6,  32,  -71, -44],
-      // Playground (8.47, -77.14) rot -30°
-      [  1,  16,  -85, -69],
       // Sidewalk 1 (1, -27.4) N-S spine
       [ -3,   5,  -50,  -6],
       // Sidewalk 2 (-18.4, -47.85) E-W cross arm
@@ -263,6 +267,8 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       [  0,  39,  -52, -43],
       // Sidewalk 4 (1, -61.5) N-S lower spine
       [ -3,   5,  -77, -46],
+      // Three.js Exhibit (SW quadrant)
+      [-32,  -9,  -82, -58],
       // West fence interior — keep trees away from fence line
       [-33, -26,  -87, -13],
       // East fence interior — keep trees away from fence line
@@ -282,7 +288,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       { name: '🌳 Trees (NE)', xr: [8,  TREE_E] as [number,number], zr: [TREE_N, -44]    as [number,number] },
       { name: '🌳 Trees (SW)', xr: [TREE_W, -8] as [number,number], zr: [-58,   TREE_S]  as [number,number] },
       { name: '🌳 Trees (SE)', xr: [8,  TREE_E] as [number,number], zr: [-58,   TREE_S]  as [number,number] },
-    ].forEach(({ name, xr, zr }) => {
+    ].forEach(({ xr, zr }) => {
       const grp = new THREE.Group()
       for (let i = 0; i < 12; i++) {
         // Always consume all 4 RNG values so later trees are unaffected by exclusions
@@ -307,7 +313,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
         grp.add(t)
         cylCols.push({ x: hx, z: hz, r: hr })
       }
-      movables.push({ name, group: grp, scaleObj: grp })
       scene.add(grp)
     })
 
@@ -371,22 +376,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       buildPieces(w)
       w.grp.position.set(...wallConfigs[i].pos)
       w.grp.scale.set(...wallConfigs[i].scale)
-      movables.push({
-        name: wallConfigs[i].name,
-        group: w.grp,
-        scaleObj: w.grp,
-        extra: {
-          label: 'Fence Spacing',
-          getValue: () => fenceSpacing,
-          min: measuredSP * 0.6,
-          max: measuredSP * 1.4,
-          step: 0.005,
-          onChange: v => {
-            fenceSpacing = v
-            wallDefs.forEach(buildPieces)
-          },
-        },
-      })
       scene.add(w.grp)
     })
 
@@ -395,7 +384,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     // West fence:  world x ≈ -29.6, gap at z ≈ [-57.8, -49.6]
     // East fence:  world x ≈ 45.5,  gap at z ≈ [-57.8, -49.7]
     const fHitMat = new THREE.MeshBasicMaterial({
-      color: 0xff4422, transparent: true, opacity: 0,
+      color: 0xff4422, transparent: true, opacity: 0.18,
       side: THREE.DoubleSide, depthWrite: false,
     })
     const fenceHitboxes: { name: string; cx: number; cy: number; cz: number; w: number; h: number; d: number }[] = [
@@ -416,7 +405,6 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       scene.add(grp)
       ;(grp as any).__hitMesh = mesh
       movables.push({ name, group: grp, isHitbox: true })
-      // Seed boxCols to match initial hitbox position/size
       boxCols.push({
         x0: cx - w / 2, x1: cx + w / 2,
         z0: cz - d / 2, z1: cz + d / 2,

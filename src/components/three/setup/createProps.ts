@@ -18,6 +18,7 @@ export interface PropsResult {
   fireLight:     THREE.PointLight
   ffMesh:        THREE.InstancedMesh
   ffData:        { bx: number; by: number; bz: number; ph: number; sp: number; am: number }[]
+  benchGrp:      THREE.Group
   ducks:         DuckData[]
   pondGrp:       THREE.Group
   pitGrp:        THREE.Group
@@ -75,6 +76,8 @@ export function createProps(
     campfireGrp.add(stone)
   }
 
+  const benchGrp = new THREE.Group()
+  scene.add(benchGrp)
   const benchLogMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 })
   const benchPlankMat = new THREE.MeshLambertMaterial({ color: 0x8b5e2a })
   BENCH_POSITIONS.forEach(({ x, z, ry }) => {
@@ -86,11 +89,8 @@ export function createProps(
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.48, 6), benchLogMat)
       leg.position.set(ox, 0.24, 0); g.add(leg)
     })
-    // Inverse-transform world position into campfireGrp local space
-    const localPos = new THREE.Vector3(x, 0, z)
-    campfireGrp.worldToLocal(localPos)
-    g.position.copy(localPos); g.rotation.y = ry
-    campfireGrp.add(g)
+    g.position.set(x, 0, z); g.rotation.y = ry
+    benchGrp.add(g)
   })
 
   const flameMat  = new THREE.MeshBasicMaterial({ color: 0xff6600 })
@@ -328,6 +328,7 @@ export function createProps(
     campfireGrp,
     flameMat, flameMesh, innerFlameMesh, fireLight,
     ffMesh, ffData,
+    benchGrp,
     ducks, pondGrp, pitGrp, trampGrp,
     balls,
     ringLine, ringGeo,

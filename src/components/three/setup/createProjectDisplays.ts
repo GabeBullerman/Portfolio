@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { Movable } from '../types'
 
 export interface InteractZone {
   pos:    { x: number; z: number }
@@ -76,7 +75,6 @@ function placeTV(
   scene: THREE.Scene,
   gltfScene: THREE.Group,
   cfg: TVConfig,
-  movables: Movable[],
 ) {
   const texLoader = new THREE.TextureLoader()
 
@@ -95,13 +93,6 @@ function placeTV(
     }
   })
   scene.add(tv)
-
-  // Register with debug editor — shows under Buildings group, supports pos/rot/scale
-  movables.push({
-    name: `🏪 TV: ${cfg.label.replace(' GitHub', '')}`,
-    group: tv,
-    scaleObj: tv,
-  })
 
   // Swap the screen material's texture — clone the material first so it's independent
   texLoader.load(cfg.screenTex, tex => {
@@ -125,13 +116,13 @@ function placeTV(
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function createProjectDisplays(scene: THREE.Scene, movables: Movable[]): ProjectDisplayResult {
+export function createProjectDisplays(scene: THREE.Scene): ProjectDisplayResult {
   const interactZones: InteractZone[] = []
 
   // ── Load TV model once, then clone per building ───────────────────────────
   new GLTFLoader().load(`${SCREENS_BASE}/scene.gltf`, gltf => {
     for (const cfg of TV_CONFIGS) {
-      placeTV(scene, gltf.scene, cfg, movables)
+      placeTV(scene, gltf.scene, cfg)
     }
   }, undefined, err => console.error('[projectDisplays] TV load failed:', err))
 

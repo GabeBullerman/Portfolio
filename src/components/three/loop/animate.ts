@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es'
 import { lerpAngle } from '../helpers'
 import { DuckData, CylCol } from '../types'
 import { CAR_COL_R } from '../setup/createCar'
+import { CRADLE_X, CRADLE_Z, CRADLE_PROX } from '../setup/createExhibit'
 import type { InteractZone } from '../setup/createProjectDisplays'
 import {
   BOWL_CX, BOWL_START_Z, BOWL_PINS_Z,
@@ -146,6 +147,7 @@ export interface AnimateParams {
   setNearRadio:     (v: boolean) => void
   cliffUpdate:         (elapsed: number) => void
   projectDisplayUpdate:(elapsed: number) => void
+  exhibitUpdate:       (elapsed: number, delta: number) => void
   interactZones:       InteractZone[]
   nearProjectRef:      React.MutableRefObject<boolean>
   nearProjectLabelRef: React.MutableRefObject<string>
@@ -156,10 +158,12 @@ export interface AnimateParams {
   carGrp:       THREE.Group
   carCol:       CylCol
   carHitboxGrp: THREE.Group
-  drivingRef: React.MutableRefObject<boolean>
-  nearCarRef: React.MutableRefObject<boolean>
-  setNearCar: (v: boolean) => void
-  setDriving: (v: boolean) => void
+  drivingRef:      React.MutableRefObject<boolean>
+  nearCarRef:      React.MutableRefObject<boolean>
+  setNearCar:      (v: boolean) => void
+  setDriving:      (v: boolean) => void
+  nearCradleRef:   React.MutableRefObject<boolean>
+  setNearCradle:   (v: boolean) => void
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
   setRTossDisplay:  (v: { state: RTossState; thrown: number; score: number; hs: number } | ((p: { state: RTossState; thrown: number; score: number; hs: number }) => { state: RTossState; thrown: number; score: number; hs: number })) => void
 }
@@ -195,6 +199,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     st.lastTime = now; st.elapsed += delta
     p.cliffUpdate(st.elapsed)
     p.projectDisplayUpdate(st.elapsed)
+    p.exhibitUpdate(st.elapsed, delta)
 
     // Bone animation
     const bones = p.playerBonesRef.current
@@ -435,6 +440,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         // Car proximity
         const nearCarNow = Math.hypot(p.player.position.x - p.carGrp.position.x, p.player.position.z - p.carGrp.position.z) < CAR_PROX
         if (nearCarNow !== p.nearCarRef.current) { p.nearCarRef.current = nearCarNow; p.setNearCar(nearCarNow) }
+        // Cradle proximity
+        const nearCradleNow = Math.hypot(p.player.position.x - CRADLE_X, p.player.position.z - CRADLE_Z) < CRADLE_PROX
+        if (nearCradleNow !== p.nearCradleRef.current) { p.nearCradleRef.current = nearCradleNow; p.setNearCradle(nearCradleNow) }
       } else if (p.sittingAtRef.current === 'bench') {
         const s = BENCH_POSITIONS[p.seatIdxRef.current]
         p.player.position.set(s.x, -0.46, s.z); p.player.rotation.y = Math.atan2(p.FIRE_POS.x - s.x, p.FIRE_POS.z - s.z)
