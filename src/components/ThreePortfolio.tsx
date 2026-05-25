@@ -131,6 +131,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const inCabinPrevRef  = useRef(true)
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(!skipMonitor)
+  const [monitorFading, setMonitorFading] = useState(false)
   const goOutsideRef    = useRef(skipMonitor)
   const goToComputerRef = useRef(false)
   const dayEnvRef = useRef<THREE.Texture | null>(null)
@@ -176,6 +177,11 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     audioRef.current.muted = monitorMode
     musicMutedRef.current  = monitorMode
     setMusicMuted(monitorMode)
+  }, [monitorMode])
+
+  // Reset fading flag whenever monitor is re-opened (sitting back at computer)
+  useEffect(() => {
+    if (monitorMode) setMonitorFading(false)
   }, [monitorMode])
 
   useEffect(() => {
@@ -477,11 +483,31 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     animStateHolder.st = (loop as any).__animState
     loop.start()
 
+    // Pre-warm GPU: render one frame into a 1×1 offscreen target with the outdoor
+    // env map active. This forces the driver to compile all PBR shader variants AND
+    // upload all geometry buffers already in the scene, so the cabin-exit transition
+    // doesn't stall. Run at 5 s and again at 10 s to catch late-loading GLBs.
+    function prewarmRender() {
+      if (effectDisposedRef.current || !dayEnvRef.current) return
+      const savedEnv = scene.environment
+      scene.environment = dayEnvRef.current
+      const rt = new THREE.WebGLRenderTarget(1, 1)
+      renderer.setRenderTarget(rt)
+      renderer.render(scene, camera)
+      renderer.setRenderTarget(null)
+      rt.dispose()
+      scene.environment = savedEnv
+    }
+    const prewarmId1 = setTimeout(prewarmRender, 5000)
+    const prewarmId2 = setTimeout(prewarmRender, 10000)
+
     const onResize = () => { const w = mount.clientWidth, h = mount.clientHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h) }
     window.addEventListener('resize', onResize)
     document.body.style.overflow = 'hidden'; document.documentElement.style.overflow = 'hidden'
 
     return () => {
+      clearTimeout(prewarmId1)
+      clearTimeout(prewarmId2)
       effectDisposedRef.current = true; playerBonesRef.current = null
       document.body.style.overflow = ''; document.documentElement.style.overflow = ''
       loop.stop()
@@ -500,14 +526,18 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   return (
     <div className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div ref={mountRef} className="w-full h-full touch-none" />
-      {monitorMode && (<MonitorOverlay onGoOutside={(snapshot) => {
+      {monitorMode && (<MonitorOverlay fading={monitorFading} onGoOutside={(snapshot) => {
         if (snapshot && screenMatRef.current) {
           const tex = new THREE.CanvasTexture(snapshot)
           tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
           screenMatRef.current.map = tex
           screenMatRef.current.needsUpdate = true
         }
-        setMonitorMode(false); goOutsideRef.current = true; relockRef.current?.()
+        // Start cinematic + fade overlay simultaneously; unmount after fade completes
+        goOutsideRef.current = true
+        relockRef.current?.()
+        setMonitorFading(true)
+        setTimeout(() => setMonitorMode(false), 650)
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
       <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />

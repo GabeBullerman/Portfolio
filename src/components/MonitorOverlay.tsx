@@ -12,10 +12,12 @@ import { useTheme, setTheme, PALETTES } from '../hooks/useTheme'
 
 type Props = {
   onGoOutside: (snapshot?: HTMLCanvasElement) => void
+  fading?: boolean
 }
 
 export default function MonitorOverlay({
   onGoOutside,
+  fading = false,
 }: Props) {
   const [activeTheme, setActiveTheme] = useState(
     () => localStorage.getItem('theme') ?? ''
@@ -58,20 +60,29 @@ export default function MonitorOverlay({
     setHasExplored(false)
   }, [])
 
+  const [loading, setLoading] = useState(false)
+
   const handleExplore = async () => {
     sessionStorage.setItem('gabe-explored', 'true')
     setHasExplored(true)
+
+    // Capture the page BEFORE the loading overlay appears.
+    // setLoading(true) is called only after the capture completes so the
+    // "Entering 3D World" screen never ends up baked into the monitor texture.
+    let canvas: HTMLCanvasElement | undefined
     try {
       const { default: html2canvas } = await import('html2canvas')
-      const canvas = await html2canvas(document.body, {
+      canvas = await html2canvas(document.body, {
         scale: 0.5,
         useCORS: true,
         logging: false,
       })
-      onGoOutside(canvas)
     } catch {
-      onGoOutside()
+      // ignore — onGoOutside handles the undefined case
     }
+
+    setLoading(true)
+    onGoOutside(canvas)
   }
 
   useEffect(() => {
@@ -108,8 +119,33 @@ export default function MonitorOverlay({
       style={{
         background:
           'radial-gradient(circle at 20% 0%, var(--accent-glow), transparent 32rem), linear-gradient(180deg, var(--bg), var(--bg-2))',
+        opacity: fading ? 0 : 1,
+        transition: fading ? 'opacity 0.6s ease' : 'none',
+        pointerEvents: fading ? 'none' : undefined,
       }}
     >
+      {/* Loading screen — shown while html2canvas captures + 3D world boots */}
+      {loading && (
+        <div
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6"
+          style={{ background: 'var(--bg)' }}
+        >
+          <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+            <circle cx="36" cy="36" r="28" stroke="var(--border)" strokeWidth="4" />
+            <circle
+              cx="36" cy="36" r="28"
+              stroke="var(--accent)"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray="44 132"
+              style={{ transformOrigin: '36px 36px', animation: 'heroSpin 1s linear infinite' }}
+            />
+          </svg>
+          <p className="text-sm font-semibold tracking-[0.2em] uppercase" style={{ color: 'var(--text-muted)' }}>
+            Entering 3D World…
+          </p>
+        </div>
+      )}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto overflow-x-hidden"

@@ -129,7 +129,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
   // ── New Blender park props (fountain, picnic table, trashcan) ────────────
   const newProps: { name: string; path: string; pos: [number,number,number]; rot: [number,number,number]; scale: number }[] = [
     { name: '⛲ Fountain',     path: '/assets/outdoor/park stuff/fountain/Park.glb',      pos: [ 1.00, -0.50, -48.00], rot: [0,           0,          0         ], scale: 1 },
-    { name: '🪑 Picnic Table', path: '/assets/outdoor/park stuff/picnic table/Park.glb', pos: [-9.00,  0.00, -35.00], rot: [0,           Math.PI/6,  0         ], scale: 1 },
+    { name: '🪑 Picnic Table', path: '/assets/outdoor/park stuff/picnic table/Park.glb', pos: [-9.00,  0.00, -35.00], rot: [0,           Math.PI/6,  0         ], scale: 0.9 },
     { name: '🗑️ Trashcan',   path: '/assets/outdoor/park stuff/trashcan/Park.glb',      pos: [-1.00, -0.25, -35.00], rot: [-Math.PI,   0,         -Math.PI   ], scale: 1 },
   ]
   newProps.forEach(({ name, path, pos, rot, scale }) => {
