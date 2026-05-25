@@ -394,7 +394,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       { name: '🟥 Fence Col: East S',  cx:  38.50, cy: 0.75, cz: -73.90, w:  0.40, h: 1.5, d: 33.35 },
       { name: '🟥 Fence Col: East N',  cx:  38.55, cy: 0.75, cz: -25.95, w:  0.30, h: 1.5, d: 35.35 },
     ]
-    fenceHitboxes.forEach(({ name, cx, cy, cz, w, h, d }) => {
+    fenceHitboxes.forEach(({ cx, cy, cz, w, h, d }) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), fHitMat)
       mesh.position.set(cx, cy, cz)
       mesh.scale.set(w, h, d)
