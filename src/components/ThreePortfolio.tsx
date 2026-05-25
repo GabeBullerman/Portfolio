@@ -287,8 +287,12 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     }
     function throwRing(ringIdx: number) { _throwRing(ringIdx, rtossAimRef.current, rPowerRef.current) }
 
-    // ── Register cabin door in debugger only ─────────────────────────────
-    movablesRef.current.push(...cabHitboxEntries.filter(e => e.name === '🚪 Door pivot'))
+    // ── Register cabin movables (collision system + door debug) ──────────
+    movablesRef.current.push(
+      { name: '🏕 Cabin group', group: cabGrp },
+      { name: '🪜 Ramp hitbox (cabin local)', group: rampGrp, isHitbox: true },
+      ...cabHitboxEntries,
+    )
 
     // ── Player ────────────────────────────────────────────────────────────
     const { player, lArmPivot, rArmPivot, lLegPivot, rLegPivot, lKnee, rKnee, lElbow, rElbow } =

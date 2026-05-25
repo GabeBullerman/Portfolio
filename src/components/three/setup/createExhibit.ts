@@ -304,21 +304,6 @@ export function createExhibit(
       icoWire.rotation.x  = t * 0.28
     })
 
-    pedestal(EXHIBIT_CX + 7, EXHIBIT_CZ + 8, PH, '🔵 Pedestal: Octahedron')
-    const octMesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.5, 0),
-      new THREE.MeshStandardMaterial({ color: 0xff6644, metalness: 0.5, roughness: 0.3, emissive: 0x551100, emissiveIntensity: 0.5 }),
-    )
-    octMesh.castShadow = true
-    const octGrp = new THREE.Group()
-    octGrp.position.set(EXHIBIT_CX + 7, PH + 0.68, EXHIBIT_CZ + 8)
-    octGrp.add(octMesh)
-    scene.add(octGrp)
-    movables.push({ name: '🔶 Octahedron', group: octGrp, scaleObj: octMesh })
-    updateFns.push((t) => {
-      octMesh.rotation.x = t * 0.45; octMesh.rotation.z = t * 0.7
-      octMesh.scale.setScalar(1 + Math.sin(t * 2.5) * 0.12)
-    })
   }
 
   // ── Particle Fountain ────────────────────────────────────────────────────
@@ -425,7 +410,7 @@ export function createExhibit(
   // ── Orbital Orrery ───────────────────────────────────────────────────────
   {
     const OX = EXHIBIT_CX, OZ = EXHIBIT_CZ + 3, PH = 2.4
-    pedestal(OX, OZ, PH)
+    pedestal(OX, OZ, PH, '🔵 Pedestal: Orrery').scale.set(0.656, 0.528, 0.810)
 
     const orreryGrp = new THREE.Group()
     orreryGrp.position.set(OX, PH + 0.1, OZ); scene.add(orreryGrp)
@@ -466,7 +451,7 @@ export function createExhibit(
 
   // ── Plasma Blob ────────────────────────────────────────────────────────────
   {
-    const BX = EXHIBIT_CX - 8, BZ = EXHIBIT_CZ + 9, PH = 1.1
+    const BX = EXHIBIT_CX + 7, BZ = EXHIBIT_CZ + 8, PH = 1.1
     const blobPed = pedestal(BX, BZ, PH, '🔵 Pedestal: Plasma Blob')
     void blobPed
 

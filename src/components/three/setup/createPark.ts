@@ -428,9 +428,10 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
   )
   const fountainHitGrp = new THREE.Group()
   fountainHitGrp.position.set(1.00, 0.30, -47.80)
+  fountainHitGrp.scale.set(2.2, 7, 2.2)
   fountainHitGrp.add(fountainHitMesh)
   scene.add(fountainHitGrp)
-  cylCols.push({ x: 1.00, z: -47.80, r: 1.8 })
+  cylCols.push({ x: 1.00, z: -47.80, r: 1.8 * 2.2 })
   movables.push({ name: '⛲ Fountain hitbox', group: fountainHitGrp, isHitbox: true, scaleObj: fountainHitGrp })
 
   return { addSidewalk }

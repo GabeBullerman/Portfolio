@@ -57,10 +57,10 @@ export default function DebugOverlay({
                     name.startsWith('🌿') || name.startsWith('🛝') || name.startsWith('🚩') ||
                     name.startsWith('🗑') || name.startsWith('🛤') || name.startsWith('🔥')) return 'Park'
                 if (name.startsWith('🎳') || name.startsWith('🥏') || name.startsWith('🎱') ||
-                    name.startsWith('🤸') || name.startsWith('🪴')) return 'Games'
+                    name.startsWith('🤸') || name.startsWith('🪴') || name.startsWith('🔥')) return 'Games'
                 return 'Props'
               }
-              const groupOrder = ['Bones', 'Buildings', 'Cabin', 'Park', 'Games', 'Props', 'Stone Paths', 'Roads', 'Sidewalks']
+              const groupOrder = ['Games', 'Props']
               const grouped: Record<string, number[]> = {}
               movablesRef.current.forEach((m, i) => {
                 const g = getGroup(m.name)
