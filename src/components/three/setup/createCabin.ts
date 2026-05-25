@@ -242,11 +242,11 @@ export function createCabin(
 
   gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
     const sw = gltf.scene
+    const switchMat = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.3, metalness: 0.1 })
     sw.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true; child.receiveShadow = true
-        ;(child as THREE.Mesh).visible = true
-      }
+      if (!(child as THREE.Mesh).isMesh) return
+      child.castShadow = true; child.receiveShadow = true
+      ;(child as THREE.Mesh).material = switchMat
     })
     sw.scale.setScalar(3.0)
     sw.position.set(-3.90, 3.22, 0.89)
@@ -426,6 +426,45 @@ export function createCabin(
     cabGrp.add(tableGroup)
 
   }, undefined, err => console.error('[table] GLTF failed:', err))
+
+  // ── Procedural door panel ─────────────────────────────────────────────────
+  // Pivot sits at the hinge edge. animate.ts drives pivot.rotation.y to open/close.
+  // Position is a rough starting guess — use the debug editor (`) to dial it in.
+  const DOOR_H = 2.3
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.85, metalness: 0.02 })
+
+  const doorPivot = new THREE.Group()
+  doorPivot.position.set(-4.00, 2.05, 0.25)
+  cabGrp.add(doorPivot)
+  refs.doorPivotRef.current = doorPivot
+
+  // Panel: x=thickness, y=height, z=width. Offset so pivot is at the hinge (+z) edge.
+  const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.09, DOOR_H, DOOR_W), woodMat)
+  doorPanel.position.set(0, DOOR_H / 2, -DOOR_W / 2)
+  doorPanel.castShadow = true
+  doorPanel.receiveShadow = true
+  doorPivot.add(doorPanel)
+
+  // Raised-panel detail (inner frame inset)
+  const panelInset = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, DOOR_H * 0.82, DOOR_W * 0.72),
+    new THREE.MeshStandardMaterial({ color: 0x4a2e15, roughness: 0.9, metalness: 0.0 })
+  )
+  panelInset.position.set(-0.03, DOOR_H / 2, -DOOR_W / 2)
+  doorPivot.add(panelInset)
+
+  // Doorknob on free edge (opposite hinge), both sides
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, roughness: 0.2, metalness: 0.9 })
+  const knobGeo = new THREE.SphereGeometry(0.045, 14, 10)
+  const knobOuter = new THREE.Mesh(knobGeo, knobMat)
+  const knobInner = new THREE.Mesh(knobGeo, knobMat)
+  knobOuter.position.set(-0.07, DOOR_H * 0.42, -DOOR_W + 0.18)
+  knobInner.position.set( 0.07, DOOR_H * 0.42, -DOOR_W + 0.18)
+  doorPivot.add(knobOuter)
+  doorPivot.add(knobInner)
+
+  // Register in debug editor so position can be tuned with backtick overlay
+  cabHitboxEntries.push({ name: '🚪 Door pivot', group: doorPivot, scaleObj: doorPivot })
 
   return { cabGrp, rampGrp, cabHitboxEntries, clockInterval, CABIN_X, CABIN_Z, CD, DOOR_W }
 }

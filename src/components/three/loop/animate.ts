@@ -381,8 +381,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
-      const tgtAmbient = inCabin ? 0.06 : 1.2
-      const tgtSun     = inCabin ? 0.0  : 1.4
+      const tgtAmbient = inCabin ? 0.5  : 1.2
+      const tgtSun     = inCabin ? 0.25 : 1.4
       const tgtExp     = inCabin ? 0.65 : 0.65
       if (p.ambientLightRef.current) p.ambientLightRef.current.intensity = THREE.MathUtils.lerp(p.ambientLightRef.current.intensity, tgtAmbient, delta * 3)
       if (p.sunLightRef.current)     p.sunLightRef.current.intensity     = THREE.MathUtils.lerp(p.sunLightRef.current.intensity,     tgtSun,     delta * 3)
