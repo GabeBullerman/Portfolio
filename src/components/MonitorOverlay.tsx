@@ -8,7 +8,7 @@ import MoreOnMe from './MoreOnMe'
 import Contact from './Contact'
 import Footer from './Footer'
 import InteractiveShowcase from './showcase/InteractiveShowcase'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme, setTheme, PALETTES } from '../hooks/useTheme'
 
 type Props = {
   onGoOutside: (snapshot?: HTMLCanvasElement) => void
@@ -17,7 +17,18 @@ type Props = {
 export default function MonitorOverlay({
   onGoOutside,
 }: Props) {
-  useTheme()
+  const [activeTheme, setActiveTheme] = useState(
+    () => localStorage.getItem('theme') ?? ''
+  )
+
+  useTheme((name) => {
+    setActiveTheme(prev => prev || name)
+  })
+
+  function handleTheme(name: string) {
+    setTheme(name)
+    setActiveTheme(name)
+  }
 
   const scrollRef =
     useRef<HTMLDivElement>(null)
@@ -104,6 +115,25 @@ export default function MonitorOverlay({
         className="flex-1 overflow-y-auto overflow-x-hidden"
       >
         <Header onExplore={handleExplore} />
+
+        <div className="flex justify-center gap-2.5 py-2.5">
+          {PALETTES.map(p => (
+            <button
+              key={p.name}
+              title={p.name.charAt(0).toUpperCase() + p.name.slice(1)}
+              onClick={() => handleTheme(p.name)}
+              className="w-4 h-4 rounded-full focus:outline-none"
+              style={{
+                background: p.accent,
+                transition: 'transform 0.15s, box-shadow 0.15s',
+                boxShadow: activeTheme === p.name
+                  ? `0 0 0 2px #000, 0 0 0 3.5px ${p.accent}`
+                  : 'none',
+                transform: activeTheme === p.name ? 'scale(1.3)' : 'scale(1)',
+              }}
+            />
+          ))}
+        </div>
 
         <main className="relative z-10">
   <Hero />

@@ -50,7 +50,13 @@ function ScrollScene({ progress }: { progress: number }) {
       setThemeVersion((current) => current + 1)
     })
 
-    return () => cancelAnimationFrame(raf)
+    const onThemeChange = () => setThemeVersion((v) => v + 1)
+    window.addEventListener('theme-change', onThemeChange)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('theme-change', onThemeChange)
+    }
   }, [])
 
   const sceneColors = useMemo(() => {

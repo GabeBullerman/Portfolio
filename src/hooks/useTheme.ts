@@ -154,36 +154,47 @@ const PALETTES: ThemePalette[] = [
   },
 ]
 
-export function useTheme() {
+function applyPalette(palette: ThemePalette) {
+  const root = document.documentElement
+  root.dataset.theme = palette.name
+  root.style.setProperty('--bg', palette.bg)
+  root.style.setProperty('--bg-2', palette.bg2)
+  root.style.setProperty('--surface', palette.surface)
+  root.style.setProperty('--card', palette.card)
+  root.style.setProperty('--card-hover', palette.cardHover)
+  root.style.setProperty('--bg-card', palette.card)
+  root.style.setProperty('--border', palette.border)
+  root.style.setProperty('--border-strong', palette.borderStrong)
+  root.style.setProperty('--accent', palette.accent)
+  root.style.setProperty('--accent-2', palette.accent2)
+  root.style.setProperty('--accent-soft', palette.accentSoft)
+  root.style.setProperty('--accent-glow', palette.accentGlow)
+  root.style.setProperty('--text', palette.text)
+  root.style.setProperty('--text-muted', palette.textMuted)
+  root.style.setProperty('--text-subtle', palette.textSubtle)
+  root.style.setProperty('--line', palette.line)
+  document.body.style.backgroundColor = palette.bg
+  document.body.style.color = palette.text
+}
+
+export function setTheme(name: string) {
+  const palette = PALETTES.find(p => p.name === name)
+  if (!palette) return
+  localStorage.setItem('theme', name)
+  applyPalette(palette)
+  window.dispatchEvent(new CustomEvent('theme-change', { detail: name }))
+}
+
+export { PALETTES }
+
+export function useTheme(onApplied?: (name: string) => void) {
   useEffect(() => {
     const last = localStorage.getItem('theme')
-    const choices = PALETTES.filter(p => p.name !== last)
-    const palette = choices[Math.floor(Math.random() * choices.length)]
-    localStorage.setItem('theme', palette.name)
-
-    const root = document.documentElement
-
-    root.dataset.theme = palette.name
-
-    root.style.setProperty('--bg', palette.bg)
-    root.style.setProperty('--bg-2', palette.bg2)
-    root.style.setProperty('--surface', palette.surface)
-    root.style.setProperty('--card', palette.card)
-    root.style.setProperty('--card-hover', palette.cardHover)
-    root.style.setProperty('--bg-card', palette.card)
-    root.style.setProperty('--border', palette.border)
-    root.style.setProperty('--border-strong', palette.borderStrong)
-    root.style.setProperty('--accent', palette.accent)
-    root.style.setProperty('--accent-2', palette.accent2)
-    root.style.setProperty('--accent-soft', palette.accentSoft)
-    root.style.setProperty('--accent-glow', palette.accentGlow)
-    root.style.setProperty('--text', palette.text)
-    root.style.setProperty('--text-muted', palette.textMuted)
-    root.style.setProperty('--text-subtle', palette.textSubtle)
-    root.style.setProperty('--line', palette.line)
-
-    document.body.style.backgroundColor = palette.bg
-    document.body.style.color = palette.text
+    const saved = PALETTES.find(p => p.name === last)
+    // Random every load unless user explicitly saved a preference
+    const palette = saved ?? PALETTES[Math.floor(Math.random() * PALETTES.length)]
+    applyPalette(palette)
+    onApplied?.(palette.name)
 
     return () => {
       document.body.style.backgroundColor = ''

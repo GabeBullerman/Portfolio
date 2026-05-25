@@ -2,6 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f8fafc;
+}
+
+@property --accent-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #cbd5e1;
+}
+
+@property --accent-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(248, 250, 252, 0.24);
+}
+
+@property --accent-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(248, 250, 252, 0.12);
+}
+
+@property --bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #05070a;
+}
+
+@property --bg-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0b1118;
+}
+
+@property --text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f8fafc;
+}
+
+@property --text-muted {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #cbd5e1;
+}
+
+@property --text-subtle {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #94a3b8;
+}
+
+:root {
+  transition:
+    --accent 0.45s ease,
+    --accent-2 0.45s ease,
+    --accent-glow 0.45s ease,
+    --accent-soft 0.45s ease,
+    --bg 0.45s ease,
+    --bg-2 0.45s ease,
+    --text 0.45s ease,
+    --text-muted 0.45s ease,
+    --text-subtle 0.45s ease;
+}
+
 :root {
   --bg: #05070a;
   --bg-2: #0b1118;
@@ -87,8 +154,10 @@ body {
   color: var(--text);
   font-family: Arial, sans-serif;
   transition:
-    background-color 500ms ease,
-    color 500ms ease;
+    --accent-glow 0.45s ease,
+    --bg 0.45s ease,
+    --bg-2 0.45s ease,
+    color 0.45s ease;
 }
 
 * {
