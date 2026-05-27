@@ -11,6 +11,8 @@ import { createProps } from './three/setup/createProps'
 import { createPlayer } from './three/setup/createPlayer'
 import { createCliff } from './three/setup/createCliff'
 import { createProjectDisplays } from './three/setup/createProjectDisplays'
+import { createMemoryLaneDisplays } from './three/setup/createMemoryLaneDisplays'
+import { createProjectObjects } from './three/setup/createProjectObjects'
 import { createPark } from './three/setup/createPark'
 import { createExhibit } from './three/setup/createExhibit'
 import { createCar } from './three/setup/createCar'
@@ -211,6 +213,12 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
 
     // ── Project building displays ─────────────────────────────────────────
     const projectDisplays = createProjectDisplays(scene)
+
+    // ── Memory Lane displays ──────────────────────────────────────────────
+    const memoryLaneDisplays = createMemoryLaneDisplays(scene)
+
+    // ── Project Blvd rotating objects ─────────────────────────────────────
+    const projectObjects = createProjectObjects(scene, movablesRef.current)
 
     // ── Three.js Exhibit (SW quadrant) ────────────────────────────────────
     const exhibit = createExhibit(scene, movablesRef.current, physWorld, camera)
@@ -473,8 +481,9 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       setBowlDisplay, setRTossDisplay,
       cliffUpdate:          cliff.update,
       projectDisplayUpdate: projectDisplays.update,
+      projectObjectsUpdate: projectObjects.update,
       exhibitUpdate:        exhibit.update,
-      interactZones:        projectDisplays.interactZones,
+      interactZones:        [...projectDisplays.interactZones, ...memoryLaneDisplays.interactZones],
       nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
       setNearProject,
       carGrp, carCol, carHitboxGrp, drivingRef, nearCarRef, setNearCar, setDriving,

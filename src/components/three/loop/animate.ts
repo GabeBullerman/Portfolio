@@ -145,9 +145,10 @@ export interface AnimateParams {
   setNearLadder:    (v: boolean) => void
   setNearSwitch:    (v: boolean) => void
   setNearRadio:     (v: boolean) => void
-  cliffUpdate:         (elapsed: number) => void
-  projectDisplayUpdate:(elapsed: number) => void
-  exhibitUpdate:       (elapsed: number, delta: number) => void
+  cliffUpdate:          (elapsed: number) => void
+  projectDisplayUpdate: (elapsed: number) => void
+  projectObjectsUpdate: (elapsed: number) => void
+  exhibitUpdate:        (elapsed: number, delta: number) => void
   interactZones:       InteractZone[]
   nearProjectRef:      React.MutableRefObject<boolean>
   nearProjectLabelRef: React.MutableRefObject<string>
@@ -199,6 +200,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     st.lastTime = now; st.elapsed += delta
     p.cliffUpdate(st.elapsed)
     p.projectDisplayUpdate(st.elapsed)
+    p.projectObjectsUpdate(st.elapsed)
     p.exhibitUpdate(st.elapsed, delta)
 
     // Bone animation

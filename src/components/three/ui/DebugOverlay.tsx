@@ -281,7 +281,7 @@ export default function DebugOverlay({
                   const e = new THREE.Euler().setFromQuaternion(m.group.quaternion)
                   const rotStr = `rot(${r2d(e.x)}°, ${r2d(e.y)}°, ${r2d(e.z)}°)`
                   const sc = m.scaleObj
-                  if (sc && (sc.scale.x !== sc.scale.y || sc.scale.x !== sc.scale.z)) {
+                  if (sc) {
                     return `${base}  ${rotStr}  scale(${sc.scale.x.toFixed(3)}, ${sc.scale.y.toFixed(3)}, ${sc.scale.z.toFixed(3)})`
                   }
                   return `${base}  ${rotStr}`
