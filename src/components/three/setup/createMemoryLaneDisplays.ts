@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import type { InteractZone } from './createProjectDisplays'
+import type { Movable } from '../types'
 
 // Building bounds (from animate.ts):
 // Bldg 1: x[54.95,58.55] z[-13.10,-8.30]   center z=-10.70
@@ -236,6 +237,8 @@ function placeTV(
   scene: THREE.Scene,
   gltfScene: THREE.Group,
   cfg: MLConfig,
+  movables: Movable[],
+  idx: number,
 ) {
   const tv = gltfScene.clone(true)
   tv.scale.setScalar(cfg.scale)
@@ -245,6 +248,7 @@ function placeTV(
     if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
   })
   scene.add(tv)
+  movables.push({ name: `📺 Mem Ln: TV ${idx + 1}`, group: tv, scaleObj: tv })
 
   const tex = cfg.makeTexture()
   tv.traverse(c => {
@@ -265,13 +269,13 @@ function placeTV(
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function createMemoryLaneDisplays(scene: THREE.Scene): MemoryLaneResult {
+export function createMemoryLaneDisplays(scene: THREE.Scene, movables: Movable[]): MemoryLaneResult {
   const interactZones: InteractZone[] = []
 
   new GLTFLoader().load(
     '/assets/outdoor/buildings/Project Screens/scene.gltf',
     gltf => {
-      for (const cfg of ML_CONFIGS) placeTV(scene, gltf.scene, cfg)
+      ML_CONFIGS.forEach((cfg, i) => placeTV(scene, gltf.scene, cfg, movables, i))
     },
     undefined,
     err => console.error('[memoryLane] TV load failed:', err),

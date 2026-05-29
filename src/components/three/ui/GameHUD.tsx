@@ -22,6 +22,7 @@ interface GameHUDProps {
   nearCar:          boolean
   driving:          boolean
   nearCradle:       boolean
+  nearWipSign:      boolean
   bowlDisplay:    BowlDisplay
   rtossDisplay:   RTossDisplay
   joyPos:         { x: number; y: number }
@@ -40,14 +41,14 @@ export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
   nearProject, nearProjectLabel,
-  sitting, climbing, nearCar, driving, nearCradle,
+  sitting, climbing, nearCar, driving, nearCradle, nearWipSign,
   bowlDisplay, rtossDisplay,
   joyPos, powerBarRef, rPowerBarRef,
   touchMoveRef, touchActiveRef, setJoyPos,
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   // nearLadder excluded: climbing uses joystick-up (W), not the E/Inspect button
-  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle
+  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle || nearWipSign
   const moveTouchId = useRef(-1)
   const lookTouchId = useRef(-1)
 
@@ -59,6 +60,7 @@ export default function GameHUD({
     : nearBench  ? 'Sit Down'
     : nearCar    ? 'Enter Car'
     : nearCradle ? 'Start Cradle'
+    : nearWipSign ? 'Read Sign'
     : nearRadio  ? (musicMuted ? 'Unmute Music' : 'Mute Music')
     : nearSwitch ? 'Toggle Light'
     : 'Interact'

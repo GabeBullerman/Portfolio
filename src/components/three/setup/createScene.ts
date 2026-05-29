@@ -23,12 +23,13 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
   const scene = new THREE.Scene()
   scene.fog = new THREE.FogExp2(0xb8d4f0, 0.010)
 
-  const camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 300)
+  const camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 200)
   camera.position.set(0, 2.2, 11)
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  // Disable MSAA on high-DPI screens — supersampling at 2× DPR already smooths edges
+  const renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio <= 1 })
   renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.65
   mount.appendChild(renderer.domElement)
@@ -52,9 +53,11 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
   const sun = new THREE.DirectionalLight(0xfff0d0, 1.4)
   refs.sunLightRef.current = sun
   sun.position.set(20, 40, 15); sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.camera.left = -80; sun.shadow.camera.right = 80
-  sun.shadow.camera.top = 80; sun.shadow.camera.bottom = -80; sun.shadow.camera.far = 160
+  // Small frustum — animate loop moves the light to follow player each frame
+  sun.shadow.mapSize.set(1024, 1024)
+  sun.shadow.camera.left = -40; sun.shadow.camera.right = 40
+  sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 100
   scene.add(sun)
 
   // ── Cannon physics world ──────────────────────────────────────────────

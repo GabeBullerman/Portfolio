@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { BoxCol } from '../types'
+import { BoxCol, Movable } from '../types'
 
 export function createBuildings(
   scene: THREE.Scene,
@@ -9,6 +9,7 @@ export function createBuildings(
   swBaseTex: THREE.CanvasTexture,
   TILE: number,
   CABIN_X: number,
+  movables: Movable[],
 ) {
   const gltfLoader = new GLTFLoader()
   void CABIN_X
@@ -31,7 +32,7 @@ export function createBuildings(
   })
   // collidable=true  → mesh bounding box used for collision (house hitboxes, not yet converted to boxCols)
   // collidable=false → visual/debug only; collision handled by boxCols instead
-  function addVisibleHitbox(_name: string, px: number, py: number, pz: number, w: number, h: number, d: number, sx = 1, sy = 1, sz = 1, mat = hitboxMat, _collidable = false, ry = 0, rx = 0, rz = 0) {
+  function addVisibleHitbox(name: string, px: number, py: number, pz: number, w: number, h: number, d: number, sx = 1, sy = 1, sz = 1, mat = hitboxMat, collidable = false, ry = 0, rx = 0, rz = 0): THREE.Group {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
     mesh.position.set(px, py, pz)
     mesh.scale.set(sx, sy, sz)
@@ -42,6 +43,8 @@ export function createBuildings(
     grp.rotation.set(rx, ry, rz)
     scene.add(grp)
     ;(grp as any).__hitMesh = mesh
+    if (collidable) movables.push({ name, group: grp, isHitbox: true })
+    return grp
   }
   const addDoor = (name: string, px: number, py: number, pz: number, ry = 0) =>
     addVisibleHitbox(name, px, py, pz, 3, 4, 1, 1, 1, 1, doorMat, false, ry)
@@ -137,6 +140,88 @@ export function createBuildings(
     ceilCols.push({ x0: -56.90, x1: -50.90, z0: -59.00, z1: -51.40, minY: 3.50 })
   }, undefined, err => console.error('[buildings] slant store failed:', err))
 
+  // ── Project Blvd west side — south of slant store ────────────────────────────
+  // Building mesh removed (bad normals) — replace with new GLB then re-enable.
+  // Hitboxes and FPV bounds kept in place so layout is ready when the mesh arrives.
+  // ── Wayfarer TV screen ────────────────────────────────────────────────────────
+  new GLTFLoader().load('/assets/outdoor/buildings/Project Screens/scene.gltf', gltf => {
+    const tv = gltf.scene.clone(true)
+    tv.scale.setScalar(0.030)
+    tv.position.set(-54.60, 1.20, -4.00)
+    tv.rotation.set(0, -Math.PI / 4, 0)
+    tv.traverse(c => {
+      if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
+    })
+    scene.add(tv)
+    movables.push({ name: '📺 Wayfarer: TV', group: tv, scaleObj: tv })
+
+    new THREE.TextureLoader().load(
+      '/assets/outdoor/buildings/Project Screens/textures/WayFarer.png',
+      tex => {
+        tex.colorSpace = THREE.SRGBColorSpace
+        tv.traverse(c => {
+          const mesh = c as THREE.Mesh
+          if (!mesh.isMesh) return
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          mats.forEach((m, i) => {
+            if ((m as THREE.MeshBasicMaterial).name === 'screen') {
+              const newMat = (m as THREE.MeshBasicMaterial).clone()
+              newMat.map = tex; newMat.needsUpdate = true
+              if (Array.isArray(mesh.material)) mesh.material[i] = newMat
+              else mesh.material = newMat
+            }
+          })
+        })
+      }
+    )
+  }, undefined, err => console.error('[buildings] wayfarer TV failed:', err))
+
+  const wayHitMat = new THREE.MeshBasicMaterial({
+    color: 0xff4422, transparent: true, opacity: 0,
+    side: THREE.DoubleSide, depthWrite: false,
+  })
+
+
+  // Placeholder group — building mesh is loaded into it below
+  const wayPlaceholder = new THREE.Group()
+  wayPlaceholder.position.set(-52.50, 0.03, -4.00)
+  wayPlaceholder.scale.setScalar(0.366)
+  scene.add(wayPlaceholder)
+  movables.push({ name: '🟣 Wayfarer Building', group: wayPlaceholder, scaleObj: wayPlaceholder })
+
+  const wayTex = new THREE.TextureLoader().load(
+    '/assets/outdoor/buildings/purple store/textures/Bakery_BaseColor.png',
+  )
+  wayTex.colorSpace = THREE.SRGBColorSpace
+  wayTex.flipY = false
+
+  gltfLoader.load('/assets/outdoor/buildings/purple store/Wayfarer Building.glb', gltf => {
+    const bldg = gltf.scene
+    bldg.traverse(child => {
+      const m = child as THREE.Mesh
+      if (!m.isMesh) return
+      m.castShadow = true; m.receiveShadow = true
+      const mats = Array.isArray(m.material) ? m.material : [m.material]
+      mats.forEach(mat => {
+        const sm = mat as THREE.MeshStandardMaterial
+        if (!sm?.isMeshStandardMaterial) return
+        sm.map = wayTex
+        sm.side = THREE.DoubleSide   // render both faces — fixes inside visibility without re-exporting
+        sm.needsUpdate = true
+      })
+    })
+    bldg.rotation.y = Math.PI / 2
+    groundBldg(bldg)
+    wayPlaceholder.add(bldg)
+  }, undefined, err => console.error('[buildings] wayfarer failed:', err))
+
+  addVisibleHitbox('🔶 Wayfarer: West',   -54.75, 2.0, -4.00, 1, 6, 10, 0.25, 0.75, 0.65, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: North',  -52.85, 2.0, -0.70, 10, 6,  1, 0.40, 0.70, 0.25, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: South',  -52.90, 2.0, -7.30, 10, 6,  1, 0.40, 0.70, 0.25, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: East N', -50.95, 2.0, -2.25,  1, 6,  4, 0.25, 0.70, 0.75, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: East S', -51.00, 2.0, -6.00,  1, 6,  3, 0.25, 0.70, 0.90, wayHitMat, true)
+  ceilCols.push({ x0: -55.0, x1: -51.0, z0: -7.5, z1: -0.5, minY: 3.0 })
+
   // Other houses — connector road, east of driveway, near cabin
   gltfLoader.load('/assets/outdoor/buildings/other houses/Untitled.glb', gltf => {
     const bldg = gltf.scene
@@ -154,11 +239,11 @@ export function createBuildings(
       19.6
     )
     // Visible hitboxes — one per house, user positions via debug overlay then we convert to boxCols
-    addVisibleHitbox('🟥 House 1', -28.60, 3.0, 13.30, 8, 6, 8, 1.20, 1.00, 0.60, hitboxMat, true)
-    addVisibleHitbox('🟥 House 2', -16.30, 3.0, 13.00, 8, 6, 8, 0.80, 1.00, 0.90, hitboxMat, true)
-    addVisibleHitbox('🟥 House 3',  16.50, 3.0, 13.30, 8, 6, 8, 1.10, 1.00, 0.80, hitboxMat, true)
-    addVisibleHitbox('🟥 House 4',  27.00, 3.0, 13.35, 8, 6, 8, 0.90, 1.00, 0.50, hitboxMat, true)
-    addVisibleHitbox('🟥 House 5',  38.70, 3.0, 12.50, 8, 6, 8, 1.15, 1.15, 1.00, hitboxMat, true)
+    addVisibleHitbox('🏠 House 1', -28.60, 3.0, 13.30, 8, 6, 8, 1.20, 1.00, 0.60, hitboxMat, true)
+    addVisibleHitbox('🏠 House 2', -16.30, 3.0, 13.00, 8, 6, 8, 0.80, 1.00, 0.90, hitboxMat, true)
+    addVisibleHitbox('🏠 House 3',  16.50, 3.0, 13.30, 8, 6, 8, 1.10, 1.00, 0.80, hitboxMat, true)
+    addVisibleHitbox('🏠 House 4',  27.00, 3.0, 13.35, 8, 6, 8, 0.90, 1.00, 0.50, hitboxMat, true)
+    addVisibleHitbox('🏠 House 5',  38.70, 3.0, 12.50, 8, 6, 8, 1.15, 1.15, 1.00, hitboxMat, true)
 
     // Stone paths — one per house. PlaneGeometry(1,1) so group.scale = (width, 1, length).
     // Texture cloned from swBaseTex so they match the sidewalk slab appearance.
@@ -285,6 +370,31 @@ export function createBuildings(
     grp.rotation.y = ry
     grp.add(mesh)
     scene.add(grp)
+  })
+
+  // Tunable stone paths — Wayfarer + Memory Lane (all visible in debug panel)
+  const tunablePathDefs = [
+    { name: '🪨 Wayfarer Path',  x: -47.0, z:  -4.00, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 1',  x:  53.0, z: -10.70, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 2',  x:  53.0, z: -16.50, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 3',  x:  53.0, z: -23.50, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 4',  x:  53.0, z: -29.35, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+  ]
+  tunablePathDefs.forEach(({ name, x, z, w, sy, l, ry }) => {
+    const tex = swBaseTex.clone()
+    tex.needsUpdate = true
+    tex.repeat.set(Math.max(1, w / TILE), Math.max(1, l / TILE))
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.receiveShadow = true
+    const grp = new THREE.Group()
+    grp.position.set(x, 0.03, z)
+    grp.scale.set(w, sy, l)
+    grp.rotation.y = ry
+    grp.add(mesh)
+    scene.add(grp)
+    movables.push({ name, group: grp, scaleObj: grp })
   })
 
   // Street sign — near campfire, position tunable via debug editor

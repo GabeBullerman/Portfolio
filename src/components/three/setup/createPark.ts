@@ -10,6 +10,7 @@ const PARK = { W: -37, E: 39, N: -8, S: -91 }
 
 export interface ParkResult {
   addSidewalk: () => void
+  updateWipSign: (elapsed: number) => void
 }
 
 export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: CylCol[], boxCols: BoxCol[]): ParkResult {
@@ -421,6 +422,138 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     addSidewalkMesh(sidewalkBase.clone(true), `🛤️ Sidewalk #${sidewalkCount}`, 1, -32)
   }
 
+  // ── WIP Sign near park entrance ───────────────────────────────────────────
+  function makeStripedTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas')
+    c.width = 128; c.height = 32
+    const ctx = c.getContext('2d')!
+    ctx.fillStyle = '#FFD700'
+    ctx.fillRect(0, 0, 128, 32)
+    ctx.fillStyle = '#111111'
+    const sw = 22
+    for (let x = -32; x < 180; x += sw * 2) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0); ctx.lineTo(x + sw, 0)
+      ctx.lineTo(x + sw - 32, 32); ctx.lineTo(x - 32, 32)
+      ctx.closePath(); ctx.fill()
+    }
+    const tex = new THREE.CanvasTexture(c)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    return tex
+  }
+
+  function makeSignFaceTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas')
+    c.width = 512; c.height = 320
+    const ctx = c.getContext('2d')!
+    ctx.fillStyle = '#F5E6A3'
+    ctx.fillRect(0, 0, 512, 320)
+    ctx.strokeStyle = '#A0781A'
+    ctx.lineWidth = 10
+    ctx.strokeRect(5, 5, 502, 310)
+    ctx.font = 'bold 54px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#CC5500'
+    ctx.fillText('⚠', 256, 76)
+    ctx.font = 'bold 58px sans-serif'
+    ctx.fillStyle = '#8B1A1A'
+    ctx.fillText('WORK IN', 256, 158)
+    ctx.fillText('PROGRESS', 256, 225)
+    ctx.font = '26px sans-serif'
+    ctx.fillStyle = '#555555'
+    ctx.fillText('[Press E to read]', 256, 295)
+    return new THREE.CanvasTexture(c)
+  }
+
+  const wipGrp = new THREE.Group()
+  wipGrp.position.set(4.5, 0, -9.5)
+  scene.add(wipGrp)
+  movables.push({ name: '🚧 WIP Sign', group: wipGrp })
+
+  // Post
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x5c3d1e, roughness: 0.9 })
+  // Post ends at y=1.6 (bottom edge of board); board bottom = 2.05 - 0.9/2 = 1.6
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 8), postMat)
+  post.position.set(0, 0.8, 0)
+  post.castShadow = true
+  wipGrp.add(post)
+
+  // Sign board
+  const boardW = 1.4, boardH = 0.9, boardD = 0.1
+  const signFaceTex = makeSignFaceTexture()
+  const boardMats = [
+    new THREE.MeshStandardMaterial({ color: 0xd4b87a }), // right
+    new THREE.MeshStandardMaterial({ color: 0xd4b87a }), // left
+    new THREE.MeshStandardMaterial({ color: 0xd4b87a }), // top
+    new THREE.MeshStandardMaterial({ color: 0xd4b87a }), // bottom
+    new THREE.MeshStandardMaterial({ map: signFaceTex }), // front face
+    new THREE.MeshStandardMaterial({ color: 0xd4b87a }), // back
+  ]
+  const board = new THREE.Mesh(new THREE.BoxGeometry(boardW, boardH, boardD), boardMats)
+  board.position.y = 2.05
+  board.castShadow = true
+  wipGrp.add(board)
+
+  // Construction tape — 4 strips framing the board (slightly proud of it)
+  const tapeTex = makeStripedTexture()
+  const tapeThick = 0.07
+  const tapeGrp = new THREE.Group()
+  tapeGrp.position.set(0, 2.05, boardD / 2 + 0.002)
+  wipGrp.add(tapeGrp)
+
+  // top strip
+  const tapeTopGeo = new THREE.BoxGeometry(boardW + tapeThick * 2, tapeThick, 0.01)
+  const tapeTopMat = new THREE.MeshStandardMaterial({ map: (() => { const t = tapeTex.clone(); t.repeat.set(3, 1); t.needsUpdate = true; return t })(), roughness: 0.7 })
+  const tapeTop = new THREE.Mesh(tapeTopGeo, tapeTopMat)
+  tapeTop.position.y = boardH / 2 + tapeThick / 2
+  tapeGrp.add(tapeTop)
+
+  // bottom strip
+  const tapeBotMat = new THREE.MeshStandardMaterial({ map: (() => { const t = tapeTex.clone(); t.repeat.set(3, 1); t.needsUpdate = true; return t })(), roughness: 0.7 })
+  const tapeBot = new THREE.Mesh(tapeTopGeo.clone(), tapeBotMat)
+  tapeBot.position.y = -(boardH / 2 + tapeThick / 2)
+  tapeGrp.add(tapeBot)
+
+  // left strip
+  const tapeSideGeo = new THREE.BoxGeometry(tapeThick, boardH + tapeThick * 2, 0.01)
+  const tapeLftMat = new THREE.MeshStandardMaterial({ map: (() => { const t = tapeTex.clone(); t.repeat.set(1, 2); t.needsUpdate = true; return t })(), roughness: 0.7 })
+  const tapeLft = new THREE.Mesh(tapeSideGeo, tapeLftMat)
+  tapeLft.position.x = -(boardW / 2 + tapeThick / 2)
+  tapeGrp.add(tapeLft)
+
+  // right strip
+  const tapeRgtMat = new THREE.MeshStandardMaterial({ map: (() => { const t = tapeTex.clone(); t.repeat.set(1, 2); t.needsUpdate = true; return t })(), roughness: 0.7 })
+  const tapeRgt = new THREE.Mesh(tapeSideGeo.clone(), tapeRgtMat)
+  tapeRgt.position.x = boardW / 2 + tapeThick / 2
+  tapeGrp.add(tapeRgt)
+
+  // Exclamation mark (spins + bobs above sign)
+  const exclamSpinPivot = new THREE.Group()
+  exclamSpinPivot.position.set(0, 3.3, 0)
+  wipGrp.add(exclamSpinPivot)
+
+  const excMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff2200, emissiveIntensity: 0.4, roughness: 0.4 })
+  // Body of !
+  const excBody = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.44, 0.12), excMat)
+  excBody.position.set(0.22, 0.22, 0)
+  excBody.castShadow = true
+  exclamSpinPivot.add(excBody)
+  // Dot of !
+  const excDot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), excMat)
+  excDot.position.set(0.22, -0.12, 0)
+  excDot.castShadow = true
+  exclamSpinPivot.add(excDot)
+
+  let _wipElapsed = 0
+  function updateWipSign(elapsed: number) {
+    const delta = elapsed - _wipElapsed
+    _wipElapsed = elapsed
+    void delta
+    exclamSpinPivot.rotation.y = elapsed * 2.2
+    exclamSpinPivot.position.y = 3.3 + Math.sin(elapsed * 3.0) * 0.14
+  }
+
   // ── Fountain hitbox — tune position in debug editor (`) then hardcode ───────
   const fountainHitMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(1.8, 1.8, 0.9, 32),
@@ -434,5 +567,5 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
   cylCols.push({ x: 1.00, z: -47.80, r: 1.8 * 2.2 })
   movables.push({ name: '⛲ Fountain hitbox', group: fountainHitGrp, isHitbox: true, scaleObj: fountainHitGrp })
 
-  return { addSidewalk }
+  return { addSidewalk, updateWipSign }
 }

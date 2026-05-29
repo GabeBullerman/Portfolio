@@ -62,6 +62,11 @@ export const LADDER_X = TRAMP_CX                       // south side — centere
 export const LADDER_Z = TRAMP_CZ + TRAMP_R + 0.12     // flush with south rim
 export const LADDER_PROX = 2.2
 
+// ─── WIP Sign constants ───────────────────────────────────────────────────────
+export const WIP_SIGN_X    = 4.5
+export const WIP_SIGN_Z    = -9.5
+export const WIP_SIGN_PROX = 3.2
+
 // ─── Car constants ────────────────────────────────────────────────────────────
 export const CAR_X             = 6.15
 export const CAR_Y             = 0

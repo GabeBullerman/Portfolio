@@ -75,6 +75,10 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const nearCarRef  = useRef(false)
   const [nearCradle, setNearCradle] = useState(false)
   const nearCradleRef = useRef(false)
+  const [nearWipSign, setNearWipSign] = useState(false)
+  const nearWipSignRef = useRef(false)
+  const [wipSignOpen, setWipSignOpen] = useState(false)
+  const wipSignOpenRef = useRef(false)
   const drivingRef  = useRef(false)
   const nearBenchRef  = useRef(false)
   const seatIdxRef    = useRef(0)
@@ -215,7 +219,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const projectDisplays = createProjectDisplays(scene)
 
     // ── Memory Lane displays ──────────────────────────────────────────────
-    const memoryLaneDisplays = createMemoryLaneDisplays(scene)
+    const memoryLaneDisplays = createMemoryLaneDisplays(scene, movablesRef.current)
 
     // ── Project Blvd rotating objects ─────────────────────────────────────
     const projectObjects = createProjectObjects(scene, movablesRef.current)
@@ -224,7 +228,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const exhibit = createExhibit(scene, movablesRef.current, physWorld, camera)
 
     // ── Park ──────────────────────────────────────────────────────────────
-    const { addSidewalk } = createPark(scene, movablesRef.current, cylCols, boxCols)
+    const { addSidewalk, updateWipSign } = createPark(scene, movablesRef.current, cylCols, boxCols)
     addSidewalkRef.current = addSidewalk
 
     // ── Car ───────────────────────────────────────────────────────────────────
@@ -233,7 +237,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     const FIRE_POS = new THREE.Vector3(0, 0, -14)
 
     // ── Buildings ─────────────────────────────────────────────────────────
-    createBuildings(scene, boxCols, ceilCols, swBaseTex, TILE, CABIN_X)
+    createBuildings(scene, boxCols, ceilCols, swBaseTex, TILE, CABIN_X, movablesRef.current)
 
     // ── Cabin ─────────────────────────────────────────────────────────────
     const { cabGrp, rampGrp, cabHitboxEntries, clockInterval } = createCabin(
@@ -364,6 +368,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (nearRadioRef.current && audioRef.current) { audioRef.current.muted = !audioRef.current.muted; musicMutedRef.current = audioRef.current.muted; setMusicMuted(audioRef.current.muted); return }
         if (nearProjectRef.current && nearProjectUrlRef.current) { window.open(nearProjectUrlRef.current, '_blank'); return }
         if (nearCradleRef.current) { exhibit.startCradle(); return }
+        if (nearWipSignRef.current) { wipSignOpenRef.current = true; setWipSignOpen(true); document.exitPointerLock(); return }
       }
       if (climbingRef.current && (mapped === 'e' || e.key === 'Escape')) { climbingRef.current = false; setClimbing(false); nearLadderRef.current = false; setNearLadder(false) }
       if (!climbingRef.current && nearLadderRef.current && mapped === 'w' && bowlStateRef.current === 'idle' && rtossStateRef.current === 'idle' && !sittingRef.current) { climbingRef.current = true; setClimbing(true) }
@@ -393,6 +398,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (monLightRef.current) { monLightRef.current.intensity = on ? 1.2 : 3.5; monLightRef.current.distance = on ? 5 : 8 }
         return
       }
+      if (e.key === 'Escape' && wipSignOpenRef.current) { wipSignOpenRef.current = false; setWipSignOpen(false); relockRef.current?.(); return }
       if (e.key === 'Escape' && focusActiveRef.current) exitFocus()
     }
     const onKeyUp = (e: KeyboardEvent) => {
@@ -488,6 +494,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       setNearProject,
       carGrp, carCol, carHitboxGrp, drivingRef, nearCarRef, setNearCar, setDriving,
       nearCradleRef, setNearCradle,
+      nearWipSignRef, setNearWipSign, wipSignUpdate: updateWipSign,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -549,13 +556,58 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         setTimeout(() => setMonitorMode(false), 650)
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} nearWipSign={nearWipSign} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
       {nowPlaying && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full pointer-events-none select-none animate-fade-in">
           <span className="text-white/60">♪</span>
           <span>{nowPlaying}</span>
           <span className="text-white/40 text-[10px]">F to skip</span>
+        </div>
+      )}
+      {wipSignOpen && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { wipSignOpenRef.current = false; setWipSignOpen(false); relockRef.current?.() }}>
+          <div className="relative bg-amber-50 border-4 border-amber-700 rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6 text-stone-800" onClick={e => e.stopPropagation()}>
+            {/* Construction tape header */}
+            <div className="absolute -top-4 left-0 right-0 h-7 rounded-t-xl overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #FFD700 0px, #FFD700 14px, #111 14px, #111 28px)' }} />
+            <div className="absolute -bottom-4 left-0 right-0 h-7 rounded-b-xl overflow-hidden" style={{ background: 'repeating-linear-gradient(45deg, #FFD700 0px, #FFD700 14px, #111 14px, #111 28px)' }} />
+            <div className="mt-2 mb-2">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">⚠</span>
+                <h2 className="text-2xl font-black text-amber-800 uppercase tracking-wide">Work In Progress</h2>
+                <span className="text-3xl">⚠</span>
+              </div>
+              <p className="text-sm text-stone-600 mb-4 italic">This 3D portfolio is actively being built — here's what's already in it and what's coming:</p>
+              <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                {[
+                  { icon: '🌐', label: 'Three.js + WebGL', desc: 'Full 3D world built from scratch' },
+                  { icon: '🏎️', label: 'Drivable Car', desc: 'WASD steering, physics-feel' },
+                  { icon: '🎵', label: 'Music Player', desc: 'Lofi playlist, press F to skip' },
+                  { icon: '🎳', label: 'Mini-Games', desc: 'Bowling + Ring Toss with hi-scores' },
+                  { icon: '📦', label: 'Model Importing', desc: 'GLTF/FBX assets from Blender' },
+                  { icon: '📱', label: 'Mobile Support', desc: 'Touch joysticks + responsive UI' },
+                  { icon: '⚡', label: 'Performance', desc: 'Instancing, LOD, lazy-loading' },
+                  { icon: '🎨', label: 'Themes (soon)', desc: 'Day/night + seasonal modes' },
+                  { icon: '🗺️', label: 'Open World', desc: 'Park, cabin, buildings, exhibits' },
+                  { icon: '👤', label: 'About Me', desc: 'CS student @ Iowa State, May \'26' },
+                ].map(({ icon, label, desc }) => (
+                  <div key={label} className="flex items-start gap-2 bg-amber-100 rounded-lg p-2">
+                    <span className="text-lg leading-none mt-0.5">{icon}</span>
+                    <div>
+                      <div className="font-bold text-xs text-amber-900">{label}</div>
+                      <div className="text-xs text-stone-500">{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="w-full py-2 bg-amber-700 hover:bg-amber-600 text-white font-bold rounded-lg transition-colors text-sm"
+                onClick={() => { wipSignOpenRef.current = false; setWipSignOpen(false); relockRef.current?.() }}
+              >
+                Close (Esc)
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

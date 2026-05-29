@@ -1,0 +1,83 @@
+%-------------------------
+% Cover Letter in LaTeX
+% Author : Gabriel Bullerman
+%-------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{parskip}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+\setlength{\parskip}{8pt}
+
+\pdfgentounicode=1
+
+%-------------------------------------------
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Gabriel Bullerman} \\ \vspace{1pt}
+    \small 319-230-0474 $|$
+    \href{mailto:gabebullerman1@gmail.com}{\underline{gabebullerman1@gmail.com}} $|$
+    \href{https://github.com/GabeBullerman}{\underline{github.com/GabeBullerman}} $|$
+    \href{https://portfolio-8yqn.vercel.app/}{\underline{Portfolio}}
+\end{center}
+
+\vspace{4pt}
+
+May 27, 2026
+
+\vspace{4pt}
+
+Hiring Manager \\
+Affirm \\
+Denver, CO
+
+\vspace{4pt}
+
+Dear Hiring Manager,
+
+I am writing to express my strong interest in the Software Engineering Apprentice, Full-Stack position at Affirm. I am a Computer Science graduate from Iowa State University, class of May 2026, and Affirm's mission to reinvent credit --- making it honest, transparent, and accessible without hidden fees or compounding interest --- is exactly the kind of work I want to contribute to at the start of my career. Financial tools that genuinely improve people's lives demand software built with care, and I take that seriously.
+
+My background spans the full stack. At Iowa State University's Senior Design program, I led the development of a cross-platform React Native + TypeScript application used by 200+ students and 10+ staff per semester, with features including attendance tracking, grading workflows, real-time chat over WebSockets, and contribution analytics pulled from GitLab APIs. I owned the product from UI to deployment --- Java Spring Boot REST APIs, JWT/OAuth2 authentication, Docker containers, and a GitLab CI/CD pipeline were all built by me alongside the frontend. That project taught me to think about the system as a whole: how a decision in a React component ripples down to the API contract, the data model, and ultimately the user.
+
+That full-stack fluency shows in my personal projects as well. Lusiant is a React + TailwindCSS e-commerce SPA backed by a Node.js/MySQL server with Stripe payment processing --- I handled the entire transaction flow, from UI state to server-side validation to payment confirmation. MusiQuest is a real-time Android application built around WebSocket-synchronized leaderboards and live competition state, which required the same careful thinking about scale and reliability that goes into infrastructure serving millions of customers. I am also drawn specifically to the experimentation and feature-flag domain; I have implemented feature-gated rollouts in my own projects and understand how critical that infrastructure is to shipping safely.
+
+I am eager to learn, comfortable with ambiguity, and genuinely excited to ship code that real users depend on --- not throwaway work. The mentorship structure of Affirm's apprenticeship is something I actively welcome: I do my best work in environments where I can get honest feedback, iterate quickly, and grow alongside experienced engineers.
+
+I would welcome the opportunity to discuss how I can contribute to Affirm's engineering team during the apprenticeship and beyond. Thank you for your time and consideration.
+
+\vspace{12pt}
+
+Sincerely,
+
+\vspace{24pt}
+
+Gabriel Bullerman
+
+\end{document}

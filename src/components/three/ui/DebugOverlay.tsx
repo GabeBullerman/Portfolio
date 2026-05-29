@@ -51,6 +51,7 @@ export default function DebugOverlay({
                 if (name.startsWith('🚶')) return 'Sidewalks'
                 if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'
                 if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜') || name.startsWith('🟫')) return 'Cabin'
+                if (name.includes('Wayfarer') || name.startsWith('🟣') || name.startsWith('🔶') || name.startsWith('🔷') || name.startsWith('📺')) return 'Buildings'
                 if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
                 if (name.startsWith('🪨')) return 'Stone Paths'
                 if (name.startsWith('🧱') || name.startsWith('🌳') || name.startsWith('🛹') ||
@@ -60,7 +61,7 @@ export default function DebugOverlay({
                     name.startsWith('🤸') || name.startsWith('🪴') || name.startsWith('🔥')) return 'Games'
                 return 'Props'
               }
-              const groupOrder = ['Games', 'Props']
+              const groupOrder = ['Games', 'Buildings', 'Stone Paths', 'Props']
               const grouped: Record<string, number[]> = {}
               movablesRef.current.forEach((m, i) => {
                 const g = getGroup(m.name)
@@ -297,6 +298,7 @@ export default function DebugOverlay({
                 if (name.startsWith('🚶')) return 'Sidewalks'
                 if (name.includes('(cabin local)') || name.startsWith('🏕') || name.startsWith('🟫') || name.startsWith('🏠')) return 'Cabin'
                 if (name.startsWith('🟥') || name.startsWith('🟩') || name.startsWith('🪜')) return 'Cabin'
+                if (name.includes('Wayfarer') || name.startsWith('🟣') || name.startsWith('🔶') || name.startsWith('🔷') || name.startsWith('📺')) return 'Buildings'
                 if (name.startsWith('🏪') || name.startsWith('🏢') || name.startsWith('🏘')) return 'Buildings'
                 if (name.startsWith('🪨')) return 'Stone Paths'
                 if (name.startsWith('🧱') || name.startsWith('🌳') || name.startsWith('🛹') ||

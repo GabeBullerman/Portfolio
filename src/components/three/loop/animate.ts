@@ -14,6 +14,7 @@ import {
   PIT_CX, PIT_CZ, PIT_R,
   CAR_PROX, CAR_INITIAL_ANGLE,
   PIN_ROW_D,
+  WIP_SIGN_X, WIP_SIGN_Z, WIP_SIGN_PROX,
   BowlState, RTossState,
 } from '../constants'
 
@@ -165,6 +166,9 @@ export interface AnimateParams {
   setDriving:      (v: boolean) => void
   nearCradleRef:   React.MutableRefObject<boolean>
   setNearCradle:   (v: boolean) => void
+  nearWipSignRef:  React.MutableRefObject<boolean>
+  setNearWipSign:  (v: boolean) => void
+  wipSignUpdate:   (elapsed: number) => void
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
   setRTossDisplay:  (v: { state: RTossState; thrown: number; score: number; hs: number } | ((p: { state: RTossState; thrown: number; score: number; hs: number }) => { state: RTossState; thrown: number; score: number; hs: number })) => void
 }
@@ -202,6 +206,15 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     p.projectDisplayUpdate(st.elapsed)
     p.projectObjectsUpdate(st.elapsed)
     p.exhibitUpdate(st.elapsed, delta)
+    p.wipSignUpdate(st.elapsed)
+
+    // Keep sun shadow frustum centred on player — only nearby objects cast shadows
+    if (p.sunLightRef.current) {
+      const px = p.player.position.x, pz = p.player.position.z
+      p.sunLightRef.current.position.set(px + 20, 40, pz + 15)
+      p.sunLightRef.current.target.position.set(px, 0, pz)
+      p.sunLightRef.current.target.updateMatrixWorld()
+    }
 
     // Bone animation
     const bones = p.playerBonesRef.current
@@ -379,7 +392,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > 54.95  && px < 58.55  && pz > -13.10 && pz < -8.30)  || // Mem Ln Bldg 1
         (px > 55.00  && px < 58.60  && pz > -18.90 && pz < -14.10) || // Mem Ln Bldg 2
         (px > 54.90  && px < 58.50  && pz > -25.90 && pz < -21.10) || // Mem Ln Bldg 3
-        (px > 54.90  && px < 58.50  && pz > -31.75 && pz < -26.95)    // Mem Ln Bldg 4
+        (px > 54.90  && px < 58.50  && pz > -31.75 && pz < -26.95) || // Mem Ln Bldg 4
+        (px > -55.0  && px < -51.0  && pz > -7.5   && pz < -0.5)       // Wayfarer Building
       )
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
@@ -449,6 +463,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         // Cradle proximity
         const nearCradleNow = Math.hypot(p.player.position.x - CRADLE_X, p.player.position.z - CRADLE_Z) < CRADLE_PROX
         if (nearCradleNow !== p.nearCradleRef.current) { p.nearCradleRef.current = nearCradleNow; p.setNearCradle(nearCradleNow) }
+        // WIP sign proximity
+        const nearWipNow = Math.hypot(p.player.position.x - WIP_SIGN_X, p.player.position.z - WIP_SIGN_Z) < WIP_SIGN_PROX
+        if (nearWipNow !== p.nearWipSignRef.current) { p.nearWipSignRef.current = nearWipNow; p.setNearWipSign(nearWipNow) }
       } else if (p.sittingAtRef.current === 'bench') {
         const s = BENCH_POSITIONS[p.seatIdxRef.current]
         p.player.position.set(s.x, -0.46, s.z); p.player.rotation.y = Math.atan2(p.FIRE_POS.x - s.x, p.FIRE_POS.z - s.z)
