@@ -374,11 +374,11 @@ export function createBuildings(
 
   // Tunable stone paths — Wayfarer + Memory Lane (all visible in debug panel)
   const tunablePathDefs = [
-    { name: '🪨 Wayfarer Path',  x: -47.0, z:  -4.00, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
-    { name: '🪨 Mem Ln Path 1',  x:  53.0, z: -10.70, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
-    { name: '🪨 Mem Ln Path 2',  x:  53.0, z: -16.50, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
-    { name: '🪨 Mem Ln Path 3',  x:  53.0, z: -23.50, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
-    { name: '🪨 Mem Ln Path 4',  x:  53.0, z: -29.35, w: 1.8, sy: 1, l: 6.0, ry: Math.PI / 2 },
+    { name: '🪨 Wayfarer Path',  x: -48.70, z:  -4.05, w: 0.957, sy: 1.000, l: 4.597, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 1',  x:  51.70, z:  -9.60, w: 1.443, sy: 1.000, l: 6.598, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 2',  x:  51.70, z: -15.40, w: 1.436, sy: 1.000, l: 6.561, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 3',  x:  51.70, z: -22.40, w: 1.443, sy: 1.000, l: 6.562, ry: Math.PI / 2 },
+    { name: '🪨 Mem Ln Path 4',  x:  51.70, z: -28.25, w: 1.443, sy: 1.000, l: 6.562, ry: Math.PI / 2 },
   ]
   tunablePathDefs.forEach(({ name, x, z, w, sy, l, ry }) => {
     const tex = swBaseTex.clone()

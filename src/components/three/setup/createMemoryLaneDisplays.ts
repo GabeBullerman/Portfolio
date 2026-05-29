@@ -17,7 +17,7 @@ export interface MemoryLaneResult {
 interface MLConfig {
   makeTexture: () => THREE.CanvasTexture
   pos: { x: number; y: number; z: number }
-  rotY: number
+  rot: { x: number; y: number; z: number }
   scale: number
   zone: { x: number; z: number; r: number }
   label: string
@@ -171,9 +171,9 @@ const ML_CONFIGS: MLConfig[] = [
         'Containerized with Docker, CI/CD via GitLab, PostgreSQL migrations via Flyway.',
       ],
     ),
-    pos:   { x: 58.40, y: 1.30, z: -10.70 },
-    rotY:  Math.PI,
-    scale: 0.0311,
+    pos:   { x: 58.40, y: 1.03, z: -10.70 },
+    rot:   { x: -Math.PI, y: Math.PI / 4, z: Math.PI },
+    scale: 0.031,
     zone:  { x: 55.5, z: -10.70, r: 2.5 },
     label: 'Iowa State — Full-Stack Dev',
     url:   'https://github.com/GabeBullerman',
@@ -191,9 +191,9 @@ const ML_CONFIGS: MLConfig[] = [
         'Managed 200+ VLANs to segment traffic and reduce broadcast load by 30%.',
       ],
     ),
-    pos:   { x: 58.40, y: 1.30, z: -16.50 },
-    rotY:  Math.PI,
-    scale: 0.0311,
+    pos:   { x: 58.40, y: 1.05, z: -16.50 },
+    rot:   { x: -Math.PI, y: Math.PI / 4, z: -Math.PI },
+    scale: 0.031,
     zone:  { x: 55.5, z: -16.50, r: 2.5 },
     label: 'ICS Advanced Technologies — IT Ops',
     url:   'https://github.com/GabeBullerman',
@@ -207,9 +207,9 @@ const ML_CONFIGS: MLConfig[] = [
       'I picked up music theory after inheriting a grand piano, spent a year modifying a Kawasaki sports bike from the ground up, ' +
       'and am steadily working through the IMDB Top 250 — Interstellar remains my favorite.',
     ),
-    pos:   { x: 58.40, y: 1.30, z: -23.50 },
-    rotY:  Math.PI,
-    scale: 0.0311,
+    pos:   { x: 58.40, y: 1.05, z: -23.50 },
+    rot:   { x: -Math.PI, y: Math.PI / 4, z: -Math.PI },
+    scale: 0.031,
     zone:  { x: 55.5, z: -23.50, r: 2.5 },
     label: 'More About Me',
     url:   'https://github.com/GabeBullerman',
@@ -222,9 +222,9 @@ const ML_CONFIGS: MLConfig[] = [
       "Visited 49 of 50 U.S. states and traveled extensively abroad — hiking and photographing Greece, " +
       "exploring Italy's culinary and Renaissance arts, and immersing myself in Japan's culture and cities.",
     ),
-    pos:   { x: 58.40, y: 1.30, z: -29.35 },
-    rotY:  Math.PI,
-    scale: 0.0311,
+    pos:   { x: 58.40, y: 1.05, z: -29.35 },
+    rot:   { x: Math.PI, y: Math.PI / 4, z: -Math.PI },
+    scale: 0.031,
     zone:  { x: 55.5, z: -29.35, r: 2.5 },
     label: 'More About Me',
     url:   'https://github.com/GabeBullerman',
@@ -243,7 +243,7 @@ function placeTV(
   const tv = gltfScene.clone(true)
   tv.scale.setScalar(cfg.scale)
   tv.position.set(cfg.pos.x, cfg.pos.y, cfg.pos.z)
-  tv.rotation.set(0, cfg.rotY, 0)
+  tv.rotation.set(cfg.rot.x, cfg.rot.y, cfg.rot.z)
   tv.traverse(c => {
     if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
   })
