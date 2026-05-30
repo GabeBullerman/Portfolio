@@ -19,16 +19,38 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
   modelGrp.rotation.set(-Math.PI, Math.PI, -Math.PI)
   carGrp.add(modelGrp)
 
+  // 3-step toon gradient: shadow / mid-tone / highlight
+  const gradData = new Uint8Array([0, 90, 255])
+  const gradTex  = new THREE.DataTexture(gradData, 3, 1, THREE.RedFormat)
+  gradTex.needsUpdate = true
+  gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter
+
+  const outlineMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide })
+
   const loader = new GLTFLoader()
   loader.load('/assets/outdoor/car/Car.glb', gltf => {
     const model = gltf.scene
-    model.traverse(c => {
-      if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
-    })
-    model.scale.setScalar(1.1)          // scale before bbox so lift accounts for scaled size
+    model.scale.setScalar(1.1)
     model.updateMatrixWorld(true)
     const bbox = new THREE.Box3().setFromObject(model)
     model.position.y -= bbox.min.y
+
+    model.traverse(c => {
+      const mesh = c as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true; mesh.receiveShadow = true
+      const src = mesh.material as THREE.MeshStandardMaterial
+      mesh.material = new THREE.MeshToonMaterial({
+        color:       src.color   ?? new THREE.Color(0xffffff),
+        map:         src.map     ?? null,
+        gradientMap: gradTex,
+      })
+      // Backface outline — child inherits transform so scale pushes faces outward
+      const outline = new THREE.Mesh(mesh.geometry, outlineMat)
+      outline.scale.setScalar(1.05)
+      mesh.add(outline)
+    })
+
     modelGrp.add(model)
   }, undefined, err => console.error('[car]', err))
 

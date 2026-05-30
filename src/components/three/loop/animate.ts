@@ -150,6 +150,8 @@ export interface AnimateParams {
   projectDisplayUpdate: (elapsed: number) => void
   projectObjectsUpdate: (elapsed: number) => void
   exhibitUpdate:        (elapsed: number, delta: number) => void
+  waterUpdate:          (elapsed: number) => void
+  smokeUpdate:          (elapsed: number, delta: number) => void
   interactZones:       InteractZone[]
   nearProjectRef:      React.MutableRefObject<boolean>
   nearProjectLabelRef: React.MutableRefObject<string>
@@ -298,6 +300,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     p.projectObjectsUpdate(st.elapsed)
     p.exhibitUpdate(st.elapsed, delta)
     p.wipSignUpdate(st.elapsed)
+    p.waterUpdate(st.elapsed)
+    p.smokeUpdate(st.elapsed, delta)
 
     // Keep sun shadow frustum centred on player — only nearby objects cast shadows
     if (p.sunLightRef.current) {

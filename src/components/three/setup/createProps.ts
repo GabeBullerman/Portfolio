@@ -26,6 +26,8 @@ export interface PropsResult {
   balls:         { mesh: THREE.Mesh; body: CANNON.Body }[]
   ringLine:      THREE.Line
   ringGeo:       THREE.BufferGeometry
+  waterUpdate:   (elapsed: number) => void
+  smokeUpdate:   (elapsed: number, delta: number) => void
 }
 
 export function createProps(
@@ -117,10 +119,46 @@ export function createProps(
   // ── Pond ─────────────────────────────────────────────────────────────────
   const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
 
-  const pondMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(POND_R, 28),
-    new THREE.MeshLambertMaterial({ color: 0x2255aa, transparent: true, opacity: 0.88 })
-  )
+  const waterMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      uniform float uTime;
+      varying vec2  vUv;
+      varying float vWave;
+      void main() {
+        vUv = uv;
+        vec3 pos = position;
+        float w = sin(pos.x * 4.0 + uTime * 2.0)              * 0.025
+                + cos(pos.y * 3.5 + uTime * 1.6)              * 0.020
+                + sin(pos.x * 2.0 - pos.y * 3.0 + uTime*1.1)  * 0.015
+                + cos(pos.x * 5.0 + pos.y * 4.0 - uTime*2.5)  * 0.010;
+        pos.z += w; vWave = w;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      varying vec2  vUv;
+      varying float vWave;
+      void main() {
+        vec3 deep    = vec3(0.04, 0.18, 0.42);
+        vec3 shallow = vec3(0.10, 0.38, 0.72);
+        vec3 foam    = vec3(0.72, 0.88, 1.00);
+        vec2 f1 = vUv + vec2(uTime*0.040, uTime*0.025);
+        vec2 f2 = vUv - vec2(uTime*0.030, uTime*0.050);
+        float p = sin(f1.x*10.0 + f1.y*8.0)*0.5 + 0.5;
+        float q = cos(f2.x*7.0  - f2.y*9.0)*0.5 + 0.5;
+        vec3 col = mix(deep, shallow, mix(p,q,0.5)*0.4 + vWave*3.0 + 0.3);
+        col = mix(col, foam, smoothstep(0.020, 0.045, vWave)*0.6);
+        col = mix(col, foam, smoothstep(0.82,  1.0, length(vUv-0.5)*2.0)*0.35);
+        gl_FragColor = vec4(col, 0.88);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+  })
+
+  const pondMesh = new THREE.Mesh(new THREE.CircleGeometry(POND_R, 48), waterMat)
   pondMesh.rotation.x = -Math.PI / 2; pondMesh.position.set(0, 0.02, 0); pondGrp.add(pondMesh)
   const pondRim = new THREE.Mesh(
     new THREE.RingGeometry(POND_R, POND_R + 0.55, 28),
@@ -323,6 +361,82 @@ export function createProps(
   // Skipped while climbing (collision block is bypassed when climbingRef is true)
   boxCols.push({ x0: LADDER_X - 0.45, x1: LADDER_X + 0.45, z0: LADDER_Z - 0.18, z1: LADDER_Z + 0.18, maxY: TRAMP_Y + 0.2 })
 
+  // ── Campfire smoke (billboard InstancedMesh + custom shader) ──────────────
+  const SMOKE_N = 80
+  const smokeMesh = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.ShaderMaterial({
+      vertexShader: `
+        varying float vLife;
+        varying vec2  vUv;
+        void main() {
+          vUv   = uv;
+          vLife = instanceColor.r;
+          vec3  wPos = vec3(instanceMatrix[3]);
+          float sc   = length(vec3(instanceMatrix[0]));
+          vec3 r = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+          vec3 u = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+          gl_Position = projectionMatrix * viewMatrix *
+            vec4(wPos + r*position.x*sc + u*position.y*sc, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vLife;
+        varying vec2  vUv;
+        void main() {
+          float d     = length(vUv - 0.5);
+          float alpha = smoothstep(0.5, 0.05, d) * sin(vLife * 3.14159) * 0.52;
+          if (alpha < 0.01) discard;
+          gl_FragColor = vec4(vec3(0.28 + vLife * 0.52), alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+    SMOKE_N,
+  )
+  smokeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  scene.add(smokeMesh)
+
+  const smokeRng = mulberry32(888)
+  type SP = { x: number; y: number; z: number; vx: number; vz: number; life: number; maxLife: number; size: number }
+  const smokeP: SP[] = Array.from({ length: SMOKE_N }, () => ({
+    x: campfireGrp.position.x + (smokeRng() - 0.5) * 0.4,
+    y: 1.0 + smokeRng() * 1.5,
+    z: campfireGrp.position.z + (smokeRng() - 0.5) * 0.4,
+    vx: (smokeRng() - 0.5) * 0.12, vz: (smokeRng() - 0.5) * 0.12,
+    life: smokeRng(), maxLife: 2.0 + smokeRng() * 2.5, size: 0.25 + smokeRng() * 0.45,
+  }))
+  // Initialise instanceColor so Three.js enables the attribute
+  const _sc = new THREE.Color()
+  for (let i = 0; i < SMOKE_N; i++) { _sc.setRGB(smokeP[i].life, 0, 0); smokeMesh.setColorAt(i, _sc) }
+  if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true
+
+  const _sm4 = new THREE.Matrix4()
+  const smokeUpdate = (_elapsed: number, delta: number) => {
+    const fx = campfireGrp.position.x, fz = campfireGrp.position.z
+    smokeP.forEach((p, i) => {
+      p.life += delta / p.maxLife
+      if (p.life >= 1.0) {
+        p.x = fx + (Math.random() - 0.5) * 0.4; p.y = 1.2 + Math.random() * 0.2
+        p.z = fz + (Math.random() - 0.5) * 0.4
+        p.vx = (Math.random() - 0.5) * 0.12;    p.vz = (Math.random() - 0.5) * 0.12
+        p.life = 0; p.maxLife = 2.0 + Math.random() * 2.5; p.size = 0.25 + Math.random() * 0.45
+      }
+      p.y += delta * 0.55; p.x += p.vx * delta; p.z += p.vz * delta
+      const sc = p.size * (0.5 + p.life * 2.0)
+      _sm4.makeScale(sc, sc, 1); _sm4.setPosition(p.x, p.y, p.z)
+      smokeMesh.setMatrixAt(i, _sm4)
+      _sc.setRGB(p.life, 0, 0); smokeMesh.setColorAt(i, _sc)
+    })
+    smokeMesh.instanceMatrix.needsUpdate = true
+    if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true
+  }
+
+  // ── Water update ──────────────────────────────────────────────────────────
+  const waterUpdate = (elapsed: number) => { waterMat.uniforms.uTime.value = elapsed }
+
   return {
     FIRE_POS: campfireGrp.position, // live reference — always tracks actual group position
     campfireGrp,
@@ -332,5 +446,6 @@ export function createProps(
     ducks, pondGrp, pitGrp, trampGrp,
     balls,
     ringLine, ringGeo,
+    waterUpdate, smokeUpdate,
   }
 }

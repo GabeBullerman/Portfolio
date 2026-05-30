@@ -258,6 +258,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       ducks, pondGrp, pitGrp, trampGrp,
       balls,
       ringLine, ringGeo,
+      waterUpdate, smokeUpdate,
     } = createProps(scene, physWorld, cylCols, boxCols, POND_X, POND_Z, POND_R)
     void _fp
     movablesRef.current.push({ name: '🔥 Campfire Seating', group: campfireGrp, scaleObj: campfireGrp })
@@ -491,6 +492,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       projectDisplayUpdate: projectDisplays.update,
       projectObjectsUpdate: projectObjects.update,
       exhibitUpdate:        exhibit.update,
+      waterUpdate, smokeUpdate,
       interactZones:        [...projectDisplays.interactZones, ...memoryLaneDisplays.interactZones],
       nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
       setNearProject,
