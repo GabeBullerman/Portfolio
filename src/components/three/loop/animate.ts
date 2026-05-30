@@ -172,6 +172,7 @@ export interface AnimateParams {
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
   setRTossDisplay:  (v: { state: RTossState; thrown: number; score: number; hs: number } | ((p: { state: RTossState; thrown: number; score: number; hs: number }) => { state: RTossState; thrown: number; score: number; hs: number })) => void
   fpsRef?:          React.MutableRefObject<HTMLDivElement | null>
+  minimapRef?:      React.MutableRefObject<HTMLCanvasElement | null>
 }
 
 export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: () => void } {
@@ -203,6 +204,60 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
   let fpsFrameCount = 0
   let fpsAccum      = 0
 
+  // ── Minimap ───────────────────────────────────────────────────────────────
+  const MM_W = 120, MM_H = 90, MM_S = MM_W / 156  // 156 = world width X[-78,78]
+  let mmFrame = 0
+  let mmCtx: CanvasRenderingContext2D | null = null
+
+  function drawMinimap(ctx: CanvasRenderingContext2D, px: number, pz: number, yaw: number) {
+    const cx = (x: number) => (x + 78) * MM_S
+    const cy = (z: number) => (22 - z) * MM_S   // north at top: Z=22 → y=0
+
+    ctx.clearRect(0, 0, MM_W, MM_H)
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.78)'
+    ctx.fillRect(0, 0, MM_W, MM_H)
+
+    // World boundary
+    ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.lineWidth = 0.5
+    ctx.strokeRect(0.5, 0.5, MM_W - 1, MM_H - 1)
+
+    // Roads
+    ctx.fillStyle = '#252525'
+    // Connector: Z[-8,0], X[-45,47]
+    ctx.fillRect(cx(-45), cy(0), cx(47) - cx(-45), cy(-8) - cy(0))
+    // Project Blvd: X[-45,-37], Z[-91,0]
+    ctx.fillRect(cx(-45), cy(0), cx(-37) - cx(-45), cy(-91) - cy(0))
+    // Memory Lane: X[39,47], Z[-91,0]
+    ctx.fillRect(cx(39), cy(0), cx(47) - cx(39), cy(-91) - cy(0))
+    // Driveway: X[3,9], Z[-1.5,11.5]
+    ctx.fillRect(cx(3), cy(11.5), cx(9) - cx(3), cy(-1.5) - cy(11.5))
+
+    // Landmarks
+    const dot = (x: number, z: number, color: string, r = 2) => {
+      ctx.fillStyle = color; ctx.beginPath()
+      ctx.arc(cx(x), cy(z), r, 0, Math.PI * 2); ctx.fill()
+    }
+    dot(-5,  15,  '#f59e0b', 3)    // Cabin
+    dot( 0,  -14, '#f97316', 2)    // Campfire
+    dot(-24, -36, '#3b82f6', 2)    // Pond
+    dot( 19, -26, '#e2e8f0', 1.5)  // Bowling
+    dot( 12, -23, '#a78bfa', 1.5)  // Ring Toss
+    dot( 28, -19, '#22d3ee', 1.5)  // Ball Pit
+    dot( 20, -72, '#6b7280', 1.5)  // Trampoline
+
+    // Player arrow — rotate(π + yaw) so arrow tip points in facing direction
+    ctx.save()
+    ctx.translate(cx(px), cy(pz))
+    ctx.rotate(Math.PI + yaw)
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(3, 3); ctx.lineTo(0, 1.5); ctx.lineTo(-3, 3)
+    ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.7; ctx.stroke()
+    ctx.restore()
+  }
+
   // ── Axis gizmo (shown bottom-left in debug mode) ─────────────────────────
   const gizmoScene = new THREE.Scene()
   const gizmoAxes = new THREE.AxesHelper(1)
@@ -231,6 +286,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       p.fpsRef.current.textContent = `${Math.round(fpsFrameCount / fpsAccum)} fps`
       fpsFrameCount = 0; fpsAccum = 0
     }
+
+    // Minimap — redraw every 3 frames (~20 fps)
+    if (++mmFrame % 3 === 0 && p.minimapRef?.current) {
+      if (!mmCtx) mmCtx = p.minimapRef.current.getContext('2d')
+      if (mmCtx) drawMinimap(mmCtx, p.player.position.x, p.player.position.z, st.camYaw)
+    }
+
     p.cliffUpdate(st.elapsed)
     p.projectDisplayUpdate(st.elapsed)
     p.projectObjectsUpdate(st.elapsed)

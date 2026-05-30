@@ -162,6 +162,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const debugModeRef    = useRef(false)
   const debugPanelRef   = useRef<HTMLPreElement>(null)
   const fpsRef          = useRef<HTMLDivElement>(null)
+  const minimapRef      = useRef<HTMLCanvasElement>(null)
   const movablesRef     = useRef<{ name: string; group: THREE.Group; meshes?: THREE.Object3D[]; scaleObj?: THREE.Object3D; isHitbox?: boolean }[]>([])
   const addSidewalkRef  = useRef<(() => void) | null>(null)
   const [debugOpen, setDebugOpen]         = useState(false)
@@ -496,7 +497,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       carGrp, carCol, carHitboxGrp, drivingRef, nearCarRef, setNearCar, setDriving,
       nearCradleRef, setNearCradle,
       nearWipSignRef, setNearWipSign, wipSignUpdate: updateWipSign,
-      fpsRef,
+      fpsRef, minimapRef,
     })
     animStateHolder.st = (loop as any).__animState
     loop.start()
@@ -558,7 +559,8 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         setTimeout(() => setMonitorMode(false), 650)
       }} />)}
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
-      <div ref={fpsRef} className="absolute right-4 z-10 px-2 py-1 bg-black/60 text-green-400 font-mono text-xs rounded pointer-events-none select-none" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }} />
+      <div ref={fpsRef} className="absolute right-4 z-10 px-2 py-1 bg-black/60 text-green-400 font-mono text-xs rounded pointer-events-none select-none" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', display: debugOpen ? 'block' : 'none' }} />
+      <canvas ref={minimapRef} width={120} height={90} className="absolute bottom-20 right-4 z-20 rounded-lg pointer-events-none select-none hidden md:block" style={{ opacity: 0.85, border: '1px solid rgba(255,255,255,0.12)' }} />
       <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} nearWipSign={nearWipSign} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
       {nowPlaying && (
