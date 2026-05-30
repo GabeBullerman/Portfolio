@@ -119,46 +119,13 @@ export function createProps(
   // ── Pond ─────────────────────────────────────────────────────────────────
   const pondGrp = new THREE.Group(); pondGrp.position.set(POND_X, 0, POND_Z); scene.add(pondGrp)
 
-  const waterMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `
-      uniform float uTime;
-      varying vec2  vUv;
-      varying float vWave;
-      void main() {
-        vUv = uv;
-        vec3 pos = position;
-        float w = sin(pos.x * 4.0 + uTime * 2.0)              * 0.025
-                + cos(pos.y * 3.5 + uTime * 1.6)              * 0.020
-                + sin(pos.x * 2.0 - pos.y * 3.0 + uTime*1.1)  * 0.015
-                + cos(pos.x * 5.0 + pos.y * 4.0 - uTime*2.5)  * 0.010;
-        pos.z += w; vWave = w;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform float uTime;
-      varying vec2  vUv;
-      varying float vWave;
-      void main() {
-        vec3 deep    = vec3(0.04, 0.18, 0.42);
-        vec3 shallow = vec3(0.10, 0.38, 0.72);
-        vec3 foam    = vec3(0.72, 0.88, 1.00);
-        vec2 f1 = vUv + vec2(uTime*0.040, uTime*0.025);
-        vec2 f2 = vUv - vec2(uTime*0.030, uTime*0.050);
-        float p = sin(f1.x*10.0 + f1.y*8.0)*0.5 + 0.5;
-        float q = cos(f2.x*7.0  - f2.y*9.0)*0.5 + 0.5;
-        vec3 col = mix(deep, shallow, mix(p,q,0.5)*0.4 + vWave*3.0 + 0.3);
-        col = mix(col, foam, smoothstep(0.020, 0.045, vWave)*0.6);
-        col = mix(col, foam, smoothstep(0.82,  1.0, length(vUv-0.5)*2.0)*0.35);
-        gl_FragColor = vec4(col, 0.88);
-      }
-    `,
-    transparent: true,
-    depthWrite: false,
-  })
-
-  const pondMesh = new THREE.Mesh(new THREE.CircleGeometry(POND_R, 48), waterMat)
+  const pondMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(POND_R, 28),
+    new THREE.MeshStandardMaterial({
+      color: 0x1a88cc, emissive: 0x005599, emissiveIntensity: 0.40,
+      roughness: 0.04, metalness: 0.15, transparent: true, opacity: 0.88,
+    }),
+  )
   pondMesh.rotation.x = -Math.PI / 2; pondMesh.position.set(0, 0.02, 0); pondGrp.add(pondMesh)
   const pondRim = new THREE.Mesh(
     new THREE.RingGeometry(POND_R, POND_R + 0.55, 28),
@@ -434,8 +401,7 @@ export function createProps(
     if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true
   }
 
-  // ── Water update ──────────────────────────────────────────────────────────
-  const waterUpdate = (elapsed: number) => { waterMat.uniforms.uTime.value = elapsed }
+  const waterUpdate = (_elapsed: number) => { /* static material — no uniform to update */ }
 
   return {
     FIRE_POS: campfireGrp.position, // live reference — always tracks actual group position
