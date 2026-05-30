@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
+import SectionHeading from './SectionHeading'
 
 interface SectionProps {
   sectionRef?: React.RefObject<HTMLElement>
@@ -249,21 +250,7 @@ export default function MoreOnMe({ sectionRef }: SectionProps) {
   return (
     <section id="more-on-me" ref={sectionRef} className="page-section">
       <div className="page-container">
-        <div className="section-heading">
-          <p
-            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
-            style={{ color: 'var(--accent)' }}
-          >
-            Beyond Development
-          </p>
-          <h2
-            className="text-4xl md:text-5xl font-black"
-            style={{ color: 'var(--text)' }}
-          >
-            More About Me
-          </h2>
-          <div className="section-divider" />
-        </div>
+        <SectionHeading label="Beyond development" title="More About Me" />
 
         <div
           ref={ref}

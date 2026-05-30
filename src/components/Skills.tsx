@@ -1,5 +1,6 @@
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 import { skillsData, type SkillCategory } from '../data/skills'
+import SectionHeading from './SectionHeading'
 
 interface SectionProps {
   sectionRef?: React.RefObject<HTMLElement>
@@ -85,18 +86,7 @@ export default function Skills({ sectionRef }: SectionProps) {
   return (
     <section id="skills" ref={sectionRef} className="page-section" style={{ color: 'var(--text)' }}>
       <div className="page-container">
-        <div className="section-heading">
-          <p
-            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
-            style={{ color: 'var(--accent)' }}
-          >
-            Technical Toolkit
-          </p>
-          <h2 className="text-4xl md:text-5xl font-black" style={{ color: 'var(--text)' }}>
-            Technical Skills
-          </h2>
-          <div className="section-divider" />
-        </div>
+        <SectionHeading label="My toolkit" title="Technical Skills" />
 
         <div className="rounded-3xl px-6 md:px-10 glass-card">
           {skillsData.map((category, index) => (

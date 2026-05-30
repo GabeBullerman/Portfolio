@@ -1,4 +1,5 @@
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
+import SectionHeading from './SectionHeading'
 
 interface SectionProps {
   sectionRef?: React.RefObject<HTMLElement>
@@ -10,18 +11,7 @@ export default function Contact({ sectionRef }: SectionProps) {
   return (
     <section id="contact" ref={sectionRef} className="page-section">
       <div className="page-container-narrow">
-        <div className="section-heading">
-          <p
-            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
-            style={{ color: 'var(--accent)' }}
-          >
-            {"Let's Connect"}
-          </p>
-          <h2 className="text-4xl md:text-5xl font-black" style={{ color: 'var(--text)' }}>
-            Contact
-          </h2>
-          <div className="section-divider" />
-        </div>
+        <SectionHeading label="Let's connect" title="Contact" />
 
         <div
           ref={ref}

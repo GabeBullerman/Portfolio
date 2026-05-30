@@ -1,5 +1,6 @@
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 import { projectsData, type Project } from '../data/projects'
+import SectionHeading from './SectionHeading'
 
 interface SectionProps {
   sectionRef?: React.RefObject<HTMLElement>
@@ -110,23 +111,7 @@ export default function Projects({ sectionRef }: SectionProps) {
   return (
     <section id="projects" ref={sectionRef} className="page-section">
       <div className="page-container">
-        <div className="section-heading">
-          <p
-            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
-            style={{ color: 'var(--accent)' }}
-          >
-            Technical Portfolio
-          </p>
-
-          <h2
-            className="text-4xl md:text-5xl font-black"
-            style={{ color: 'var(--text)' }}
-          >
-            Projects
-          </h2>
-
-          <div className="section-divider" />
-        </div>
+        <SectionHeading label="What I've built" title="Projects" />
 
         <div className="flex flex-col gap-8">
           {projectsData.map((project, index) => (

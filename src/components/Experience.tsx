@@ -3,6 +3,7 @@ import {
   experienceData,
   type ExperienceItem,
 } from '../data/experience'
+import SectionHeading from './SectionHeading'
 
 interface SectionProps {
   sectionRef?: React.RefObject<HTMLElement>
@@ -82,23 +83,7 @@ export default function Experience({ sectionRef }: SectionProps) {
   return (
     <section id="experience" ref={sectionRef} className="page-section">
       <div className="page-container">
-        <div className="section-heading">
-          <p
-            className="mb-4 text-sm font-semibold uppercase tracking-[0.3em]"
-            style={{ color: 'var(--accent)' }}
-          >
-            Professional Background
-          </p>
-
-          <h2
-            className="text-4xl md:text-5xl font-black"
-            style={{ color: 'var(--text)' }}
-          >
-            Experience
-          </h2>
-
-          <div className="section-divider" />
-        </div>
+        <SectionHeading label="Where I've worked" title="Experience" />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {experienceData.map((item, index) => (
