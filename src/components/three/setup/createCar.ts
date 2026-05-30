@@ -23,7 +23,7 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
   const gradCanvas = document.createElement('canvas')
   gradCanvas.width = 3; gradCanvas.height = 1
   const gradCtx = gradCanvas.getContext('2d')!
-  ;([['#000', 0], ['#5a5a5a', 1], ['#fff', 2]] as const).forEach(([col, x]) => {
+  ;([['#555', 0], ['#bbb', 1], ['#fff', 2]] as const).forEach(([col, x]) => {
     gradCtx.fillStyle = col as string; gradCtx.fillRect(x as number, 0, 1, 1)
   })
   const gradTex = new THREE.CanvasTexture(gradCanvas)
@@ -63,7 +63,7 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
 
     carMeshes.forEach(mesh => {
       const outline = new THREE.Mesh(mesh.geometry, outlineMat)
-      outline.scale.setScalar(1.05)
+      outline.scale.setScalar(1.02)
       mesh.add(outline)
     })
 
