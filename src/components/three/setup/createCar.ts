@@ -19,10 +19,14 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
   modelGrp.rotation.set(-Math.PI, Math.PI, -Math.PI)
   carGrp.add(modelGrp)
 
-  // 3-step toon gradient: shadow / mid-tone / highlight
-  const gradData = new Uint8Array([0, 90, 255])
-  const gradTex  = new THREE.DataTexture(gradData, 3, 1, THREE.RedFormat)
-  gradTex.needsUpdate = true
+  // 3-step toon gradient via canvas — shadow / mid / highlight
+  const gradCanvas = document.createElement('canvas')
+  gradCanvas.width = 3; gradCanvas.height = 1
+  const gradCtx = gradCanvas.getContext('2d')!
+  ;([['#000', 0], ['#5a5a5a', 1], ['#fff', 2]] as const).forEach(([col, x]) => {
+    gradCtx.fillStyle = col as string; gradCtx.fillRect(x as number, 0, 1, 1)
+  })
+  const gradTex = new THREE.CanvasTexture(gradCanvas)
   gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter
 
   const outlineMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide })
@@ -35,17 +39,24 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
     const bbox = new THREE.Box3().setFromObject(model)
     model.position.y -= bbox.min.y
 
+    // Collect meshes first — adding outline children during traverse
+    // causes traverse to visit them and corrupt their materials
+    const carMeshes: THREE.Mesh[] = []
     model.traverse(c => {
       const mesh = c as THREE.Mesh
       if (!mesh.isMesh) return
       mesh.castShadow = true; mesh.receiveShadow = true
       const src = mesh.material as THREE.MeshStandardMaterial
       mesh.material = new THREE.MeshToonMaterial({
-        color:       src.color   ?? new THREE.Color(0xffffff),
-        map:         src.map     ?? null,
+        color:       src.color ?? new THREE.Color(0xffffff),
+        map:         (src as any).map ?? null,
         gradientMap: gradTex,
       })
-      // Backface outline — child inherits transform so scale pushes faces outward
+      carMeshes.push(mesh)
+    })
+
+    // Add outlines after traversal is complete
+    carMeshes.forEach(mesh => {
       const outline = new THREE.Mesh(mesh.geometry, outlineMat)
       outline.scale.setScalar(1.05)
       mesh.add(outline)
