@@ -47,15 +47,20 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
       if (!mesh.isMesh) return
       mesh.castShadow = true; mesh.receiveShadow = true
       const src = mesh.material as THREE.MeshStandardMaterial
+      const isGlass = src.transparent && src.opacity < 0.99
       mesh.material = new THREE.MeshToonMaterial({
         color:       src.color ?? new THREE.Color(0xffffff),
         map:         (src as any).map ?? null,
         gradientMap: gradTex,
+        transparent: src.transparent,
+        opacity:     src.opacity,
+        side:        src.side,
+        depthWrite:  !isGlass,
       })
-      carMeshes.push(mesh)
+      // Skip outline on glass — a thick black line around windows looks wrong
+      if (!isGlass) carMeshes.push(mesh)
     })
 
-    // Add outlines after traversal is complete
     carMeshes.forEach(mesh => {
       const outline = new THREE.Mesh(mesh.geometry, outlineMat)
       outline.scale.setScalar(1.05)
