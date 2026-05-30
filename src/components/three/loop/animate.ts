@@ -171,6 +171,7 @@ export interface AnimateParams {
   wipSignUpdate:   (elapsed: number) => void
   setBowlDisplay:   (fn: (p: { state: BowlState; score: number; hs: number }) => { state: BowlState; score: number; hs: number }) => void
   setRTossDisplay:  (v: { state: RTossState; thrown: number; score: number; hs: number } | ((p: { state: RTossState; thrown: number; score: number; hs: number }) => { state: RTossState; thrown: number; score: number; hs: number })) => void
+  fpsRef?:          React.MutableRefObject<HTMLDivElement | null>
 }
 
 export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: () => void } {
@@ -180,6 +181,27 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
   const _gizmoSz = new THREE.Vector2()
   let animId: number
   let wasDriving = false
+
+  // ── Pre-allocated temporaries (avoid per-frame GC pressure) ───────────────
+  const _rawVel     = new THREE.Vector3()
+  const _tpTarget   = new THREE.Vector3()
+  const _fpTarget   = new THREE.Vector3()
+  const _hbWP       = new THREE.Vector3()
+  const _hbWP2      = new THREE.Vector3()
+  const _rampRC     = new THREE.Vector3()
+  const _swWorld    = new THREE.Vector3()
+  const _radioWorld = new THREE.Vector3()
+  const _seatLocal  = new THREE.Vector3()
+  const _eyeLocal   = new THREE.Vector3()
+  const _chairWorld = new THREE.Vector3()
+  const _monWorld   = new THREE.Vector3()
+  const _chairHead  = new THREE.Vector3()
+  const _lerpLook   = new THREE.Vector3()
+  const _wb         = new THREE.Box3()
+
+  // ── FPS tracking ──────────────────────────────────────────────────────────
+  let fpsFrameCount = 0
+  let fpsAccum      = 0
 
   // ── Axis gizmo (shown bottom-left in debug mode) ─────────────────────────
   const gizmoScene = new THREE.Scene()
@@ -202,6 +224,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     const now = performance.now()
     const delta = Math.min((now - st.lastTime) / 1000, 0.05)
     st.lastTime = now; st.elapsed += delta
+
+    // FPS counter — update DOM every 0.5 s
+    fpsFrameCount++; fpsAccum += delta
+    if (fpsAccum >= 0.5 && p.fpsRef?.current) {
+      p.fpsRef.current.textContent = `${Math.round(fpsFrameCount / fpsAccum)} fps`
+      fpsFrameCount = 0; fpsAccum = 0
+    }
     p.cliffUpdate(st.elapsed)
     p.projectDisplayUpdate(st.elapsed)
     p.projectObjectsUpdate(st.elapsed)
@@ -307,7 +336,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
     if (p.cinematicRef.current.active) {
       const cs = p.cinematicRef.current; cs.t = Math.min(cs.t + delta / cs.duration, 1)
       const e3 = cs.t < 0.5 ? 4 * cs.t * cs.t * cs.t : 1 - Math.pow(-2 * cs.t + 2, 3) / 2
-      p.camera.position.lerpVectors(cs.fromPos, cs.toPos, e3); p.camera.lookAt(new THREE.Vector3().lerpVectors(cs.fromLook, cs.toLook, e3))
+      p.camera.position.lerpVectors(cs.fromPos, cs.toPos, e3); _lerpLook.lerpVectors(cs.fromLook, cs.toLook, e3); p.camera.lookAt(_lerpLook)
       p.player.visible = false
       if (cs.t >= 1) { cs.active = false; const fwd = new THREE.Vector3(); p.camera.getWorldDirection(fwd); st.camYaw = Math.atan2(-fwd.x, -fwd.z); cs.onDone?.() }
     } else if (!p.focusActiveRef.current) {
@@ -327,12 +356,12 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       const joyX = p.touchMoveRef.current.x, joyY = p.touchMoveRef.current.y
       const hasW = p.keys.has('w') || joyY < -0.2, hasS = p.keys.has('s') || joyY > 0.2
       const hasA = p.keys.has('a') || joyX < -0.2, hasD = p.keys.has('d') || joyX > 0.2
-      const rawVel = new THREE.Vector3()
-      if (hasW) { rawVel.x += fw_x; rawVel.z += fw_z } if (hasS) { rawVel.x -= fw_x; rawVel.z -= fw_z }
-      if (hasA) { rawVel.x -= rt_x; rawVel.z -= rt_z } if (hasD) { rawVel.x += rt_x; rawVel.z += rt_z }
-      const isMoving = rawVel.lengthSq() > 0
+      _rawVel.set(0, 0, 0)
+      if (hasW) { _rawVel.x += fw_x; _rawVel.z += fw_z } if (hasS) { _rawVel.x -= fw_x; _rawVel.z -= fw_z }
+      if (hasA) { _rawVel.x -= rt_x; _rawVel.z -= rt_z } if (hasD) { _rawVel.x += rt_x; _rawVel.z += rt_z }
+      const isMoving = _rawVel.lengthSq() > 0
       p.playerWalkBlendRef.current = isMoving ? 1 : 0
-      if (isMoving && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current && !p.drivingRef.current) { rawVel.normalize().multiplyScalar(8.5 * delta); p.player.position.x += rawVel.x; p.player.position.z += rawVel.z }
+      if (isMoving && p.bowlStateRef.current === 'idle' && p.rtossStateRef.current === 'idle' && !p.sittingRef.current && !p.drivingRef.current) { _rawVel.normalize().multiplyScalar(8.5 * delta); p.player.position.x += _rawVel.x; p.player.position.z += _rawVel.z }
       if (!p.drivingRef.current) {
         p.player.rotation.y = lerpAngle(p.player.rotation.y, st.camYaw + Math.PI, 0.14)
         p.player.position.x = THREE.MathUtils.clamp(p.player.position.x, -77.5, 77.5)
@@ -351,11 +380,11 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.onRampRef.current = false
         const rMesh = (p.rampGrp as any).__hitMesh as THREE.Mesh | undefined
         if (rMesh) {
-          const rc = new THREE.Vector3(); p.rampGrp.getWorldPosition(rc)
+          p.rampGrp.getWorldPosition(_rampRC)
           const halfLen = 0.9 * rMesh.scale.x, halfW = 1.0 * rMesh.scale.z
-          const slope = Math.tan(Math.abs(p.rampGrp.rotation.z)), zNear = rc.z - halfLen, zFar = rc.z + halfLen
-          const yLow = rc.y - halfLen * slope, yHigh = rc.y + halfLen * slope
-          if (p.player.position.x > rc.x - halfW && p.player.position.x < rc.x + halfW && p.player.position.z > zNear && p.player.position.z < zFar) {
+          const slope = Math.tan(Math.abs(p.rampGrp.rotation.z)), zNear = _rampRC.z - halfLen, zFar = _rampRC.z + halfLen
+          const yLow = _rampRC.y - halfLen * slope, yHigh = _rampRC.y + halfLen * slope
+          if (p.player.position.x > _rampRC.x - halfW && p.player.position.x < _rampRC.x + halfW && p.player.position.z > zNear && p.player.position.z < zFar) {
             const t = (p.player.position.z - zNear) / (zFar - zNear), surfaceY = yLow + t * (yHigh - yLow)
             if (surfaceY > -0.1 && p.player.position.y < surfaceY) { p.player.position.y = surfaceY; if (st.playerVelY < 0) st.playerVelY = 0; p.onRampRef.current = true }
           }
@@ -365,9 +394,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.movablesRef.current.forEach(m => {
           if (!m.isHitbox || !m.name.includes('Floor')) return
           const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined; if (!mesh) return
-          mesh.updateMatrixWorld(true); const wb = new THREE.Box3().setFromObject(mesh)
-          const inXZ = p.player.position.x > wb.min.x && p.player.position.x < wb.max.x && p.player.position.z > wb.min.z && p.player.position.z < wb.max.z
-          if (inXZ && p.player.position.y <= wb.max.y && p.player.position.y > wb.max.y - 1.2) { p.player.position.y = wb.max.y; if (st.playerVelY < 0) st.playerVelY = 0; p.onFloorRef.current = true }
+          mesh.updateMatrixWorld(true); _wb.setFromObject(mesh)
+          const inXZ = p.player.position.x > _wb.min.x && p.player.position.x < _wb.max.x && p.player.position.z > _wb.min.z && p.player.position.z < _wb.max.z
+          if (inXZ && p.player.position.y <= _wb.max.y && p.player.position.y > _wb.max.y - 1.2) { p.player.position.y = _wb.max.y; if (st.playerVelY < 0) st.playerVelY = 0; p.onFloorRef.current = true }
         })
         if (p.player.position.y <= 0 && !onTrampSurface) { p.player.position.y = 0; if (st.playerVelY < 0) st.playerVelY = 0 }
       } else if (!p.climbingRef.current) { st.playerVelY = 0 }
@@ -412,9 +441,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.player.visible = st.fpvBlend < 0.5
         const camDist = 5.2
         st.camPitch = Math.max(st.camPitch, Math.asin(Math.max(-1, (0.3 - p.player.position.y - 1.2) / camDist)))
-        const tpTarget = new THREE.Vector3(p.player.position.x + Math.sin(st.camYaw) * Math.cos(st.camPitch) * camDist, p.player.position.y + Math.sin(st.camPitch) * camDist + 1.2, p.player.position.z + Math.cos(st.camYaw) * Math.cos(st.camPitch) * camDist)
-        const fpTarget = new THREE.Vector3(p.player.position.x, p.player.position.y + HEAD_H, p.player.position.z)
-        p.camera.position.lerp(tpTarget.lerp(fpTarget, st.fpvBlend), st.fpvBlend > 0.5 ? 0.25 : 0.15)
+        _tpTarget.set(p.player.position.x + Math.sin(st.camYaw) * Math.cos(st.camPitch) * camDist, p.player.position.y + Math.sin(st.camPitch) * camDist + 1.2, p.player.position.z + Math.cos(st.camYaw) * Math.cos(st.camPitch) * camDist)
+        _fpTarget.set(p.player.position.x, p.player.position.y + HEAD_H, p.player.position.z)
+        p.camera.position.lerp(_tpTarget.lerp(_fpTarget, st.fpvBlend), st.fpvBlend > 0.5 ? 0.25 : 0.15)
         if (st.fpvBlend < 0.8) { p.camera.lookAt(p.player.position.x, p.player.position.y + 1.0, p.player.position.z) }
         else { const invP = -st.camPitch, cosP = Math.cos(invP); p.camera.lookAt(p.player.position.x - Math.sin(st.camYaw) * cosP * 10, p.player.position.y + HEAD_H + Math.sin(invP) * 10, p.player.position.z - Math.cos(st.camYaw) * cosP * 10) }
       }
@@ -434,13 +463,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       if (!p.sittingRef.current && !p.drivingRef.current) {
         let nearB = false
         BENCH_POSITIONS.forEach((b, i) => { if (Math.hypot(p.player.position.x - b.x, p.player.position.z - b.z) < BENCH_PROX) { nearB = true; p.seatIdxRef.current = i } })
-        const chairWorld = p.CHAIR_LOCAL_POS.clone(); p.cabGrp.localToWorld(chairWorld)
-        const nearC = Math.hypot(p.player.position.x - chairWorld.x, p.player.position.z - chairWorld.z) < p.CHAIR_PROX
+        _chairWorld.copy(p.CHAIR_LOCAL_POS); p.cabGrp.localToWorld(_chairWorld)
+        const nearC = Math.hypot(p.player.position.x - _chairWorld.x, p.player.position.z - _chairWorld.z) < p.CHAIR_PROX
         if (nearB !== p.nearBenchRef.current) { p.nearBenchRef.current = nearB; p.setNearBench(nearB) }
         if (nearC !== p.nearChairRef.current) { p.nearChairRef.current = nearC; p.setNearChair(nearC) }
         if (p.radioGroupRef.current) {
-          const rw = new THREE.Vector3(); p.radioGroupRef.current.getWorldPosition(rw)
-          const nrv = Math.hypot(p.player.position.x - rw.x, p.player.position.z - rw.z) < p.RADIO_PROX
+          p.radioGroupRef.current.getWorldPosition(_radioWorld)
+          const nrv = Math.hypot(p.player.position.x - _radioWorld.x, p.player.position.z - _radioWorld.z) < p.RADIO_PROX
           if (nrv !== p.nearRadioRef.current) { p.nearRadioRef.current = nrv; p.setNearRadio(nrv) }
         }
         // Project screen interact zones
@@ -455,7 +484,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         }
         if (nearAnyProject) { p.nearProjectLabelRef.current = projectLabel; p.nearProjectUrlRef.current = projectUrl }
         // Keep parked hitbox in sync with any debug-panel repositioning
-        const _hbWP2 = new THREE.Vector3(); p.carHitboxGrp.getWorldPosition(_hbWP2)
+        p.carHitboxGrp.getWorldPosition(_hbWP2)
         p.carCol.x = _hbWP2.x; p.carCol.z = _hbWP2.z
         // Car proximity
         const nearCarNow = Math.hypot(p.player.position.x - p.carGrp.position.x, p.player.position.z - p.carGrp.position.z) < CAR_PROX
@@ -472,11 +501,11 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.lLegPivot.rotation.x = -Math.PI / 2.8; p.rLegPivot.rotation.x = -Math.PI / 2.8; p.lKnee.rotation.x = Math.PI / 2.0; p.rKnee.rotation.x = Math.PI / 2.0; p.lArmPivot.rotation.x = 0.1; p.rArmPivot.rotation.x = 0.1
         // Camera handled by general tpTarget code — look joystick can freely orbit while seated
       } else if (p.sittingAtRef.current === 'chair') {
-        const chairWorld = p.CHAIR_LOCAL_POS.clone(); p.cabGrp.localToWorld(chairWorld)
-        const monitorWorld = p.MONITOR_LOCAL_POS.clone(); p.cabGrp.localToWorld(monitorWorld)
-        p.player.position.set(chairWorld.x + 0.075, chairWorld.y - 0.15, chairWorld.z); p.player.rotation.y = Math.atan2(monitorWorld.x - chairWorld.x, monitorWorld.z - chairWorld.z)
+        _chairWorld.copy(p.CHAIR_LOCAL_POS); p.cabGrp.localToWorld(_chairWorld)
+        _monWorld.copy(p.MONITOR_LOCAL_POS); p.cabGrp.localToWorld(_monWorld)
+        p.player.position.set(_chairWorld.x + 0.075, _chairWorld.y - 0.15, _chairWorld.z); p.player.rotation.y = Math.atan2(_monWorld.x - _chairWorld.x, _monWorld.z - _chairWorld.z)
         p.lLegPivot.rotation.x = -Math.PI / 2.8; p.rLegPivot.rotation.x = -Math.PI / 2.8; p.lKnee.rotation.x = Math.PI / 2.0; p.rKnee.rotation.x = Math.PI / 2.0; p.lArmPivot.rotation.x = 0.25; p.rArmPivot.rotation.x = 0.25
-        const chairHead = chairWorld.clone(); chairHead.y += 1.15; p.camera.position.lerp(chairHead, 0.15); p.camera.lookAt(monitorWorld)
+        _chairHead.copy(_chairWorld); _chairHead.y += 1.15; p.camera.position.lerp(_chairHead, 0.15); p.camera.lookAt(_monWorld)
       }
 
       // Car driving
@@ -508,17 +537,16 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         if (!blocked) { p.carGrp.position.x = nx; p.carGrp.position.z = nz }
         p.carGrp.rotation.y = st.carAngle
         // Sync collision circle to hitbox mesh's actual world position
-        const _hbWP = new THREE.Vector3(); p.carHitboxGrp.getWorldPosition(_hbWP)
+        p.carHitboxGrp.getWorldPosition(_hbWP)
         p.carCol.x = _hbWP.x; p.carCol.z = _hbWP.z
         // Lock player exactly into driver's seat using carGrp local→world transform
-        const seatWorld = p.carGrp.localToWorld(new THREE.Vector3(0.40, 0.65, 0.10))
-        p.player.position.copy(seatWorld)
+        _seatLocal.set(0.40, 0.65, 0.10); p.carGrp.localToWorld(_seatLocal)
+        p.player.position.copy(_seatLocal)
         p.player.rotation.y = st.carAngle
         // FPV camera: driver's side eye position
-        const eyeLocal = p.carGrp.localToWorld(new THREE.Vector3(0.55, 1.10, 0.10))
-        const eyePos = eyeLocal
-        p.camera.position.lerp(eyePos, 0.18)
-        p.camera.lookAt(eyePos.x + sinA * 20, eyePos.y, eyePos.z + cosA * 20)
+        _eyeLocal.set(0.55, 1.10, 0.10); p.carGrp.localToWorld(_eyeLocal)
+        p.camera.position.lerp(_eyeLocal, 0.18)
+        p.camera.lookAt(_eyeLocal.x + sinA * 20, _eyeLocal.y, _eyeLocal.z + cosA * 20)
       }
 
       // Ladder — detection zone offset 1.5 units south (approach side), ground-only
@@ -593,9 +621,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.movablesRef.current.forEach(m => {
           if (!m.isHitbox || m.name.includes('Ramp') || m.name.includes('Floor')) return
           const mesh = (m.group as any).__hitMesh as THREE.Mesh | undefined; if (!mesh) return
-          mesh.updateMatrixWorld(true); const wb = new THREE.Box3().setFromObject(mesh)
-          if (p.player.position.y >= wb.max.y) return
-          const cx = THREE.MathUtils.clamp(p.player.position.x, wb.min.x, wb.max.x), cz = THREE.MathUtils.clamp(p.player.position.z, wb.min.z, wb.max.z)
+          mesh.updateMatrixWorld(true); _wb.setFromObject(mesh)
+          if (p.player.position.y >= _wb.max.y) return
+          const cx = THREE.MathUtils.clamp(p.player.position.x, _wb.min.x, _wb.max.x), cz = THREE.MathUtils.clamp(p.player.position.z, _wb.min.z, _wb.max.z)
           const dx = p.player.position.x - cx, dz = p.player.position.z - cz, dist = Math.sqrt(dx * dx + dz * dz)
           if (dist < PR && dist > 0.001) { const nx = dx / dist, nz = dz / dist; p.player.position.x = cx + nx * PR; p.player.position.z = cz + nz * PR }
           else if (dist === 0) p.player.position.x += PR
@@ -633,8 +661,8 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
 
       // Light switch
       if (p.switchNodeRef.current) {
-        const swWorld = new THREE.Vector3(); p.switchNodeRef.current.getWorldPosition(swWorld)
-        const newNear = Math.hypot(p.player.position.x - swWorld.x, p.player.position.z - swWorld.z) < 1.6
+        p.switchNodeRef.current.getWorldPosition(_swWorld)
+        const newNear = Math.hypot(p.player.position.x - _swWorld.x, p.player.position.z - _swWorld.z) < 1.6
         if (newNear !== p.nearSwitchRef.current) { p.nearSwitchRef.current = newNear; p.setNearSwitch(newNear) }
       }
 

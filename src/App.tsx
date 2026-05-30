@@ -4,12 +4,12 @@ import Hero from './components/Hero'
 import Experience from './components/Experience'
 import Skills from './components/Skills'
 import Projects from './components/Projects'
+import InteractiveShowcase from './components/showcase/InteractiveShowcase'
 import MoreOnMe from './components/MoreOnMe'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
-import ThreeBackground from './components/ThreeBackground'
-import { useTheme } from './hooks/useTheme'
+import { useTheme, setTheme, PALETTES } from './hooks/useTheme'
 
 const ThreePortfolio = lazy(() => import('./components/ThreePortfolio'))
 
@@ -41,6 +41,30 @@ function MobileWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; on
   )
 }
 
+function ThemePicker() {
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('theme') ?? '')
+  useTheme((name) => { setActiveTheme(prev => prev || name) })
+
+  return (
+    <div className="flex justify-center gap-2.5 py-2.5">
+      {PALETTES.map(p => (
+        <button
+          key={p.name}
+          title={p.name.charAt(0).toUpperCase() + p.name.slice(1)}
+          onClick={() => { setTheme(p.name); setActiveTheme(p.name) }}
+          className="w-4 h-4 rounded-full focus:outline-none"
+          style={{
+            background: p.accent,
+            transition: 'transform 0.15s, box-shadow 0.15s',
+            boxShadow: activeTheme === p.name ? `0 0 0 2px #000, 0 0 0 3.5px ${p.accent}` : 'none',
+            transform: activeTheme === p.name ? 'scale(1.3)' : 'scale(1)',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function TwoDApp({ onExplore }: { onExplore: () => void }) {
   useTheme()
 
@@ -49,30 +73,27 @@ function TwoDApp({ onExplore }: { onExplore: () => void }) {
   const projectsRef = useRef<HTMLElement>(null)
   const contactRef = useRef<HTMLElement>(null)
 
-  const sectionRefs = [experienceRef, skillsRef, projectsRef, contactRef]
-
   return (
-    <>
-      <ThreeBackground sectionRefs={sectionRefs} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        <Header onExplore={onExplore} />
-        <main>
-          <Hero />
-          <Experience sectionRef={experienceRef} />
-          <Skills sectionRef={skillsRef} />
-          <Projects sectionRef={projectsRef} />
-          <MoreOnMe />
-          <Contact sectionRef={contactRef} />
-        </main>
-        <Footer />
-        <BackToTop />
-      </div>
-    </>
+    <div style={{ position: 'relative', zIndex: 1 }}>
+      <Header onExplore={onExplore} />
+      <ThemePicker />
+      <main>
+        <Hero />
+        <Experience sectionRef={experienceRef} />
+        <Skills sectionRef={skillsRef} />
+        <Projects sectionRef={projectsRef} />
+        <InteractiveShowcase />
+        <MoreOnMe />
+        <Contact sectionRef={contactRef} />
+      </main>
+      <Footer />
+      <BackToTop />
+    </div>
   )
 }
 
 export default function App() {
-  const [mode3D, setMode3D] = useState(() => window.innerWidth >= 768)
+  const [mode3D, setMode3D] = useState(false)
   const [showMobileWarning, setShowMobileWarning] = useState(false)
   const [skipMonitor, setSkipMonitor] = useState(false)
 
@@ -81,7 +102,7 @@ export default function App() {
     if (isMobile) {
       setShowMobileWarning(true)
     } else {
-      setSkipMonitor(false)
+      setSkipMonitor(true)
       setMode3D(true)
     }
   }

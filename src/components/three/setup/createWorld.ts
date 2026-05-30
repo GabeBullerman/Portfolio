@@ -57,35 +57,65 @@ export function createWorld(
     scene.add(m)
   })
 
-  // ── World border fence ──────────────────────────────────────────────────────
-  const fPostMat = new THREE.MeshLambertMaterial({ color: 0x7a5c2e })
-  const fPostGeo = new THREE.CylinderGeometry(0.06, 0.09, 1.5, 6)
+  // ── World border fence (instanced — ~500 individual meshes → 3 draw calls) ──
+  const fPostMat  = new THREE.MeshLambertMaterial({ color: 0x7a5c2e })
+  const fPostGeo  = new THREE.CylinderGeometry(0.06, 0.09, 1.5, 6)
   const fRailGeoX = new THREE.BoxGeometry(3.3, 0.07, 0.07)
   const fRailGeoZ = new THREE.BoxGeometry(0.07, 0.07, 3.3)
 
-  function addFenceSide(fixedAxis: 'x' | 'z', fixedVal: number, from: number, to: number, count: number) {
+  type FencePos = { x: number; z: number; h?: number }
+  const postPositions:  FencePos[] = []
+  const nsRailPositions: FencePos[] = []  // X-direction rails (N/S fences)
+  const weRailPositions: FencePos[] = []  // Z-direction rails (W/E fences)
+
+  function collectFenceSide(fixedAxis: 'x' | 'z', fixedVal: number, from: number, to: number, count: number) {
     const step = (to - from) / count
+    const isNS = fixedAxis === 'z'
     for (let i = 0; i <= count; i++) {
       const v = from + step * i
-      const px = fixedAxis === 'z' ? v : fixedVal
-      const pz = fixedAxis === 'x' ? v : fixedVal
-      const post = new THREE.Mesh(fPostGeo, fPostMat)
-      post.position.set(px, 0.75, pz); post.castShadow = true; scene.add(post)
+      const px = isNS ? v : fixedVal
+      const pz = isNS ? fixedVal : v
+      postPositions.push({ x: px, z: pz })
       if (i < count) {
-        const mx = fixedAxis === 'z' ? v + step / 2 : fixedVal
-        const mz = fixedAxis === 'x' ? v + step / 2 : fixedVal
-        const rg = fixedAxis === 'z' ? fRailGeoX : fRailGeoZ
+        const mx = isNS ? v + step / 2 : fixedVal
+        const mz = isNS ? fixedVal : v + step / 2
         ;[0.42, 0.92].forEach(h => {
-          const rail = new THREE.Mesh(rg, fPostMat)
-          rail.position.set(mx, h, mz); scene.add(rail)
+          ;(isNS ? nsRailPositions : weRailPositions).push({ x: mx, z: mz, h })
         })
       }
     }
   }
-  addFenceSide('z',  22, -78,  78, 47)   // North
-  addFenceSide('z', -95, -78,  78, 47)   // South
-  addFenceSide('x', -78, -95,  22, 36)   // West
-  addFenceSide('x',  78, -95,  22, 36)   // East
+  collectFenceSide('z',  22, -78,  78, 47)
+  collectFenceSide('z', -95, -78,  78, 47)
+  collectFenceSide('x', -78, -95,  22, 36)
+  collectFenceSide('x',  78, -95,  22, 36)
+
+  const _fm4 = new THREE.Matrix4()
+
+  const fPostInst = new THREE.InstancedMesh(fPostGeo, fPostMat, postPositions.length)
+  fPostInst.castShadow = true
+  postPositions.forEach(({ x, z }, i) => {
+    _fm4.makeTranslation(x, 0.75, z)
+    fPostInst.setMatrixAt(i, _fm4)
+  })
+  fPostInst.instanceMatrix.needsUpdate = true
+  scene.add(fPostInst)
+
+  const nsRailInst = new THREE.InstancedMesh(fRailGeoX, fPostMat, nsRailPositions.length)
+  nsRailPositions.forEach(({ x, z, h = 0 }, i) => {
+    _fm4.makeTranslation(x, h, z)
+    nsRailInst.setMatrixAt(i, _fm4)
+  })
+  nsRailInst.instanceMatrix.needsUpdate = true
+  scene.add(nsRailInst)
+
+  const weRailInst = new THREE.InstancedMesh(fRailGeoZ, fPostMat, weRailPositions.length)
+  weRailPositions.forEach(({ x, z, h = 0 }, i) => {
+    _fm4.makeTranslation(x, h, z)
+    weRailInst.setMatrixAt(i, _fm4)
+  })
+  weRailInst.instanceMatrix.needsUpdate = true
+  scene.add(weRailInst)
 
   // ── Roads ────────────────────────────────────────────────────────────────
   const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.95, metalness: 0 })
@@ -169,34 +199,54 @@ export function createWorld(
   addRoadLine(BLVD_X, vertSouth + 0.1, VERT_W, 0.25)
   addRoadLine(MEML_X, vertSouth + 0.1, VERT_W, 0.25)
 
-  // ── Dashed yellow centre lines ─────────────────────────────────────────────
+  // ── Dashed yellow centre lines (instanced — ~60 meshes → 2 draw calls) ──────
   const dashMat  = new THREE.MeshBasicMaterial({ color: 0xffcc00 })
   const DASH_LEN = 2.0
   const DASH_GAP = 2.0
   const DASH_W   = 0.18
   const DASH_Y   = 0.04
-  const dashGeoV = new THREE.PlaneGeometry(DASH_W, DASH_LEN)  // for N-S roads
-  const dashGeoH = new THREE.PlaneGeometry(DASH_LEN, DASH_W)  // for E-W roads
+  const dashGeoV = new THREE.PlaneGeometry(DASH_W, DASH_LEN)
+  const dashGeoH = new THREE.PlaneGeometry(DASH_LEN, DASH_W)
 
-  const addDashedCenter = (cx: number, cz: number, totalLen: number, axis: 'x' | 'z') => {
+  const dashPosV: { x: number; z: number }[] = []
+  const dashPosH: { x: number; z: number }[] = []
+
+  const collectDashes = (cx: number, cz: number, totalLen: number, axis: 'x' | 'z') => {
     const period = DASH_LEN + DASH_GAP
     const count  = Math.floor(totalLen / period)
     const start  = -(count * period) / 2 + DASH_LEN / 2
-    const geo    = axis === 'z' ? dashGeoV : dashGeoH
     for (let i = 0; i < count; i++) {
       const off = start + i * period
-      const mesh = new THREE.Mesh(geo, dashMat)
-      mesh.rotation.x = -Math.PI / 2
-      mesh.position.set(axis === 'z' ? cx : cx + off, DASH_Y, axis === 'z' ? cz + off : cz)
-      scene.add(mesh)
+      const dx  = axis === 'z' ? cx : cx + off
+      const dz  = axis === 'z' ? cz + off : cz
+      ;(axis === 'z' ? dashPosV : dashPosH).push({ x: dx, z: dz })
     }
   }
 
-  // Project Blvd and Memory Ln — full vertical span below connector
-  addDashedCenter(BLVD_X, vertLineCZ, vertLineLen, 'z')
-  addDashedCenter(MEML_X, vertLineCZ, vertLineLen, 'z')
-  // Connector — middle section only (skip intersection zones covered by vertical lines)
-  addDashedCenter(midCX, CONN_Z, midW, 'x')
+  collectDashes(BLVD_X, vertLineCZ, vertLineLen, 'z')
+  collectDashes(MEML_X, vertLineCZ, vertLineLen, 'z')
+  collectDashes(midCX,  CONN_Z,     midW,        'x')
+
+  const dashRot = new THREE.Matrix4().makeRotationX(-Math.PI / 2)
+  const dashTr  = new THREE.Matrix4()
+
+  const vDashInst = new THREE.InstancedMesh(dashGeoV, dashMat, dashPosV.length)
+  dashPosV.forEach(({ x, z }, i) => {
+    dashTr.makeTranslation(x, DASH_Y, z)
+    _fm4.multiplyMatrices(dashTr, dashRot)
+    vDashInst.setMatrixAt(i, _fm4)
+  })
+  vDashInst.instanceMatrix.needsUpdate = true
+  scene.add(vDashInst)
+
+  const hDashInst = new THREE.InstancedMesh(dashGeoH, dashMat, dashPosH.length)
+  dashPosH.forEach(({ x, z }, i) => {
+    dashTr.makeTranslation(x, DASH_Y, z)
+    _fm4.multiplyMatrices(dashTr, dashRot)
+    hDashInst.setMatrixAt(i, _fm4)
+  })
+  hDashInst.instanceMatrix.needsUpdate = true
+  scene.add(hDashInst)
 
   // ── Sidewalks ─────────────────────────────────────────────────────────────
   const SW   = 1.5   // sidewalk strip width (world units)

@@ -62,8 +62,9 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
 
   // ── Cannon physics world ──────────────────────────────────────────────
   const physWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -12, 0) })
-  physWorld.broadphase = new CANNON.NaiveBroadphase()
-  ;(physWorld.solver as CANNON.GSSolver).iterations = 8
+  physWorld.broadphase = new CANNON.SAPBroadphase(physWorld)
+  physWorld.allowSleep = true
+  ;(physWorld.solver as CANNON.GSSolver).iterations = 6
 
   // Static ground plane
   const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() })
