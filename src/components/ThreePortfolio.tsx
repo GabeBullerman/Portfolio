@@ -581,11 +581,34 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
           culledOff.push(m)
         }
       })
+      // Warm the sun shadow map over the outdoor area. The animate loop keeps the
+      // shadow camera centred on the player (inside the cabin during loading), so
+      // outdoor shadow casters would otherwise compile their depth shaders + upload
+      // on the first frame after walking out. Aim the light at the park, force a
+      // shadow update, then let the loop snap it back next frame.
+      const sun = sunLightRef.current
+      let savedSunPos: THREE.Vector3 | null = null
+      let savedTgt: THREE.Vector3 | null = null
+      if (sun) {
+        savedSunPos = sun.position.clone()
+        savedTgt = sun.target.position.clone()
+        sun.target.position.set(4, 0, -30)        // park centre
+        sun.position.set(24, 40, -15)
+        sun.target.updateMatrixWorld()
+        sun.shadow.needsUpdate = true
+      }
+
       const rt = new THREE.WebGLRenderTarget(1, 1)
       renderer.setRenderTarget(rt)
       renderer.render(scene, camera)
       renderer.setRenderTarget(null)
       rt.dispose()
+
+      if (sun && savedSunPos && savedTgt) {
+        sun.position.copy(savedSunPos)
+        sun.target.position.copy(savedTgt)
+        sun.target.updateMatrixWorld()
+      }
       culledOff.forEach(o => { (o as THREE.Mesh).frustumCulled = true })
       scene.environment = savedEnv
     }

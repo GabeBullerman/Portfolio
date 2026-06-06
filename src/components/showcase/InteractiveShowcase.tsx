@@ -1,7 +1,9 @@
-import ScrollMotionPanel from './ScrollMotionPanel'
-import GalaxyPreview from './GalaxyPreview'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import SectionHeading from '../SectionHeading'
+
+// Lazy-loaded so Three.js ships in its own chunk instead of the main 2D bundle.
+const ScrollMotionPanel = lazy(() => import('./ScrollMotionPanel'))
+const GalaxyPreview     = lazy(() => import('./GalaxyPreview'))
 
 function useLazyMount() {
   const [ready, setReady] = useState(false)
@@ -48,10 +50,10 @@ export default function InteractiveShowcase() {
         <div className="page-container">
           <div ref={ref} className="flex flex-col gap-10">
             {ready ? (
-              <>
+              <Suspense fallback={<div style={{ minHeight: '1300px' }} />}>
                 <ScrollMotionPanel />
                 <GalaxyPreview />
-              </>
+              </Suspense>
             ) : (
               // Placeholder keeps layout stable while canvases are deferred
               <div style={{ minHeight: '1300px' }} />

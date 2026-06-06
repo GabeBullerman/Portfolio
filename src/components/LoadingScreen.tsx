@@ -1,8 +1,10 @@
 type Props = {
   /** 0 → 1 load progress */
-  progress: number
+  progress?: number
   /** when true, the screen fades + scales away */
-  fading: boolean
+  fading?: boolean
+  /** static pose with no spin/wave — used as the lazy-chunk Suspense fallback */
+  staticPose?: boolean
 }
 
 const BAR_COUNT = 24
@@ -30,12 +32,12 @@ const FACES = [
  * blocks radiates outward and runs a travelling up/down wave; a subtle red/cyan
  * chromatic split nods to anaglyph 3D.
  */
-export default function LoadingScreen({ progress, fading }: Props) {
+export default function LoadingScreen({ progress = 0, fading = false, staticPose = false }: Props) {
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100)
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black select-none"
+      className={`ls-root fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black select-none${staticPose ? ' ls-static' : ''}`}
       style={{
         transition: 'opacity 0.7s ease, transform 0.7s ease',
         opacity: fading ? 0 : 1,
@@ -76,11 +78,17 @@ export default function LoadingScreen({ progress, fading }: Props) {
       </div>
 
       <div className="ls-readout">
-        <div className="ls-pct">{pct}%</div>
-        <div className="ls-label">Building the world…</div>
-        <div className="ls-track">
-          <div className="ls-fill" style={{ width: `${pct}%` }} />
-        </div>
+        {staticPose ? (
+          <div className="ls-label">Loading…</div>
+        ) : (
+          <>
+            <div className="ls-pct">{pct}%</div>
+            <div className="ls-label">Building the world…</div>
+            <div className="ls-track">
+              <div className="ls-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </>
+        )}
       </div>
 
       <style>{`
@@ -163,6 +171,9 @@ export default function LoadingScreen({ progress, fading }: Props) {
           box-shadow: 0 0 10px var(--accent-glow, rgba(97, 218, 251, 0.6));
           transition: width 0.3s ease;
         }
+        /* Static fallback: even pose, ring keeps a calm spin (no per-block wave). */
+        .ls-static .ls-box { animation: none; transform: rotateY(-18deg); }
+
         @media (prefers-reduced-motion: reduce) {
           .ls-ring { animation: none; }
           .ls-box  { animation: none; transform: rotateY(-20deg); }

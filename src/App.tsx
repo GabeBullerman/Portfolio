@@ -9,6 +9,8 @@ import MoreOnMe from './components/MoreOnMe'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
+import LoadingScreen from './components/LoadingScreen'
+import { Analytics } from '@vercel/analytics/react'
 import { useTheme, setTheme, PALETTES } from './hooks/useTheme'
 
 const ThreePortfolio = lazy(() => import('./components/ThreePortfolio'))
@@ -109,12 +111,9 @@ export default function App() {
 
   if (mode3D) {
     return (
-      <Suspense fallback={
-        <div className="w-full h-screen bg-black flex items-center justify-center text-white text-lg">
-          Loading 3D world...
-        </div>
-      }>
+      <Suspense fallback={<LoadingScreen staticPose />}>
         <ThreePortfolio onExit={() => setMode3D(false)} skipMonitor={skipMonitor} />
+        <Analytics />
       </Suspense>
     )
   }
@@ -122,6 +121,7 @@ export default function App() {
   return (
     <>
       <TwoDApp onExplore={handleExplore} />
+      <Analytics />
       {showMobileWarning && (
         <MobileWarningModal
           onConfirm={() => { setShowMobileWarning(false); setSkipMonitor(true); setMode3D(true) }}
