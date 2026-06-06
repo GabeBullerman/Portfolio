@@ -1,5 +1,5 @@
-1 - ✅ Balls not able to pass through ballpit walls
-2 - ✅ Give car hitbox and make it driveable, car should run into other hitboxes (use sitting animation we already have and just tune it to match the cars visuals)
-3 - Make screens similar to project blvd in memory lane
-4 - Make a cool 3D exhibit in the north west quadrant of the park (the only one currently empty) with things like physiscs examples, cool rotating objects, maybe some particle stuff, some sort of thing showcasing three.js possibilities
-5 - ✅ Bush lining fence, use fence end texture at entrences, short wide bushes connected lining the interior, tall wide bushes at fence ends / edges of entrences
+TODO
+- Memory Lane: add project-style screens (like Project Blvd) for the
+  memory-lane buildings.
+- NW park quadrant: expand the Three.js exhibit (more physics examples,
+  particle effects, rotating objects showcasing Three.js capabilities).
