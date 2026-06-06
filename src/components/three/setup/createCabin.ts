@@ -236,10 +236,27 @@ export function createCabin(
   cabGrp.add(clockFrame)
 
 
-  gltfLoader.load('/assets/cabin/light/light.gltf', gltf => {
+  // The light/switch GLBs reference textures that aren't shipped. Redirect those
+  // requests to a 1px image so GLTFLoader doesn't log 404 warnings; the lamp's
+  // maps are then nulled (and the switch gets a fresh material), so the look is
+  // unchanged — they're fine without the textures.
+  const BLANK_PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const lightMgr = new THREE.LoadingManager()
+  lightMgr.setURLModifier(url => url.includes('lightswitch') ? BLANK_PX : url)
+  const lightLoader = new GLTFLoader(lightMgr)
+
+  lightLoader.load('/assets/cabin/light/light.gltf', gltf => {
     const lamp = gltf.scene
     lamp.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      const mesh = child as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true; mesh.receiveShadow = true
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      mats.forEach(mt => {
+        const sm = mt as THREE.MeshStandardMaterial
+        sm.map = null; sm.normalMap = null; sm.roughnessMap = null; sm.metalnessMap = null
+        sm.needsUpdate = true
+      })
     })
     lamp.scale.setScalar(0.3)
     // Mount on back wall (local +X face), rotated so emitter faces -X into cabin
@@ -248,7 +265,7 @@ export function createCabin(
     cabGrp.add(lamp)
   }, undefined, err => console.error('[cabin] lamp failed:', err))
 
-  gltfLoader.load('/assets/cabin/light/switch.gltf', gltf => {
+  lightLoader.load('/assets/cabin/light/switch.gltf', gltf => {
     const sw = gltf.scene
     const switchMat = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.3, metalness: 0.1 })
     sw.traverse(child => {
