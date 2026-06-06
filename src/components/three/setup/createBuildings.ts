@@ -180,18 +180,16 @@ export function createBuildings(
     )
   }, undefined, err => console.error('[buildings] wayfarer TV failed:', err))
 
-  // TEMP: visible while re-aligning Wayfarer hitboxes to the new mesh in the
-  // debug editor (`). Set opacity back to 0 once the new positions are baked in.
   const wayHitMat = new THREE.MeshBasicMaterial({
-    color: 0xff4422, transparent: true, opacity: 0.3,
+    color: 0xff4422, transparent: true, opacity: 0,
     side: THREE.DoubleSide, depthWrite: false,
   })
 
 
   // Placeholder group — building mesh is loaded into it below
   const wayPlaceholder = new THREE.Group()
-  wayPlaceholder.position.set(-52.50, 0.03, -4.00)
-  wayPlaceholder.scale.setScalar(0.366)
+  wayPlaceholder.position.set(-52.50, 0.06, -4.00)
+  wayPlaceholder.scale.setScalar(0.082)
   scene.add(wayPlaceholder)
   movables.push({ name: '🟣 Wayfarer Building', group: wayPlaceholder, scaleObj: wayPlaceholder })
 
@@ -217,11 +215,11 @@ export function createBuildings(
     wayPlaceholder.add(bldg)
   }, undefined, err => console.error('[buildings] wayfarer failed:', err))
 
-  addVisibleHitbox('🔶 Wayfarer: West',   -54.75, 2.0, -4.00, 1, 6, 10, 0.25, 0.75, 0.65, wayHitMat, true)
-  addVisibleHitbox('🔶 Wayfarer: North',  -52.85, 2.0, -0.70, 10, 6,  1, 0.40, 0.70, 0.25, wayHitMat, true)
-  addVisibleHitbox('🔶 Wayfarer: South',  -52.90, 2.0, -7.30, 10, 6,  1, 0.40, 0.70, 0.25, wayHitMat, true)
-  addVisibleHitbox('🔶 Wayfarer: East N', -50.95, 2.0, -2.25,  1, 6,  4, 0.25, 0.70, 0.75, wayHitMat, true)
-  addVisibleHitbox('🔶 Wayfarer: East S', -51.00, 2.0, -6.00,  1, 6,  3, 0.25, 0.70, 0.90, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: West',   -54.65, 1.50, -4.00, 1, 6, 10, 0.25, 0.50, 0.65, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: North',  -52.55, 1.48, -1.00, 10, 6,  1, 0.40, 0.45, 0.25, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: South',  -52.60, 1.45, -6.90, 10, 6,  1, 0.40, 0.45, 0.25, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: East N', -50.55, 1.50, -2.15,  1, 6,  4, 0.25, 0.45, 0.65, wayHitMat, true)
+  addVisibleHitbox('🔶 Wayfarer: East S', -50.50, 1.50, -5.80,  1, 6,  3, 0.25, 0.45, 0.85, wayHitMat, true)
   ceilCols.push({ x0: -55.0, x1: -51.0, z0: -7.5, z1: -0.5, minY: 3.0 })
 
   // Other houses — connector road, east of driveway, near cabin
