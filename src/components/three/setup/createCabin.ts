@@ -429,6 +429,43 @@ export function createCabin(
 
   }, undefined, err => console.error('[table] GLTF failed:', err))
 
+  // ── Resume printer ────────────────────────────────────────────────────────
+  // Debug-tunable: registered as a movable so position/rotation/scale can be
+  // dialed in via the debug editor (`). The group is created synchronously so
+  // it's in cabHitboxEntries before createCabin returns; the mesh loads into it.
+  const printerGroup = new THREE.Group()
+  printerGroup.position.set(-1.50, 2.10, -0.40)   // initial guess — tune in debugger
+  printerGroup.rotation.set(0, 0, 0)
+  printerGroup.scale.setScalar(1.0)
+  cabGrp.add(printerGroup)
+  cabHitboxEntries.push({ name: '🖨 Resume Printer', group: printerGroup, scaleObj: printerGroup })
+
+  gltfLoader.load('/assets/cabin/printer/ResumePrinter.glb', gltf => {
+    const mesh = gltf.scene
+    normalizeOpaqueMaterials(mesh)
+    // Strip any baked-in lights so the printer can't brighten the cabin.
+    const lights: THREE.Object3D[] = []
+    mesh.traverse(child => {
+      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
+      if ((child as unknown as THREE.Light).isLight) lights.push(child)
+    })
+    lights.forEach(l => l.parent?.remove(l))
+
+    // Center on X/Z and rest the base at the group origin, then normalize to
+    // ~0.7 m tall so the debug scale starts near 1.0.
+    const box = new THREE.Box3().setFromObject(mesh)
+    const size = new THREE.Vector3(); const center = new THREE.Vector3()
+    box.getSize(size); box.getCenter(center)
+    mesh.position.x -= center.x
+    mesh.position.z -= center.z
+    mesh.position.y -= box.min.y
+    const maxDim = Math.max(size.x, size.y, size.z) || 1
+    const norm = new THREE.Group()
+    norm.scale.setScalar(0.7 / maxDim)
+    norm.add(mesh)
+    printerGroup.add(norm)
+  }, undefined, err => console.error('[printer] GLB failed:', err))
+
   // ── Procedural door panel ─────────────────────────────────────────────────
   // Pivot sits at the hinge edge. animate.ts drives pivot.rotation.y to open/close.
   // Position is a rough starting guess — use the debug editor (`) to dial it in.
