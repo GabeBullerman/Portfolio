@@ -9,6 +9,7 @@ export interface CabinRefs {
   monLightRef:    React.MutableRefObject<THREE.SpotLight | null>
   switchNodeRef:  React.MutableRefObject<THREE.Object3D | null>
   radioGroupRef:  React.MutableRefObject<THREE.Group | null>
+  printerNodeRef: React.MutableRefObject<THREE.Object3D | null>
   screenMatRef:   React.MutableRefObject<any>
 }
 
@@ -372,8 +373,8 @@ export function createCabin(
   // ── Radio / jukebox (debug-tunable) ───────────────────────────────────────
   // Outer group created synchronously so it's a debug movable; mesh loads in.
   const radioGroup = new THREE.Group()
-  radioGroup.position.set(-3.4, 2.9, -2.3)
-  radioGroup.rotation.set(0, 82, 0)
+  radioGroup.position.set(-3.50, 2.90, -2.20)
+  radioGroup.rotation.set(0, -1.7 * Math.PI / 180, 0)
   radioGroup.scale.setScalar(1.0)
   cabGrp.add(radioGroup)
   refs.radioGroupRef.current = radioGroup
@@ -395,33 +396,28 @@ export function createCabin(
     radioGroup.add(norm)
   }, undefined, err => console.error('[radio] GLTF failed:', err))
 
-  // ── Table ─────────────────────────────────────────────────────────────────
+  // ── Table (debug-tunable) ───────────────────────────────────────────────────
+  const tableGroup = new THREE.Group()
+  tableGroup.position.set(-3.5, 2.35, -2.6)
+  tableGroup.rotation.set(0, 0, 0)
+  tableGroup.scale.setScalar(1.0)
+  cabGrp.add(tableGroup)
+  cabHitboxEntries.push({ name: '🪑 Table', group: tableGroup, scaleObj: tableGroup })
+
   gltfLoader.load('/assets/cabin/table/scene.gltf', gltf => {
     const tableMesh = gltf.scene
     tableMesh.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
-      }
+      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
-
     const tableBox = new THREE.Box3().setFromObject(tableMesh)
-    const tableSize = new THREE.Vector3()
-    const tableCenter = new THREE.Vector3()
-    tableBox.getSize(tableSize)
-    tableBox.getCenter(tableCenter)
+    const tableSize = new THREE.Vector3(); const tableCenter = new THREE.Vector3()
+    tableBox.getSize(tableSize); tableBox.getCenter(tableCenter)
     tableMesh.position.sub(tableCenter)
-
-    const tableGroup = new THREE.Group()
-    tableGroup.add(tableMesh)
-
-    const tableMax = Math.max(tableSize.x, tableSize.y, tableSize.z)
-    // Target ~1.0 m wide table
-    tableGroup.scale.setScalar(1.0 / tableMax)
-
-    tableGroup.position.set(-3.5, 2.35, -2.6)
-    cabGrp.add(tableGroup)
-
+    const tableMax = Math.max(tableSize.x, tableSize.y, tableSize.z) || 1
+    const norm = new THREE.Group()
+    norm.scale.setScalar(1.0 / tableMax)   // ~1 m table
+    norm.add(tableMesh)
+    tableGroup.add(norm)
   }, undefined, err => console.error('[table] GLTF failed:', err))
 
   // ── Resume printer ────────────────────────────────────────────────────────
@@ -433,6 +429,7 @@ export function createCabin(
   printerGroup.rotation.set(0, -Math.PI / 2, 0)
   printerGroup.scale.setScalar(1.0)
   cabGrp.add(printerGroup)
+  refs.printerNodeRef.current = printerGroup
   cabHitboxEntries.push({ name: '🖨 Resume Printer', group: printerGroup, scaleObj: printerGroup })
 
   gltfLoader.load('/assets/cabin/printer/ResumePrinter.glb', gltf => {

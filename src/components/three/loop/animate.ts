@@ -101,6 +101,9 @@ export interface AnimateParams {
   doorRotRef:       React.MutableRefObject<number>
   nearDoorRef:      React.MutableRefObject<boolean>
   setNearDoor:      (v: boolean) => void
+  printerNodeRef:   React.MutableRefObject<THREE.Object3D | null>
+  nearPrinterRef:   React.MutableRefObject<boolean>
+  setNearPrinter:   (v: boolean) => void
   cabLightOnRef:    React.MutableRefObject<boolean>
   nearSwitchRef:    React.MutableRefObject<boolean>
   switchNodeRef:    React.MutableRefObject<THREE.Object3D | null>
@@ -199,6 +202,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
   const _rampRC     = new THREE.Vector3()
   const _swWorld    = new THREE.Vector3()
   const _radioWorld = new THREE.Vector3()
+  const _printerWorld = new THREE.Vector3()
   const _seatLocal  = new THREE.Vector3()
   const _eyeLocal   = new THREE.Vector3()
   const _chairWorld = new THREE.Vector3()
@@ -760,6 +764,13 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         p.switchNodeRef.current.getWorldPosition(_swWorld)
         const newNear = Math.hypot(p.player.position.x - _swWorld.x, p.player.position.z - _swWorld.z) < 1.6
         if (newNear !== p.nearSwitchRef.current) { p.nearSwitchRef.current = newNear; p.setNearSwitch(newNear) }
+      }
+
+      // Resume printer
+      if (p.printerNodeRef.current) {
+        p.printerNodeRef.current.getWorldPosition(_printerWorld)
+        const newNear = Math.hypot(p.player.position.x - _printerWorld.x, p.player.position.z - _printerWorld.z) < 1.6
+        if (newNear !== p.nearPrinterRef.current) { p.nearPrinterRef.current = newNear; p.setNearPrinter(newNear) }
       }
 
       // Bowling

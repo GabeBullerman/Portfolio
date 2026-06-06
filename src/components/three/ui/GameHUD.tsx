@@ -17,6 +17,7 @@ interface GameHUDProps {
   nearRadio:        boolean
   nearDoor:         boolean
   doorOpen:         boolean
+  nearPrinter:      boolean
   nearProject:      boolean
   nearProjectLabel: string
   sitting:          boolean
@@ -42,7 +43,7 @@ interface GameHUDProps {
 export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
-  nearDoor, doorOpen,
+  nearDoor, doorOpen, nearPrinter,
   nearProject, nearProjectLabel,
   sitting, climbing, nearCar, driving, nearCradle, nearWipSign,
   bowlDisplay, rtossDisplay,
@@ -51,7 +52,7 @@ export default function GameHUD({
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   // nearLadder excluded: climbing uses joystick-up (W), not the E/Inspect button
-  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle || nearWipSign || nearDoor
+  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle || nearWipSign || nearDoor || nearPrinter
   const moveTouchId = useRef(-1)
   const lookTouchId = useRef(-1)
 
@@ -65,6 +66,7 @@ export default function GameHUD({
     : nearCradle ? 'Start Cradle'
     : nearWipSign ? 'Read Sign'
     : nearRadio  ? (musicMuted ? 'Unmute Music' : 'Mute Music')
+    : nearPrinter ? 'Print Résumé'
     : nearSwitch ? 'Toggle Light'
     : nearDoor   ? (doorOpen ? 'Close Door' : 'Open Door')
     : 'Interact'
@@ -104,7 +106,7 @@ export default function GameHUD({
       )}
 
       {/* Radio interaction prompt — desktop only (mobile uses Inspect button) */}
-      {!monitorMode && nearRadio && (
+      {!monitorMode && nearRadio && !nearChair && (
         <div className="hidden md:block absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-none">
           <div className="bg-black/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
             <kbd className="bg-white/20 text-xs px-1.5 py-0.5 rounded font-mono">E</kbd>
@@ -382,23 +384,33 @@ export default function GameHUD({
             </>
           )}
 
-          {/* Cabin door hint — desktop only */}
-          {nearDoor && !nearChair && !sitting && (
+          {/* Resume printer hint — desktop only */}
+          {nearPrinter && !nearChair && !nearRadio && !sitting && (
             <div
               className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
             >
-              Press <kbd className="font-bold mx-1">E</kbd> to {doorOpen ? 'close' : 'open'} the door
+              Press <kbd className="font-bold mx-1">E</kbd> to print my résumé
             </div>
           )}
 
           {/* Light switch hint — desktop only */}
-          {nearSwitch && !nearBowl && !nearRToss && !nearBench && !sitting && (
+          {nearSwitch && !nearBowl && !nearRToss && !nearBench && !nearChair && !nearRadio && !nearPrinter && !sitting && (
             <div
               className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
               style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
             >
               Press <kbd className="font-bold mx-1">E</kbd> to toggle light
+            </div>
+          )}
+
+          {/* Cabin door hint — desktop only (lowest priority of the cabin cluster) */}
+          {nearDoor && !nearChair && !nearRadio && !nearPrinter && !nearSwitch && !sitting && (
+            <div
+              className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to {doorOpen ? 'close' : 'open'} the door
             </div>
           )}
 
