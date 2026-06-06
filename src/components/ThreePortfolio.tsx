@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import DebugOverlay from './three/ui/DebugOverlay'
 import GameHUD from './three/ui/GameHUD'
 import MonitorOverlay from './MonitorOverlay'
+import LoadingScreen from './LoadingScreen'
 import { createScene } from './three/setup/createScene'
 import { createWorld } from './three/setup/createWorld'
 import { createBuildings } from './three/setup/createBuildings'
@@ -139,6 +140,10 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(!skipMonitor)
   const [monitorFading, setMonitorFading] = useState(false)
+  // World asset loading screen
+  const [worldLoading, setWorldLoading] = useState(true)
+  const [loadFading, setLoadFading]     = useState(false)
+  const [loadProgress, setLoadProgress] = useState(0)
   const goOutsideRef    = useRef(skipMonitor)
   const goToComputerRef = useRef(false)
   const dayEnvRef = useRef<THREE.Texture | null>(null)
@@ -198,6 +203,49 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     if (!mount) return
     movablesRef.current = []
     const effectDisposedRef = { current: false }
+
+    // ── Asset loading tracking ───────────────────────────────────────────
+    // Every loader uses THREE.DefaultLoadingManager, so we can drive the
+    // loading screen from it. We keep the overlay up until the queue drains
+    // (debounced, since GLB callbacks kick off nested loads) plus a GPU
+    // pre-warm, so the world is smooth the instant it's revealed.
+    const mgr = THREE.DefaultLoadingManager
+    const prevOnStart    = mgr.onStart
+    const prevOnProgress = mgr.onProgress
+    const prevOnLoad     = mgr.onLoad
+    let finalizeTimer: ReturnType<typeof setTimeout> | null = null
+    let progressRatio = 0
+    let finalized = false
+
+    const finalizeLoad = () => {
+      if (finalized || effectDisposedRef.current) return
+      finalized = true
+      if (finalizeTimer) { clearTimeout(finalizeTimer); finalizeTimer = null }
+      prewarmRender()              // compile shaders / upload buffers before reveal
+      setLoadProgress(1)
+      setLoadFading(true)
+      setTimeout(() => { if (!effectDisposedRef.current) setWorldLoading(false) }, 750)
+    }
+
+    mgr.onStart = (url, loaded, total) => {
+      if (finalizeTimer) { clearTimeout(finalizeTimer); finalizeTimer = null }
+      prevOnStart?.(url, loaded, total)
+    }
+    mgr.onProgress = (url, loaded, total) => {
+      const r = total > 0 ? loaded / total : 0
+      // Hold a touch below 1 so the bar only completes at the real finalize.
+      progressRatio = Math.max(progressRatio, Math.min(0.97, r))
+      if (!effectDisposedRef.current) setLoadProgress(progressRatio)
+      prevOnProgress?.(url, loaded, total)
+    }
+    mgr.onLoad = () => {
+      // Debounce: a GLB's onLoad callback often queues more loads.
+      if (finalizeTimer) clearTimeout(finalizeTimer)
+      finalizeTimer = setTimeout(finalizeLoad, 700)
+      prevOnLoad?.()
+    }
+    // Hard fallback in case a load errors and the queue never fully drains.
+    const loadFallback = setTimeout(finalizeLoad, 18000)
 
     // ── Scene, camera, renderer, physics ─────────────────────────────────
     const { scene, camera, renderer, physWorld } = createScene(mount, {
@@ -508,19 +556,37 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     animStateHolder.st = (loop as any).__animState
     loop.start()
 
-    // Pre-warm GPU: render one frame into a 1×1 offscreen target with the outdoor
-    // env map active. This forces the driver to compile all PBR shader variants AND
-    // upload all geometry buffers already in the scene, so the cabin-exit transition
-    // doesn't stall. Run at 5 s and again at 10 s to catch late-loading GLBs.
+    // Pre-warm GPU. The player spawns INSIDE the cabin, where scene.environment
+    // is null; stepping outside swaps it to the day env map, which forces every
+    // visible material to recompile its env-mapped shader variant — the cause of
+    // the cabin-exit lag spike. renderer.compile() compiles ALL materials in the
+    // scene graph (unlike render(), which frustum-culls everything behind the
+    // cabin walls), so we compile the outdoor variants ahead of time. We then do
+    // a tiny offscreen render to upload geometry buffers. Re-run at 5 s and 10 s
+    // to catch GLBs that finish loading late.
     function prewarmRender() {
       if (effectDisposedRef.current || !dayEnvRef.current) return
       const savedEnv = scene.environment
       scene.environment = dayEnvRef.current
+      // Compile every material in the scene with the outdoor env active.
+      renderer.compile(scene, camera)
+      // Render once with frustum culling disabled so geometry buffers for objects
+      // behind the cabin walls (the whole outdoor world) upload now, not on the
+      // first frame after stepping outside.
+      const culledOff: THREE.Object3D[] = []
+      scene.traverse(o => {
+        const m = o as THREE.Mesh
+        if ((m.isMesh || (m as any).isInstancedMesh) && m.frustumCulled) {
+          m.frustumCulled = false
+          culledOff.push(m)
+        }
+      })
       const rt = new THREE.WebGLRenderTarget(1, 1)
       renderer.setRenderTarget(rt)
       renderer.render(scene, camera)
       renderer.setRenderTarget(null)
       rt.dispose()
+      culledOff.forEach(o => { (o as THREE.Mesh).frustumCulled = true })
       scene.environment = savedEnv
     }
     const prewarmId1 = setTimeout(prewarmRender, 5000)
@@ -533,6 +599,9 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     return () => {
       clearTimeout(prewarmId1)
       clearTimeout(prewarmId2)
+      clearTimeout(loadFallback)
+      if (finalizeTimer) clearTimeout(finalizeTimer)
+      mgr.onStart = prevOnStart; mgr.onProgress = prevOnProgress; mgr.onLoad = prevOnLoad
       effectDisposedRef.current = true; playerBonesRef.current = null
       document.body.style.overflow = ''; document.documentElement.style.overflow = ''
       loop.stop()
@@ -551,6 +620,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   return (
     <div className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div ref={mountRef} className="w-full h-full touch-none" />
+      {worldLoading && <LoadingScreen progress={loadProgress} fading={loadFading} />}
       {monitorMode && (<MonitorOverlay fading={monitorFading} onGoOutside={(snapshot) => {
         if (snapshot && screenMatRef.current) {
           const tex = new THREE.CanvasTexture(snapshot)

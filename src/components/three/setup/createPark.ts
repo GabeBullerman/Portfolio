@@ -310,6 +310,12 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
         bbox.getCenter(center)
         const hx = center.x, hz = center.z, hr = TREE_HIT_R * sc
 
+        // The GLB origin can be off-center, so a tree whose spawn point clears
+        // the pond can still have its visible trunk land in the water. Re-check
+        // the real bounding-box center and discard if it's over/near the pond.
+        const pdx = hx - POND_CX, pdz = hz - POND_CZ
+        if (pdx * pdx + pdz * pdz < POND_EXCL_R2) continue
+
         grp.add(t)
         cylCols.push({ x: hx, z: hz, r: hr })
       }

@@ -17,23 +17,89 @@ const LANG_SKILLS = [
   { name: 'CSS',        icon: `${CDN}/css3/css3-original.svg` },
 ]
 
-// Databases + DevOps merged into one "Tools" section
 const TOOLS_SKILLS = [...skillsData[2].skills, ...skillsData[3].skills]
 
-const ZONE_SECTIONS = [
-  { label: 'Frontend',  skills: skillsData[0].skills, baseZ: -40, accent: 0x61dafb },
-  { label: 'Backend',   skills: skillsData[1].skills, baseZ: -55, accent: 0x5fa04e },
-  { label: 'Languages', skills: LANG_SKILLS,           baseZ: -70, accent: 0xf7df1e },
-  { label: 'Tools',     skills: TOOLS_SKILLS,           baseZ: -86, accent: 0x2496ed },
-] as const
-
 // ── Layout constants ──────────────────────────────────────────────────────────
-const ZONE_X   = 56.0   // east of Memory Lane road (outer edge x=47), south of buildings
-const PER_ROW  = 5
+const ZONE_X   = 56.0
 const ICON_SZ  = 0.62
 const ICON_GAP = 1.08
 const ROW_GAP  = 1.12
 const BASE_Y   = 1.25
+
+// ── Section definitions (perRow overrides the default of 5) ──────────────────
+const ZONE_SECTIONS = [
+  { label: 'Frontend',  skills: dedupByIcon(skillsData[0].skills), baseZ: -40, accent: 0x61dafb, perRow: 5 },
+  { label: 'Backend',   skills: dedupByIcon(skillsData[1].skills), baseZ: -47, accent: 0x5fa04e, perRow: 5 },
+  { label: 'Languages', skills: dedupByIcon(LANG_SKILLS),           baseZ: -54, accent: 0xf7df1e, perRow: 5 },
+  { label: 'Tools',     skills: dedupByIcon(TOOLS_SKILLS),           baseZ: -62, accent: 0x2496ed, perRow: 6 },
+]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const DARK_ICON_PATHS = [
+  'threejs/threejs-original',
+  'express/express-original',
+  'github/github-original',
+]
+
+function dedupByIcon<T extends { icon: string }>(arr: T[]): T[] {
+  const seen = new Set<string>()
+  return arr.filter(s => { if (seen.has(s.icon)) return false; seen.add(s.icon); return true })
+}
+
+function makeIconTexture(skill: { name: string; icon: string }, accent: number): THREE.CanvasTexture {
+  const SZ  = 128
+  const cv  = document.createElement('canvas')
+  cv.width = SZ; cv.height = SZ
+  const cx  = cv.getContext('2d')!
+  const col = `#${accent.toString(16).padStart(6, '0')}`
+  const isDark = DARK_ICON_PATHS.some(p => skill.icon.includes(p))
+
+  cx.fillStyle = '#1a1f2e'; cx.fillRect(0, 0, SZ, SZ)
+  cx.strokeStyle = col; cx.lineWidth = 3; cx.strokeRect(2, 2, SZ - 4, SZ - 4)
+  cx.fillStyle = col
+  cx.font = 'bold 11px monospace'; cx.textAlign = 'center'; cx.textBaseline = 'middle'
+  cx.fillText(skill.name, SZ / 2, SZ / 2)
+
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    cx.clearRect(0, 0, SZ, SZ)
+    if (isDark) {
+      cx.fillStyle = '#e0e0e0'
+      cx.beginPath(); cx.roundRect(6, 6, SZ - 12, SZ - 12, 8); cx.fill()
+    }
+    cx.drawImage(img, 10, 10, SZ - 20, SZ - 20)
+    tex.needsUpdate = true
+  }
+  img.src = skill.icon
+  return tex
+}
+
+function makeSign(
+  text: string, accentHex: string,
+  canvasW: number, canvasH: number,
+  planeW: number, planeH: number,
+  fontSize: number,
+): THREE.Mesh {
+  const cv = document.createElement('canvas')
+  cv.width = canvasW; cv.height = canvasH
+  const cx = cv.getContext('2d')!
+  cx.fillStyle = '#0d1117'
+  cx.beginPath(); cx.roundRect(0, 0, canvasW, canvasH, 12); cx.fill()
+  cx.strokeStyle = accentHex; cx.lineWidth = 3.5
+  cx.beginPath(); cx.roundRect(2, 2, canvasW - 4, canvasH - 4, 10); cx.stroke()
+  cx.fillStyle = accentHex
+  cx.font = `bold ${fontSize}px system-ui, sans-serif`
+  cx.textAlign = 'center'; cx.textBaseline = 'middle'
+  cx.fillText(text, canvasW / 2, canvasH / 2)
+  return new THREE.Mesh(
+    new THREE.PlaneGeometry(planeW, planeH),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), side: THREE.DoubleSide, transparent: true }),
+  )
+}
 
 // ── Builder ───────────────────────────────────────────────────────────────────
 export function createSkillsZone(
@@ -41,74 +107,41 @@ export function createSkillsZone(
   movables: Movable[],
 ): { update: (elapsed: number) => void } {
 
-  const texLoader = new THREE.TextureLoader()
-  // Shared dark edge material for the box sides
-  const sideMat = new THREE.MeshStandardMaterial({
-    color: 0x111827, roughness: 0.85, metalness: 0.05,
-  })
-
+  const sideMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85, metalness: 0.05 })
   type AnimIcon = { mesh: THREE.Mesh; phase: number; baseY: number }
   const animIcons: AnimIcon[] = []
 
-  ZONE_SECTIONS.forEach(({ label, skills, baseZ, accent }) => {
+  ZONE_SECTIONS.forEach(({ label, skills, baseZ, accent, perRow }) => {
+    const accentHex = `#${accent.toString(16).padStart(6, '0')}`
     const grp = new THREE.Group()
     grp.position.set(ZONE_X, 0, baseZ)
     scene.add(grp)
     movables.push({ name: `🛠 Skills · ${label}`, group: grp, scaleObj: grp })
 
-    // ── Header sign (canvas → PlaneGeometry facing west) ─────────────────────
-    const cv = document.createElement('canvas')
-    cv.width = 512; cv.height = 80
-    const cx = cv.getContext('2d')!
-    const accentHex = `#${accent.toString(16).padStart(6, '0')}`
-    cx.fillStyle = '#0d1117'
-    cx.beginPath(); cx.roundRect(0, 0, 512, 80, 10); cx.fill()
-    cx.strokeStyle = accentHex; cx.lineWidth = 3.5
-    cx.beginPath(); cx.roundRect(2, 2, 508, 76, 8); cx.stroke()
-    cx.fillStyle = accentHex
-    cx.font = 'bold 44px system-ui, sans-serif'
-    cx.textAlign = 'center'; cx.textBaseline = 'middle'
-    cx.fillText(label, 256, 40)
+    const nRows  = Math.ceil(skills.length / perRow)
+    const topY   = BASE_Y + (nRows - 1) * ROW_GAP
 
-    const nRows = Math.ceil(skills.length / PER_ROW)
-    const topY  = BASE_Y + (nRows - 1) * ROW_GAP
-
-    const signMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.4, 0.53),
-      new THREE.MeshBasicMaterial({
-        map: new THREE.CanvasTexture(cv),
-        side: THREE.DoubleSide,
-        transparent: true,
-      }),
-    )
+    // Section header sign — width scales with perRow
+    const signW   = (perRow - 1) * ICON_GAP + 0.9
+    const signMesh = makeSign(label, accentHex, 512, 80, signW, 0.53, 44)
     signMesh.position.set(0, topY + 0.82, 0)
-    signMesh.rotation.y = -Math.PI / 2  // face west toward road
+    signMesh.rotation.y = -Math.PI / 2
     grp.add(signMesh)
 
-    // Coloured accent light above the section
+    // Accent point light
     const light = new THREE.PointLight(accent, 1.8, 12)
     light.position.set(0, topY + 1.8, 0)
     grp.add(light)
 
     // ── Icon tiles ────────────────────────────────────────────────────────────
     skills.forEach((skill, i) => {
-      const row     = Math.floor(i / PER_ROW)
-      const col     = i % PER_ROW
-      const rowSize = Math.min(PER_ROW, skills.length - row * PER_ROW)
+      const row     = Math.floor(i / perRow)
+      const col     = i % perRow
+      const rowSize = Math.min(perRow, skills.length - row * perRow)
       const zOff    = (col - (rowSize - 1) / 2) * ICON_GAP
       const yPos    = BASE_Y + row * ROW_GAP
 
-      const tex = texLoader.load(skill.icon)
-      tex.colorSpace      = THREE.SRGBColorSpace
-      tex.minFilter       = THREE.LinearFilter
-      tex.generateMipmaps = false
-
-      const iconMat = new THREE.MeshStandardMaterial({
-        map: tex, transparent: true, roughness: 0.3, metalness: 0.1,
-      })
-
-      // BoxGeometry material indices: +X=0, -X=1, +Y=2, -Y=3, +Z=4, -Z=5
-      // rotation.y = -π/2 → local +Z faces world -X (west, toward road) ✓
+      const iconMat = new THREE.MeshBasicMaterial({ map: makeIconTexture(skill, accent) })
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(ICON_SZ, ICON_SZ, 0.055),
         [sideMat, sideMat, sideMat, sideMat, iconMat, sideMat],
@@ -116,15 +149,39 @@ export function createSkillsZone(
       mesh.position.set(0, yPos, zOff)
       mesh.rotation.y = -Math.PI / 2
       grp.add(mesh)
-
       animIcons.push({ mesh, phase: i * 0.41 + baseZ * 0.05, baseY: yPos })
     })
   })
 
+  // ── "Wall of Qualifications" mega-title spanning all 4 sections ──────────────
+  {
+    const first = ZONE_SECTIONS[0]
+    const last  = ZONE_SECTIONS[ZONE_SECTIONS.length - 1]
+    const firstW = (first.perRow - 1) * ICON_GAP + 0.9
+    const lastW  = (last.perRow  - 1) * ICON_GAP + 0.9
+    const farFront = first.baseZ + firstW / 2
+    const farBack  = last.baseZ  - lastW  / 2
+    const centerZ  = (farFront + farBack) / 2
+    const titleW   = Math.abs(farFront - farBack) + 1.2
+
+    const titleGrp = new THREE.Group()
+    titleGrp.position.set(ZONE_X, 0, centerZ)
+    scene.add(titleGrp)
+    movables.push({ name: '🛠 Skills · Title', group: titleGrp, scaleObj: titleGrp })
+
+    const titleMesh = makeSign('Wall of Qualifications', '#ffd54a', 2048, 160, titleW, 2.2, 96)
+    titleMesh.position.set(0, 5.0, 0)
+    titleMesh.rotation.y = -Math.PI / 2
+    titleGrp.add(titleMesh)
+
+    const titleLight = new THREE.PointLight(0xffd54a, 1.4, 30)
+    titleLight.position.set(-2, 5.0, 0)
+    titleGrp.add(titleLight)
+  }
+
   return {
     update: (elapsed: number) => {
       animIcons.forEach(({ mesh, phase, baseY }) => {
-        // Gentle bob + subtle yaw wobble so the player occasionally sees the edge
         mesh.position.y = baseY + Math.sin(elapsed * 0.72 + phase) * 0.10
         mesh.rotation.y = -Math.PI / 2 + Math.sin(elapsed * 0.38 + phase) * 0.12
       })

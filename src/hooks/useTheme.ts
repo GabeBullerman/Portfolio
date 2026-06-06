@@ -187,12 +187,20 @@ export function setTheme(name: string) {
 
 export { PALETTES }
 
+// Random palette chosen once per page load, shared across every useTheme()
+// instance so the theme picker's highlighted dot always matches the applied
+// theme (each hook call would otherwise roll its own random palette).
+let sessionRandom: ThemePalette | null = null
+
 export function useTheme(onApplied?: (name: string) => void) {
   useEffect(() => {
     const last = localStorage.getItem('theme')
     const saved = PALETTES.find(p => p.name === last)
     // Random every load unless user explicitly saved a preference
-    const palette = saved ?? PALETTES[Math.floor(Math.random() * PALETTES.length)]
+    if (!saved && !sessionRandom) {
+      sessionRandom = PALETTES[Math.floor(Math.random() * PALETTES.length)]
+    }
+    const palette = saved ?? sessionRandom!
     applyPalette(palette)
     window.dispatchEvent(new CustomEvent('theme-change', { detail: palette }))
     onApplied?.(palette.name)
