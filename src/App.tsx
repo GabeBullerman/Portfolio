@@ -9,6 +9,7 @@ import MoreOnMe from './components/MoreOnMe'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
+import StickFigure from './components/StickFigure'
 import LoadingScreen from './components/LoadingScreen'
 import { Analytics } from '@vercel/analytics/react'
 import { useTheme, setTheme, PALETTES } from './hooks/useTheme'
@@ -90,6 +91,7 @@ function TwoDApp({ onExplore }: { onExplore: () => void }) {
       </main>
       <Footer />
       <BackToTop />
+      <StickFigure message="Pssst… hit Explore up in the nav!" delayMs={2500} />
     </div>
   )
 }
