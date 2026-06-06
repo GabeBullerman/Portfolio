@@ -111,6 +111,7 @@ export interface AnimateParams {
   ambientLightRef:  React.MutableRefObject<THREE.AmbientLight | null>
   sunLightRef:      React.MutableRefObject<THREE.DirectionalLight | null>
   cinematicRef:     React.MutableRefObject<{ active: boolean; t: number; duration: number; fromPos: THREE.Vector3; toPos: THREE.Vector3; fromLook: THREE.Vector3; toLook: THREE.Vector3; onDone: (() => void) | null }>
+  cinematicHoldRef: React.MutableRefObject<boolean>
   playerBonesRef:   React.MutableRefObject<{ lUpLeg?: THREE.Bone; rUpLeg?: THREE.Bone; lLoLeg?: THREE.Bone; rLoLeg?: THREE.Bone; lUpArm?: THREE.Bone; rUpArm?: THREE.Bone; spine?: THREE.Bone } | null>
   playerWalkBlendRef: React.MutableRefObject<number>
   bowlAimRef:       React.MutableRefObject<number>
@@ -404,7 +405,9 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
 
     // Cinematic
     if (p.cinematicRef.current.active) {
-      const cs = p.cinematicRef.current; cs.t = Math.min(cs.t + delta / cs.duration, 1)
+      const cs = p.cinematicRef.current
+      // Hold at frame 0 (monitor view) while the loading screen is still up.
+      if (!p.cinematicHoldRef.current) cs.t = Math.min(cs.t + delta / cs.duration, 1)
       const e3 = cs.t < 0.5 ? 4 * cs.t * cs.t * cs.t : 1 - Math.pow(-2 * cs.t + 2, 3) / 2
       p.camera.position.lerpVectors(cs.fromPos, cs.toPos, e3); _lerpLook.lerpVectors(cs.fromLook, cs.toLook, e3); p.camera.lookAt(_lerpLook)
       p.player.visible = false

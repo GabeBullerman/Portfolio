@@ -148,8 +148,13 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const [worldLoading, setWorldLoading] = useState(true)
   const [loadFading, setLoadFading]     = useState(false)
   const [loadProgress, setLoadProgress] = useState(0)
-  const goOutsideRef    = useRef(skipMonitor)
+  // Initial "pan out of the monitor" is deferred until the loading screen is
+  // gone (see finalizeLoad) so the cinematic isn't hidden behind it.
+  const goOutsideRef    = useRef(false)
   const goToComputerRef = useRef(false)
+  // While true, the cinematic camera holds at frame 0 (monitor view) instead of
+  // advancing — used to freeze the pan-out until the loading screen clears.
+  const cinematicHoldRef = useRef(false)
   const dayEnvRef = useRef<THREE.Texture | null>(null)
   // Cinematic camera transition
   const cinematicRef    = useRef({
@@ -227,8 +232,19 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       if (finalizeTimer) { clearTimeout(finalizeTimer); finalizeTimer = null }
       prewarmRender()              // compile shaders / upload buffers before reveal
       setLoadProgress(1)
+      // Set up the pan-out-of-monitor cinematic now (camera snaps to the monitor
+      // view) but hold it at frame 0 behind the loading screen, then release it
+      // once the screen has fully faded so the whole transition is visible.
+      if (skipMonitor) {
+        goOutsideRef.current = true
+        cinematicHoldRef.current = true
+      }
       setLoadFading(true)
-      setTimeout(() => { if (!effectDisposedRef.current) setWorldLoading(false) }, 750)
+      setTimeout(() => {
+        if (effectDisposedRef.current) return
+        setWorldLoading(false)
+        cinematicHoldRef.current = false
+      }, 750)
     }
 
     mgr.onStart = (url, loaded, total) => {
@@ -536,7 +552,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       cabLightOnRef, nearSwitchRef, switchNodeRef, cabCeilLightRef, monLightRef,
       inCabinPrevRef, goOutsideRef, goToComputerRef,
       dayEnvRef, ambientLightRef, sunLightRef,
-      cinematicRef, playerBonesRef, playerWalkBlendRef,
+      cinematicRef, cinematicHoldRef, playerBonesRef, playerWalkBlendRef,
       bowlAimRef, bowlPowerRef, bowlPowerDirRef, bowlTimerRef, bowlHSRef, bowlThrowKeyRef, powerBarRef,
       rtossAimRef, rPowerRef, rPowerDirRef, rtossTimerRef, rtossThrownRef, rtossThrowKeyRef, rPowerBarRef,
       nearBowlRef, nearRTossRef, nearBenchRef, nearChairRef, nearLadderRef, nearRadioRef,
