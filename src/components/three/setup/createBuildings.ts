@@ -180,8 +180,10 @@ export function createBuildings(
     )
   }, undefined, err => console.error('[buildings] wayfarer TV failed:', err))
 
+  // TEMP: visible while re-aligning Wayfarer hitboxes for first-person mode in
+  // the debug editor (`). Set opacity back to 0 once positions are baked in.
   const wayHitMat = new THREE.MeshBasicMaterial({
-    color: 0xff4422, transparent: true, opacity: 0,
+    color: 0xff4422, transparent: true, opacity: 0.3,
     side: THREE.DoubleSide, depthWrite: false,
   })
 
@@ -189,7 +191,7 @@ export function createBuildings(
   // Placeholder group — building mesh is loaded into it below
   const wayPlaceholder = new THREE.Group()
   wayPlaceholder.position.set(-52.50, 0.06, -4.00)
-  wayPlaceholder.scale.setScalar(0.082)
+  wayPlaceholder.scale.setScalar(0.090)
   scene.add(wayPlaceholder)
   movables.push({ name: '🟣 Wayfarer Building', group: wayPlaceholder, scaleObj: wayPlaceholder })
 
