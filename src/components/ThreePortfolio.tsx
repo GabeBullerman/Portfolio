@@ -16,6 +16,7 @@ import { createProjectObjects } from './three/setup/createProjectObjects'
 import { createPark } from './three/setup/createPark'
 import { createExhibit } from './three/setup/createExhibit'
 import { createCar } from './three/setup/createCar'
+import { createSkillsZone } from './three/setup/createSkillsZone'
 import { createBowling } from './three/minigames/bowling'
 import { createRingToss } from './three/minigames/ringtoss'
 import { createAnimateLoop } from './three/loop/animate'
@@ -232,6 +233,9 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     // ── Park ──────────────────────────────────────────────────────────────
     const { addSidewalk, updateWipSign } = createPark(scene, movablesRef.current, cylCols, boxCols)
     addSidewalkRef.current = addSidewalk
+
+    // ── Skills zone (Memory Lane, south of buildings) ────────────────────────
+    const { update: skillsZoneUpdate } = createSkillsZone(scene, movablesRef.current)
 
     // ── Car ───────────────────────────────────────────────────────────────────
     const { carGrp, carCol, carHitboxGrp } = createCar(scene, cylCols)
@@ -492,7 +496,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       projectDisplayUpdate: projectDisplays.update,
       projectObjectsUpdate: projectObjects.update,
       exhibitUpdate:        exhibit.update,
-      waterUpdate, smokeUpdate,
+      waterUpdate, smokeUpdate, skillsZoneUpdate,
       interactZones:        [...projectDisplays.interactZones, ...memoryLaneDisplays.interactZones],
       nearProjectRef, nearProjectLabelRef, nearProjectUrlRef,
       setNearProject,
