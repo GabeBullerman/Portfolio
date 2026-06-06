@@ -180,8 +180,10 @@ export function createBuildings(
     )
   }, undefined, err => console.error('[buildings] wayfarer TV failed:', err))
 
+  // TEMP: visible while re-aligning Wayfarer hitboxes to the new mesh in the
+  // debug editor (`). Set opacity back to 0 once the new positions are baked in.
   const wayHitMat = new THREE.MeshBasicMaterial({
-    color: 0xff4422, transparent: true, opacity: 0,
+    color: 0xff4422, transparent: true, opacity: 0.3,
     side: THREE.DoubleSide, depthWrite: false,
   })
 
