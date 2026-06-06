@@ -195,12 +195,6 @@ export function createBuildings(
   scene.add(wayPlaceholder)
   movables.push({ name: '🟣 Wayfarer Building', group: wayPlaceholder, scaleObj: wayPlaceholder })
 
-  const wayTex = new THREE.TextureLoader().load(
-    '/assets/outdoor/buildings/purple store/textures/Bakery_BaseColor.png',
-  )
-  wayTex.colorSpace = THREE.SRGBColorSpace
-  wayTex.flipY = false
-
   gltfLoader.load('/assets/outdoor/buildings/purple store/Wayfarer Building.glb', gltf => {
     const bldg = gltf.scene
     normalizeOpaqueMaterials(bldg)
@@ -208,12 +202,13 @@ export function createBuildings(
       const m = child as THREE.Mesh
       if (!m.isMesh) return
       m.castShadow = true; m.receiveShadow = true
+      // Use the GLB's own embedded materials/textures; just render both faces
+      // so the interior is visible from inside.
       const mats = Array.isArray(m.material) ? m.material : [m.material]
       mats.forEach(mat => {
         const sm = mat as THREE.MeshStandardMaterial
         if (!sm?.isMeshStandardMaterial) return
-        sm.map = wayTex
-        sm.side = THREE.DoubleSide   // render both faces — fixes inside visibility without re-exporting
+        sm.side = THREE.DoubleSide
         sm.needsUpdate = true
       })
     })
