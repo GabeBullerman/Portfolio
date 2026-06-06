@@ -15,6 +15,8 @@ interface GameHUDProps {
   nearLadder:       boolean
   nearSwitch:       boolean
   nearRadio:        boolean
+  nearDoor:         boolean
+  doorOpen:         boolean
   nearProject:      boolean
   nearProjectLabel: string
   sitting:          boolean
@@ -40,6 +42,7 @@ interface GameHUDProps {
 export default function GameHUD({
   monitorMode, pointerLocked, musicMuted,
   nearBowl, nearRToss, nearBench, nearChair, nearLadder, nearSwitch, nearRadio,
+  nearDoor, doorOpen,
   nearProject, nearProjectLabel,
   sitting, climbing, nearCar, driving, nearCradle, nearWipSign,
   bowlDisplay, rtossDisplay,
@@ -48,7 +51,7 @@ export default function GameHUD({
   lookMoveRef, lookActiveRef, lookJoyPos, setLookJoyPos,
 }: GameHUDProps) {
   // nearLadder excluded: climbing uses joystick-up (W), not the E/Inspect button
-  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle || nearWipSign
+  const hasNearby = nearBowl || nearRToss || nearBench || nearSwitch || nearProject || nearChair || nearRadio || nearCar || nearCradle || nearWipSign || nearDoor
   const moveTouchId = useRef(-1)
   const lookTouchId = useRef(-1)
 
@@ -63,6 +66,7 @@ export default function GameHUD({
     : nearWipSign ? 'Read Sign'
     : nearRadio  ? (musicMuted ? 'Unmute Music' : 'Mute Music')
     : nearSwitch ? 'Toggle Light'
+    : nearDoor   ? (doorOpen ? 'Close Door' : 'Open Door')
     : 'Interact'
 
   const dispatchE = (type: 'keydown' | 'keyup') =>
@@ -376,6 +380,16 @@ export default function GameHUD({
                 Joystick up/down to climb · Move away to dismount
               </div>
             </>
+          )}
+
+          {/* Cabin door hint — desktop only */}
+          {nearDoor && !nearChair && !sitting && (
+            <div
+              className="hidden md:block absolute left-1/2 -translate-x-1/2 text-white text-xs bg-black/60 backdrop-blur-sm px-5 py-2 rounded-full pointer-events-none animate-pulse"
+              style={{ bottom: 'calc(env(safe-area-inset-bottom) + 3.5rem)' }}
+            >
+              Press <kbd className="font-bold mx-1">E</kbd> to {doorOpen ? 'close' : 'open'} the door
+            </div>
           )}
 
           {/* Light switch hint — desktop only */}

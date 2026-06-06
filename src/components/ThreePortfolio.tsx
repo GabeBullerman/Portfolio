@@ -128,6 +128,9 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const doorOpenRef     = useRef(false)
   const doorRotRef      = useRef(0)
   const doorPivotRef    = useRef<THREE.Group | null>(null)
+  const nearDoorRef     = useRef(false)
+  const [nearDoor, setNearDoor] = useState(false)
+  const [doorOpen, setDoorOpen] = useState(false)
   // Cabin light switch
   const cabLightOnRef   = useRef(true)
   const nearSwitchRef   = useRef(false)
@@ -473,6 +476,11 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (monLightRef.current) { monLightRef.current.intensity = on ? 1.2 : 3.5; monLightRef.current.distance = on ? 5 : 8 }
         return
       }
+      if (mapped === 'e' && nearDoorRef.current) {
+        doorOpenRef.current = !doorOpenRef.current
+        setDoorOpen(doorOpenRef.current)
+        return
+      }
       if (e.key === 'Escape' && wipSignOpenRef.current) { wipSignOpenRef.current = false; setWipSignOpen(false); relockRef.current?.(); return }
       if (e.key === 'Escape' && focusActiveRef.current) exitFocus()
     }
@@ -548,7 +556,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       bowlStateRef, rtossStateRef, focusActiveRef, overlayShownRef,
       sittingRef, sittingAtRef, seatIdxRef, climbingRef,
       jumpPressedRef, onRampRef, onFloorRef,
-      doorPivotRef, doorOpenRef, doorRotRef,
+      doorPivotRef, doorOpenRef, doorRotRef, nearDoorRef, setNearDoor,
       cabLightOnRef, nearSwitchRef, switchNodeRef, cabCeilLightRef, monLightRef,
       inCabinPrevRef, goOutsideRef, goToComputerRef,
       dayEnvRef, ambientLightRef, sunLightRef,
@@ -683,7 +691,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       <button onClick={onExit} className="absolute left-4 z-10 px-4 py-2 bg-black/75 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-sm hover:bg-white hover:text-black transition-colors duration-300" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>← 2D View</button>
       <div ref={fpsRef} className="absolute right-4 z-10 px-2 py-1 bg-black/60 text-green-400 font-mono text-xs rounded pointer-events-none select-none" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)', display: debugOpen ? 'block' : 'none' }} />
       <canvas ref={minimapRef} width={120} height={90} className="absolute bottom-20 right-4 z-20 rounded-lg pointer-events-none select-none hidden md:block" style={{ opacity: 0.85, border: '1px solid rgba(255,255,255,0.12)' }} />
-      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} nearWipSign={nearWipSign} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
+      <GameHUD monitorMode={monitorMode} pointerLocked={pointerLocked} musicMuted={musicMuted} nearBowl={nearBowl} nearRToss={nearRToss} nearBench={nearBench} nearChair={nearChair} nearLadder={nearLadder} nearSwitch={nearSwitch} nearRadio={nearRadio} nearDoor={nearDoor} doorOpen={doorOpen} nearProject={nearProject} nearProjectLabel={nearProjectLabelRef.current} sitting={sitting} climbing={climbing} nearCar={nearCar} driving={driving} nearCradle={nearCradle} nearWipSign={nearWipSign} bowlDisplay={bowlDisplay} rtossDisplay={rtossDisplay} joyPos={joyPos} powerBarRef={powerBarRef} rPowerBarRef={rPowerBarRef} touchMoveRef={touchMoveRef} touchActiveRef={touchActiveRef} setJoyPos={setJoyPos} lookMoveRef={lookMoveRef} lookActiveRef={lookActiveRef} lookJoyPos={lookJoyPos} setLookJoyPos={setLookJoyPos} />
       <DebugOverlay debugOpen={debugOpen} debugSel={debugSel} debugStep={debugStep} selPos={selPos} selRot={selRot} movablesRef={movablesRef} debugPanelRef={debugPanelRef} setDebugSel={setDebugSel} setSelPos={setSelPos} setSelRot={setSelRot} setDebugStep={setDebugStep} movablesVersion={movablesVersion} onAddSidewalk={() => { addSidewalkRef.current?.(); setMovablesVersion(v => v + 1) }} />
       {nowPlaying && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full pointer-events-none select-none animate-fade-in">

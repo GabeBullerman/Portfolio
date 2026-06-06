@@ -99,6 +99,8 @@ export interface AnimateParams {
   doorPivotRef:     React.MutableRefObject<THREE.Group | null>
   doorOpenRef:      React.MutableRefObject<boolean>
   doorRotRef:       React.MutableRefObject<number>
+  nearDoorRef:      React.MutableRefObject<boolean>
+  setNearDoor:      (v: boolean) => void
   cabLightOnRef:    React.MutableRefObject<boolean>
   nearSwitchRef:    React.MutableRefObject<boolean>
   switchNodeRef:    React.MutableRefObject<THREE.Object3D | null>
@@ -816,12 +818,12 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       duck.group.rotation.y = Math.PI / 2 - duck.angle; duck.headG.rotation.x = Math.sin(st.elapsed * 5.5 + duck.phase) * 0.13
     })
 
-    // Cabin door
+    // Cabin door — toggled with E when nearby (doorOpenRef flipped in key handler)
     if (p.doorPivotRef.current) {
       const cx = p.cabGrp.position.x, cz = p.cabGrp.position.z, doorWorldZ = cz - 5.5 / 2
       const nearDoor = Math.hypot(p.player.position.x - cx, p.player.position.z - doorWorldZ) < 2.8
-      p.doorOpenRef.current = nearDoor
-      p.doorRotRef.current = THREE.MathUtils.lerp(p.doorRotRef.current, nearDoor ? -Math.PI * 0.72 : 0, delta * 4)
+      if (nearDoor !== p.nearDoorRef.current) { p.nearDoorRef.current = nearDoor; p.setNearDoor(nearDoor) }
+      p.doorRotRef.current = THREE.MathUtils.lerp(p.doorRotRef.current, p.doorOpenRef.current ? -Math.PI * 0.72 : 0, delta * 4)
       p.doorPivotRef.current.rotation.y = p.doorRotRef.current
     }
 

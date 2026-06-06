@@ -369,35 +369,30 @@ export function createCabin(
 
   }, undefined, err => console.error('[bed] GLB failed:', err))
 
-  // ── Radio / jukebox ───────────────────────────────────────────────────────
+  // ── Radio / jukebox (debug-tunable) ───────────────────────────────────────
+  // Outer group created synchronously so it's a debug movable; mesh loads in.
+  const radioGroup = new THREE.Group()
+  radioGroup.position.set(-3.4, 2.9, -2.3)
+  radioGroup.rotation.set(0, 82, 0)
+  radioGroup.scale.setScalar(1.0)
+  cabGrp.add(radioGroup)
+  refs.radioGroupRef.current = radioGroup
+  cabHitboxEntries.push({ name: '📻 Radio', group: radioGroup, scaleObj: radioGroup })
+
   gltfLoader.load('/assets/cabin/radio/scene.gltf', gltf => {
     const radioMesh = gltf.scene
     radioMesh.traverse(child => {
-      if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
-      }
+      if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
-
     const radioBox = new THREE.Box3().setFromObject(radioMesh)
-    const radioSize = new THREE.Vector3()
-    const radioCenter = new THREE.Vector3()
-    radioBox.getSize(radioSize)
-    radioBox.getCenter(radioCenter)
+    const radioSize = new THREE.Vector3(); const radioCenter = new THREE.Vector3()
+    radioBox.getSize(radioSize); radioBox.getCenter(radioCenter)
     radioMesh.position.sub(radioCenter)
-
-    const radioGroup = new THREE.Group()
-    radioGroup.add(radioMesh)
-
-    const radioMax = Math.max(radioSize.x, radioSize.y, radioSize.z)
-    // Target ~0.5 m tall jukebox radio
-    radioGroup.scale.setScalar(0.5 / radioMax)
-
-    radioGroup.position.set(-3.4, 2.9, -2.3)
-    radioGroup.rotation.set(0, 82, 0)
-    cabGrp.add(radioGroup)
-    refs.radioGroupRef.current = radioGroup
-
+    const radioMax = Math.max(radioSize.x, radioSize.y, radioSize.z) || 1
+    const norm = new THREE.Group()
+    norm.scale.setScalar(0.5 / radioMax)   // ~0.5 m jukebox
+    norm.add(radioMesh)
+    radioGroup.add(norm)
   }, undefined, err => console.error('[radio] GLTF failed:', err))
 
   // ── Table ─────────────────────────────────────────────────────────────────
@@ -434,8 +429,8 @@ export function createCabin(
   // dialed in via the debug editor (`). The group is created synchronously so
   // it's in cabHitboxEntries before createCabin returns; the mesh loads into it.
   const printerGroup = new THREE.Group()
-  printerGroup.position.set(-1.50, 2.10, -0.40)   // initial guess — tune in debugger
-  printerGroup.rotation.set(0, 0, 0)
+  printerGroup.position.set(-3.30, 2.63, -2.80)
+  printerGroup.rotation.set(0, -Math.PI / 2, 0)
   printerGroup.scale.setScalar(1.0)
   cabGrp.add(printerGroup)
   cabHitboxEntries.push({ name: '🖨 Resume Printer', group: printerGroup, scaleObj: printerGroup })
