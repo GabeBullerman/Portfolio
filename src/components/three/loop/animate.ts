@@ -365,9 +365,17 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
       cs.fromLook.copy(p.cabGrp.localToWorld(p.MONITOR_LOCAL_POS.clone()))
       cs.toPos.set(-4.0, 2.1 + 1.65, 14.0); cs.toLook.set(-7.5, 2.1 + 1.65, 14.5)
       cs.onDone = () => {
-        // Snap camera to third-person target so it doesn't lerp through a downward arc
-        p.camera.position.set(-4.0 + Math.sin(1.5) * 5.2, 2.1 + 1.2, 14.0 + Math.cos(1.5) * 5.2)
         st.camPitch = 0
+        // The pan ends at the cabin (first-person). Its endpoint already matches
+        // the FPV head position, so lock fpvBlend and leave the camera there —
+        // snapping to the third-person follow position here caused a one-frame
+        // jump backwards before blending into POV. Only snap to third-person if
+        // we somehow finish outside (third-person).
+        if (st.fpvBlend >= 0.5) {
+          st.fpvBlend = 1
+        } else {
+          p.camera.position.set(-4.0 + Math.sin(1.5) * 5.2, 2.1 + 1.2, 14.0 + Math.cos(1.5) * 5.2)
+        }
       }
       p.camera.position.copy(cs.fromPos); p.camera.lookAt(cs.fromLook)
     }

@@ -188,7 +188,9 @@ export function createBuildings(
 
   // Placeholder group — building mesh is loaded into it below
   const wayPlaceholder = new THREE.Group()
-  wayPlaceholder.position.set(-52.50, 0.03, -4.00)
+  // y raised above the stone path (y=0.03) so the building floor doesn't
+  // z-fight / flash against the path plane.
+  wayPlaceholder.position.set(-52.50, 0.06, -4.00)
   wayPlaceholder.scale.setScalar(0.090)
   scene.add(wayPlaceholder)
   movables.push({ name: '🟣 Wayfarer Building', group: wayPlaceholder, scaleObj: wayPlaceholder })
