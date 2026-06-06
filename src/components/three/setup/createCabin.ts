@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { normalizeOpaqueMaterials } from '../helpers'
 import { Movable } from '../types'
 
 export interface CabinRefs {
@@ -40,6 +41,7 @@ export function createCabin(
   // GLB cabin shell — scaled to match CW × CH footprint; interactive elements added separately below
   gltfLoader.load('/assets/cabin/cabin/Untitled.glb', gltf => {
     const cabMesh = gltf.scene
+    normalizeOpaqueMaterials(cabMesh)
     cabMesh.scale.setScalar(0.600)
     cabMesh.position.set(-1.93, -0.50, 1.21)
     cabGrp.add(cabMesh)

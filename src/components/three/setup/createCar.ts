@@ -47,14 +47,18 @@ export function createCar(scene: THREE.Scene, cylCols: CylCol[]): { carGrp: THRE
       if (!mesh.isMesh) return
       mesh.castShadow = true; mesh.receiveShadow = true
       const src = mesh.material as THREE.MeshStandardMaterial
-      const isGlass = src.transparent && src.opacity < 0.99
+      // Exporters often flag opaque body panels as transparent (opacity 1),
+      // which dumps them into the depth-sorted transparent pass — that's the
+      // "floor goes clear at certain angles" artifact. Treat as glass only when
+      // genuinely see-through; everything else is forced opaque + double-sided.
+      const isGlass = src.transparent && src.opacity < 0.95
       mesh.material = new THREE.MeshToonMaterial({
         color:       src.color ?? new THREE.Color(0xffffff),
         map:         (src as any).map ?? null,
         gradientMap: gradTex,
-        transparent: src.transparent,
-        opacity:     src.opacity,
-        side:        src.side,
+        transparent: isGlass,
+        opacity:     isGlass ? src.opacity : 1,
+        side:        isGlass ? src.side : THREE.DoubleSide,
         depthWrite:  !isGlass,
       })
       // Skip outline on glass — a thick black line around windows looks wrong

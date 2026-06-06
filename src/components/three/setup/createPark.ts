@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { BoxCol, CylCol, Movable } from '../types'
-import { mulberry32 } from '../helpers'
+import { mulberry32, fixFoliageMaterials, normalizeOpaqueMaterials } from '../helpers'
 
 const TREE_HIT_R = 0.42
 
@@ -20,6 +20,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     new Promise((resolve, reject) => gltfLoader.load(path, g => resolve(g.scene), undefined, reject))
 
   const prepare = (obj: THREE.Object3D) => {
+    normalizeOpaqueMaterials(obj)
     obj.traverse(c => {
       if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
     })
@@ -67,6 +68,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
 
   // ── Fence-lining short-wide bushes (baked from debug tuning) ─────────────
   loadGLB('/assets/outdoor/park stuff/bushes/short wide/Untitled.glb').then(bushRef => {
+    fixFoliageMaterials(bushRef)
     const SP = 1.5
     const segments: { cx: number; cz: number; sx: number; sz: number; len: number; axis: 'x'|'z'; bushRy: number }[] = [
       { cx: -23.55, cz:  -2.00, sx: 0.984, sz: 1.000, len: 26.5, axis: 'x', bushRy:           0 },
@@ -147,6 +149,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
 
   // ── Sphere bushes — scattered randomly, no hitboxes ─────────────────────
   loadGLB('/assets/outdoor/park stuff/bushes/short sphere/Untitled.glb').then(sphereBase => {
+    fixFoliageMaterials(sphereBase)
     const bushExcl: [number, number, number, number][] = [
       // Campfire seating
       [-20,  0,  -28, -11],
@@ -230,6 +233,8 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     loadGLB('/assets/outdoor/park stuff/border fence/plain/Untitled.glb'),
     loadGLB('/assets/outdoor/park stuff/border fence/end/Untitled.glb'),
   ]).then(([treeBase, plainBase, endBase]) => {
+
+    fixFoliageMaterials(treeBase)
 
     // ── Trees ─────────────────────────────────────────────────────────────
     // Bounds derived from fence hitbox inner edges + buffer so trees stay inside:

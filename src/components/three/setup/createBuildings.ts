@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { BoxCol, Movable } from '../types'
+import { normalizeOpaqueMaterials } from '../helpers'
 
 export function createBuildings(
   scene: THREE.Scene,
@@ -52,6 +53,7 @@ export function createBuildings(
   // Duo building — first 2 projects on Project Blvd (west side, facing east)
   gltfLoader.load('/assets/outdoor/buildings/duo/scene.gltf', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
@@ -89,6 +91,7 @@ export function createBuildings(
   // Orange store — Project Blvd, west side
   gltfLoader.load('/assets/outdoor/buildings/orange store/scene.gltf', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
@@ -116,6 +119,7 @@ export function createBuildings(
   // Slant store — Project Blvd, west side (replaces purple store)
   gltfLoader.load('/assets/outdoor/buildings/slant store/Untitled.glb', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
@@ -197,6 +201,7 @@ export function createBuildings(
 
   gltfLoader.load('/assets/outdoor/buildings/purple store/Wayfarer Building.glb', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       const m = child as THREE.Mesh
       if (!m.isMesh) return
@@ -225,6 +230,7 @@ export function createBuildings(
   // Other houses — connector road, east of driveway, near cabin
   gltfLoader.load('/assets/outdoor/buildings/other houses/Untitled.glb', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
@@ -280,6 +286,7 @@ export function createBuildings(
 
   gltfLoader.load('/assets/outdoor/buildings/Memory Ln/Four Buildings.glb', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
@@ -339,6 +346,7 @@ export function createBuildings(
   // Single building — About Me (near campfire, in park)
   gltfLoader.load('/assets/outdoor/buildings/scene.gltf', gltf => {
     const bldg = gltf.scene
+    normalizeOpaqueMaterials(bldg)
     bldg.traverse(child => {
       if ((child as THREE.Mesh).isMesh) { child.castShadow = true; child.receiveShadow = true }
     })
