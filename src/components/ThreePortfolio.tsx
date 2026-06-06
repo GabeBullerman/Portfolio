@@ -627,6 +627,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
       mgr.onStart = prevOnStart; mgr.onProgress = prevOnProgress; mgr.onLoad = prevOnLoad
       effectDisposedRef.current = true; playerBonesRef.current = null
       document.body.style.overflow = ''; document.documentElement.style.overflow = ''
+      document.title = 'Gabriel Bullerman — Full-Stack Developer'
       loop.stop()
       window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', onBlur); window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('click', onCanvasClick); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('pointerlockchange', onPointerLockChange)

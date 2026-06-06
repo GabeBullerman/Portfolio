@@ -154,9 +154,30 @@ const PALETTES: ThemePalette[] = [
   },
 ]
 
+function updateFavicon(palette: ThemePalette) {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${palette.accent}"/>` +
+    `<stop offset="1" stop-color="${palette.accent2}"/></linearGradient></defs>` +
+    `<rect width="64" height="64" rx="14" fill="#0d1117"/>` +
+    `<rect x="2.5" y="2.5" width="59" height="59" rx="12" fill="none" stroke="url(#g)" stroke-width="2.5"/>` +
+    `<text x="32" y="44" font-family="system-ui,-apple-system,sans-serif" font-size="38" ` +
+    `font-weight="800" text-anchor="middle" fill="url(#g)">GB</text></svg>`
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.type = 'image/svg+xml'
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(svg)
+}
+
 function applyPalette(palette: ThemePalette) {
   const root = document.documentElement
   root.dataset.theme = palette.name
+  updateFavicon(palette)
   root.style.setProperty('--bg', palette.bg)
   root.style.setProperty('--bg-2', palette.bg2)
   root.style.setProperty('--surface', palette.surface)

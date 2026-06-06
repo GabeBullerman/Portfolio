@@ -30,6 +30,7 @@ export interface AnimateState {
   lastTime:    number
   nearBowl:    boolean   // local mirror of nearBowl state for change-detection
   carAngle:    number
+  zoneName:    string    // current world zone, mirrored into document.title
 }
 
 // ─── Everything the loop reads/writes but doesn't own ─────────────────────────
@@ -272,6 +273,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
   const st: AnimateState = {
     camYaw: 0, camPitch: -0.165, playerVelY: 0, fpvBlend: 0,
     walkPhase: 0, swingAmt: 0, elapsed: 0, lastTime: performance.now(), nearBowl: false, carAngle: CAR_INITIAL_ANGLE,
+    zoneName: '',
   }
 
   // Expose camYaw/camPitch for external writers (mouse-move handler, cinematics)
@@ -492,6 +494,19 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > 54.90  && px < 58.50  && pz > -31.75 && pz < -26.95) || // Mem Ln Bldg 4
         (px > -55.0  && px < -51.0  && pz > -7.5   && pz < -0.5)       // Wayfarer Building
       )
+      // ── Dynamic tab title based on the player's current zone ──────────────
+      let zone: string
+      if (p.drivingRef.current)        zone = 'Cruising the streets'
+      else if (inCabin)                zone = 'Inside the Cabin'
+      else if (px > 37)                zone = 'Exploring Memory Lane'
+      else if (px < -35)               zone = 'Exploring Project Blvd'
+      else if (pz < -9)                zone = 'At the Park'
+      else                             zone = 'Roaming the world'
+      if (zone !== st.zoneName) {
+        st.zoneName = zone
+        document.title = `${zone} · Gabriel Bullerman`
+      }
+
       st.fpvBlend = THREE.MathUtils.lerp(st.fpvBlend, (inCabinOrBalcony || inStore) ? 1 : 0, delta * 5)
       if (inCabin !== p.inCabinPrevRef.current) { p.inCabinPrevRef.current = inCabin; p.scene.environment = inCabin ? null : p.dayEnvRef.current }
       // 0 = door closed, 1 = door fully open
