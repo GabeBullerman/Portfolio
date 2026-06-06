@@ -140,7 +140,7 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   const switchNodeRef   = useRef<THREE.Object3D | null>(null)
   const [nearSwitch, setNearSwitch] = useState(false)
   const cabCeilLightRef = useRef<THREE.PointLight | null>(null)
-  const monLightRef     = useRef<THREE.SpotLight | null>(null)
+  const monLightRef     = useRef<THREE.PointLight | null>(null)
   const screenMatRef    = useRef<any>(null)
   const inCabinPrevRef  = useRef(true)
   // Monitor / go-outside
@@ -480,7 +480,6 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
           const { bulb, dome, rim } = cabCeilLightRef.current.userData as { bulb?: THREE.Mesh; dome?: THREE.Mesh; rim?: THREE.Mesh }
           if (bulb) bulb.visible = on; if (dome) dome.visible = on; if (rim) rim.visible = on
         }
-        if (monLightRef.current) { monLightRef.current.intensity = on ? 1.2 : 3.5; monLightRef.current.distance = on ? 5 : 8 }
         return
       }
       if (mapped === 'e' && nearPrinterRef.current) {
@@ -689,8 +688,16 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
         if (snapshot && screenMatRef.current) {
           const tex = new THREE.CanvasTexture(snapshot)
           tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
+          // Drive both map and emissiveMap from the same snapshot so the glowing
+          // screen matches the displayed image (and reflects the theme just set).
           screenMatRef.current.map = tex
+          screenMatRef.current.emissiveMap = tex
           screenMatRef.current.needsUpdate = true
+        }
+        // Refresh the monitor glow light to the current theme accent.
+        if (monLightRef.current) {
+          const css = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+          if (css) { try { monLightRef.current.color.set(css).lerp(new THREE.Color(0xffffff), 0.12) } catch { /* keep prior */ } }
         }
         // Leaving the monitor for the world — next time they sit down, thank them.
         hasExploredRef.current = true

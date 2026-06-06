@@ -6,7 +6,7 @@ import { Movable } from '../types'
 export interface CabinRefs {
   doorPivotRef:   React.MutableRefObject<THREE.Group | null>
   cabCeilLightRef: React.MutableRefObject<THREE.PointLight | null>
-  monLightRef:    React.MutableRefObject<THREE.SpotLight | null>
+  monLightRef:    React.MutableRefObject<THREE.PointLight | null>
   switchNodeRef:  React.MutableRefObject<THREE.Object3D | null>
   radioGroupRef:  React.MutableRefObject<THREE.Group | null>
   printerNodeRef: React.MutableRefObject<THREE.Object3D | null>
@@ -111,7 +111,11 @@ export function createCabin(
   const ceilLight = new THREE.PointLight(0xffeedd, 6.0, 11, 1.4)
   ceilLight.position.set(-0.5, 5.05, -0.4)
   ceilLight.castShadow = true
-  ceilLight.shadow.mapSize.set(512, 512)
+  ceilLight.shadow.mapSize.set(1024, 1024)
+  ceilLight.shadow.bias = -0.0008          // remove shadow acne / sharp banding
+  ceilLight.shadow.radius = 4              // soft penumbra
+  ceilLight.shadow.camera.near = 0.3
+  ceilLight.shadow.camera.far = 14
   cabGrp.add(ceilLight)
   refs.cabCeilLightRef.current = ceilLight
 
@@ -120,6 +124,7 @@ export function createCabin(
   const bulbMat = new THREE.MeshStandardMaterial({ emissive: 0xffeedd, emissiveIntensity: 3, color: 0x000000 })
   const bulbMesh = new THREE.Mesh(bulbGeo, bulbMat)
   bulbMesh.position.copy(ceilLight.position)
+  bulbMesh.castShadow = false   // the fixture is AT the light — self-shadowing causes artifacts
   cabGrp.add(bulbMesh)
 
   // Lamp dome — semi-gloss opaque hemisphere shade, opens downward
@@ -129,7 +134,7 @@ export function createCabin(
   )
   domeMesh.rotation.x = Math.PI  // flip so curved side faces down into room
   domeMesh.position.copy(ceilLight.position)
-  domeMesh.castShadow = true
+  domeMesh.castShadow = false
   cabGrp.add(domeMesh)
 
   // Black metal rim ring around the dome opening
@@ -139,7 +144,7 @@ export function createCabin(
   )
   rimMesh.rotation.x = Math.PI / 2  // lay flat
   rimMesh.position.copy(ceilLight.position)
-  rimMesh.castShadow = true
+  rimMesh.castShadow = false
   cabGrp.add(rimMesh)
 
   // Keep bulb/dome/rim visibility in sync with the light
@@ -271,17 +276,35 @@ export function createCabin(
     violet:  'Purple.PNG',
   }
 
+  // Accent colour per theme — used to tint the monitor light + glow beam.
+  const THEME_TO_ACCENT: Record<string, number> = {
+    azure: 0x3b82f6, rose: 0xec4899, crimson: 0xef4444, gold: 0xf59e0b,
+    emerald: 0x10b981, silver: 0xe2e8f0, violet: 0x8b5cf6,
+  }
+
   // Start loading the themed texture immediately — runs in parallel with the GLTF load
   // so it's usually ready by the time the traversal runs, eliminating the flash.
   const theme = localStorage.getItem('theme') ?? 'azure'
+  const accentHex = THEME_TO_ACCENT[theme] ?? 0x3b82f6
   const screenFile = THEME_TO_SCREEN[theme] ?? 'Blue.PNG'
   let themedTex: THREE.Texture | null = null
   let pendingScreenMat: any = null
   new THREE.TextureLoader().load(`/assets/cabin/setup/textures/${screenFile}`, tex => {
     tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
     themedTex = tex
-    if (pendingScreenMat) { pendingScreenMat.map = tex; pendingScreenMat.needsUpdate = true }
+    if (pendingScreenMat) { pendingScreenMat.map = tex; pendingScreenMat.emissiveMap = tex; pendingScreenMat.needsUpdate = true }
   })
+
+  // Soft diffused light spilling from the screen — a low-intensity, shadowless
+  // point light tinted by the theme. No cone/spotlight to align; the emissive
+  // screen (below) + this gentle fill read as the monitor giving off light.
+  const monLight = new THREE.PointLight(
+    new THREE.Color(accentHex).lerp(new THREE.Color(0xffffff), 0.12),  // strongly themed
+    1.4, 3.2, 2,
+  )
+  monLight.position.set(MONITOR_LOCAL_POS.x, MONITOR_LOCAL_POS.y - 0.1, MONITOR_LOCAL_POS.z + 0.15)
+  cabGrp.add(monLight)
+  refs.monLightRef.current = monLight
 
   gltfLoader.load('/assets/cabin/setup/gaming setup.gltf', gltf => {
     const desk = gltf.scene
@@ -302,22 +325,19 @@ export function createCabin(
         }
         if (m.name === '7355608') {
           refs.screenMatRef.current = anyM
-          if (themedTex) { anyM.map = themedTex; anyM.needsUpdate = true }
+          // Make the screen self-illuminate: the texture emits a diffused glow
+          // so it's lit regardless of the cabin lights, no aimed beam needed.
+          anyM.emissive = new THREE.Color(0xffffff)
+          anyM.emissiveIntensity = 1.15
+          if (themedTex) { anyM.map = themedTex; anyM.emissiveMap = themedTex; anyM.needsUpdate = true }
           else pendingScreenMat = anyM
         }
         m.needsUpdate = true
       })
     })
 
-    // Monitor screen glow — SpotLight cone aimed into the room from the screen face.
-    const monLight = new THREE.SpotLight(0xd0e8ff, 1.2, 5, Math.PI * 0.38, 0.5, 1.5)
-    monLight.position.set(MONITOR_LOCAL_POS.x, MONITOR_LOCAL_POS.y, MONITOR_LOCAL_POS.z)
-    const monTarget = new THREE.Object3D()
-    monTarget.position.set(MONITOR_LOCAL_POS.x, MONITOR_LOCAL_POS.y - 0.4, MONITOR_LOCAL_POS.z - 1.8)
-    cabGrp.add(monLight)
-    cabGrp.add(monTarget)
-    monLight.target = monTarget
-    refs.monLightRef.current = monLight
+    // (No SpotLight on the desk — the only "light" from the monitor is the
+    //  visible glow beam, created synchronously below so it's debug-tunable.)
 
     desk.position.set(2.0, 2.8, -2.20)
     cabGrp.add(desk)

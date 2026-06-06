@@ -108,7 +108,7 @@ export interface AnimateParams {
   nearSwitchRef:    React.MutableRefObject<boolean>
   switchNodeRef:    React.MutableRefObject<THREE.Object3D | null>
   cabCeilLightRef:  React.MutableRefObject<THREE.PointLight | null>
-  monLightRef:      React.MutableRefObject<THREE.SpotLight | null>
+  monLightRef:      React.MutableRefObject<THREE.PointLight | null>
   inCabinPrevRef:   React.MutableRefObject<boolean>
   goOutsideRef:     React.MutableRefObject<boolean>
   goToComputerRef:  React.MutableRefObject<boolean>

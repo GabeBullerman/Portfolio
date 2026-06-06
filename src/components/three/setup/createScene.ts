@@ -29,7 +29,7 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
   // Disable MSAA on high-DPI screens — supersampling at 2× DPR already smooths edges
   const renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio <= 1 })
   renderer.setSize(W, H); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.65
   mount.appendChild(renderer.domElement)
@@ -58,6 +58,7 @@ export function createScene(mount: HTMLDivElement, refs: SceneRefs): SceneResult
   sun.shadow.camera.left = -40; sun.shadow.camera.right = 40
   sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40
   sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 100
+  sun.shadow.bias = -0.0004; sun.shadow.radius = 4   // soften edges, kill acne
   scene.add(sun)
 
   // ── Cannon physics world ──────────────────────────────────────────────
