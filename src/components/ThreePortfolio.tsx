@@ -140,6 +140,10 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
   // Monitor / go-outside
   const [monitorMode, setMonitorMode] = useState(!skipMonitor)
   const [monitorFading, setMonitorFading] = useState(false)
+  // True once the player has been out in the 3D world. Entering via the 2D site
+  // (skipMonitor) means they're already coming from the world, so it starts true.
+  // Drives whether the cabin-computer stick figure greets or thanks you.
+  const hasExploredRef = useRef(skipMonitor)
   // World asset loading screen
   const [worldLoading, setWorldLoading] = useState(true)
   const [loadFading, setLoadFading]     = useState(false)
@@ -645,13 +649,15 @@ export default function ThreePortfolio({ onExit, skipMonitor = false }: { onExit
     <div className="fixed inset-0 w-screen overflow-hidden overscroll-none touch-none" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div ref={mountRef} className="w-full h-full touch-none" />
       {worldLoading && <LoadingScreen progress={loadProgress} fading={loadFading} />}
-      {monitorMode && (<MonitorOverlay fading={monitorFading} onGoOutside={(snapshot) => {
+      {monitorMode && (<MonitorOverlay fading={monitorFading} hasExplored={hasExploredRef.current} onGoOutside={(snapshot) => {
         if (snapshot && screenMatRef.current) {
           const tex = new THREE.CanvasTexture(snapshot)
           tex.flipY = false; tex.repeat.set(1, -1); tex.offset.set(0, 1)
           screenMatRef.current.map = tex
           screenMatRef.current.needsUpdate = true
         }
+        // Leaving the monitor for the world — next time they sit down, thank them.
+        hasExploredRef.current = true
         // Start cinematic + fade overlay simultaneously; unmount after fade completes
         goOutsideRef.current = true
         relockRef.current?.()

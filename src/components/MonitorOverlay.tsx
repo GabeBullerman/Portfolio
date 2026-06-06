@@ -13,11 +13,14 @@ import { useTheme, setTheme, PALETTES } from '../hooks/useTheme'
 type Props = {
   onGoOutside: (snapshot?: HTMLCanvasElement) => void
   fading?: boolean
+  /** True when the player has already been out in the 3D world. */
+  hasExplored?: boolean
 }
 
 export default function MonitorOverlay({
   onGoOutside,
   fading = false,
+  hasExplored = false,
 }: Props) {
   const [activeTheme, setActiveTheme] = useState(
     () => localStorage.getItem('theme') ?? ''
@@ -44,28 +47,15 @@ export default function MonitorOverlay({
   const [typingDone, setTypingDone] =
     useState(false)
 
-  const [hasExplored, setHasExplored] =
-    useState(false)
-
+  // Greeting is fixed for this mount: thank players returning from the 3D world,
+  // nudge first-timers to explore. Driven by the prop so it never flips mid-click.
   const MESSAGE = hasExplored
     ? 'Thanks for exploring!'
     : 'Pssst… hit Explore up in the nav!'
 
-  useEffect(() => {
-    localStorage.removeItem('gabe-explored')
-    sessionStorage.removeItem(
-      'gabe-explored'
-    )
-
-    setHasExplored(false)
-  }, [])
-
   const [loading, setLoading] = useState(false)
 
   const handleExplore = async () => {
-    sessionStorage.setItem('gabe-explored', 'true')
-    setHasExplored(true)
-
     // Capture the page BEFORE the loading overlay appears.
     // setLoading(true) is called only after the capture completes so the
     // "Entering 3D World" screen never ends up baked into the monitor texture.
@@ -86,13 +76,15 @@ export default function MonitorOverlay({
   }
 
   useEffect(() => {
+    // Pop in promptly to thank a returning explorer; linger longer as a subtle
+    // nudge for someone who hasn't explored yet.
     const t = setTimeout(
       () => setShowFigure(true),
-      10000
+      hasExplored ? 1400 : 10000
     )
 
     return () => clearTimeout(t)
-  }, [])
+  }, [hasExplored])
 
   useEffect(() => {
     if (!showFigure) return
