@@ -53,7 +53,7 @@ const CONFIGS: ObjConfig[] = [
   {
     name:     '🌍 Earth (Wayfarer)',
     path:     `${BASE}/Earth/scene.gltf`,
-    pos:      { x: -54.00, y: 1.00, z: -6.40 },
+    pos:      { x: -54.00, y: 1.00, z: -6.30 },
     scale:    { x: 0.794, y: 0.794, z: 0.794 },
     color:    0x3399ff,
     rotSpeed: 0.25,

@@ -495,7 +495,7 @@ export function createAnimateLoop(p: AnimateParams): { start: () => void; stop: 
         (px > 55.00  && px < 58.60  && pz > -18.90 && pz < -14.10) || // Mem Ln Bldg 2
         (px > 54.90  && px < 58.50  && pz > -25.90 && pz < -21.10) || // Mem Ln Bldg 3
         (px > 54.90  && px < 58.50  && pz > -31.75 && pz < -26.95) || // Mem Ln Bldg 4
-        (px > -55.0  && px < -51.0  && pz > -7.5   && pz < -0.5)       // Wayfarer Building
+        (px > -55.0  && px < -50.0  && pz > -7.5   && pz < -0.5)       // Wayfarer Building
       )
       // ── Dynamic tab title based on the player's current zone ──────────────
       let zone: string

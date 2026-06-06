@@ -294,7 +294,7 @@ export function createExhibit(
     const icoWire = new THREE.Mesh(icoGeo.clone(),
       new THREE.MeshBasicMaterial({ color: 0x88ddff, wireframe: true }))
     const icoGrp = new THREE.Group()
-    icoGrp.position.set(EXHIBIT_CX + 7.5, PH + 0.68, EXHIBIT_CZ + 2)
+    icoGrp.position.set(-12.50, 1.78, -68.00)
     icoGrp.add(icoSolid, icoWire)
     scene.add(icoGrp)
     movables.push({ name: '🔷 Icosahedron', group: icoGrp, scaleObj: icoGrp })
