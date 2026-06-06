@@ -395,7 +395,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
     // West fence:  world x ≈ -29.6, gap at z ≈ [-57.8, -49.6]
     // East fence:  world x ≈ 45.5,  gap at z ≈ [-57.8, -49.7]
     const fHitMat = new THREE.MeshBasicMaterial({
-      color: 0xff4422, transparent: true, opacity: 0.18,
+      color: 0xff4422, transparent: true, opacity: 0,
       side: THREE.DoubleSide, depthWrite: false,
     })
     const fenceHitboxes: { name: string; cx: number; cy: number; cz: number; w: number; h: number; d: number }[] = [
@@ -410,6 +410,7 @@ export function createPark(scene: THREE.Scene, movables: Movable[], cylCols: Cyl
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), fHitMat)
       mesh.position.set(cx, cy, cz)
       mesh.scale.set(w, h, d)
+      mesh.visible = false   // collision only — keep the box out of the render
       scene.add(mesh)
       const grp = new THREE.Group()
       grp.position.set(cx, cy, cz)
