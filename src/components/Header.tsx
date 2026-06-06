@@ -10,10 +10,12 @@ const navLinks = [
 
 interface Props {
   onExplore?: () => void
+  /** Override nav order (e.g. to match a page's section order). */
+  links?: { label: string; href: string }[]
 }
 
-export default function Header({ onExplore }: Props) {
-  const cols = navLinks.length + (onExplore ? 1 : 0)
+export default function Header({ onExplore, links = navLinks }: Props) {
+  const cols = links.length + (onExplore ? 1 : 0)
   const [hovered, setHovered] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -35,7 +37,7 @@ export default function Header({ onExplore }: Props) {
           className="grid h-full m-0 p-0 list-none"
           style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
         >
-          {navLinks.map(({ label, href }, i) => (
+          {links.map(({ label, href }, i) => (
             <li key={href} className="flex relative">
               {i > 0 && (
                 <div
@@ -106,7 +108,7 @@ export default function Header({ onExplore }: Props) {
             borderBottom: '1px solid rgba(255,255,255,0.08)',
           }}
         >
-          {navLinks.map(({ label, href }) => (
+          {links.map(({ label, href }) => (
             <a
               key={href}
               href={href}

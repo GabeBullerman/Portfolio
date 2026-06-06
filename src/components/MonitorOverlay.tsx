@@ -104,7 +104,16 @@ export default function MonitorOverlay({
         ref={scrollRef}
         className="flex-1 overflow-y-auto overflow-x-hidden"
       >
-        <Header onExplore={handleExplore} />
+        <Header
+          onExplore={handleExplore}
+          links={[
+            { label: 'Experience', href: '#experience' },
+            { label: 'Projects', href: '#projects' },
+            { label: 'Skills', href: '#skills' },
+            { label: 'About Me', href: '#more-on-me' },
+            { label: 'Contact', href: '#contact' },
+          ]}
+        />
 
         <div className="flex justify-center gap-2.5 py-2.5">
           {PALETTES.map(p => (
