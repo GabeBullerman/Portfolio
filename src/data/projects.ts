@@ -23,7 +23,7 @@ export const projectsData: Project[] = [
     title: 'Lusiant',
     subtitle: 'Full-Stack E-Commerce Platform',
     description:
-      "A bespoke storefront and admin panel for Lusiant, a porcelain-inspired denim brand, rebuilt from scratch on Next.js, Supabase, and Stripe. Its centerpiece is a hand-coded “self-drawing” porcelain floral hero — a custom vector-tracing animation pipeline — plus an automated system that generates the brand’s adaptive favicon and wordmark from source artwork.",
+      "A bespoke storefront and admin panel for Lusiant, a clothing brand, rebuilt from scratch on Next.js, Supabase, and Stripe. Its centerpiece is a hand-coded “self-drawing” floral hero animation — a custom vector-tracing pipeline — alongside an automated system that generates the brand’s adaptive favicon and wordmark from source artwork.",
     image: '/images/lusiant.gif',
     imageAlt: 'Lusiant',
     link: 'https://lusiant.vercel.app',
