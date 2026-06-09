@@ -55,8 +55,8 @@ const TV_CONFIGS: TVConfig[] = [
     rotY:  -Math.PI / 4,
     scale: 0.0311,
     zone:  { x: -53.5, z: -35.5, r: 2.5 },
-    label: 'Lusiant GitHub',
-    url:   'https://github.com/GabeBullerman/Lusiant',
+    label: 'Lusiant Site',
+    url:   'https://lusiant.vercel.app',
   },
   {
     // Slant Store — Rainfall Simulation   bounds x[-56.90,-50.90]  z[-59.00,-51.40]

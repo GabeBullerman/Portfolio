@@ -3,3 +3,5 @@ dist
 .env
 .env.local
 PROJECT_CONTEXT.md
+
+LUSIANT_CONTEXT.md

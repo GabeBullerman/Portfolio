@@ -23,11 +23,11 @@ export const projectsData: Project[] = [
     title: 'Lusiant',
     subtitle: 'Full-Stack E-Commerce Platform',
     description:
-      'Full-stack e-commerce SPA with React frontend and Node.js backend featuring Stripe payment integration, inventory management, customer loyalty rewards, and support ticketing. Designed responsive UI with TailwindCSS and managed relational data with MySQL.',
+      "A bespoke storefront and admin panel for Lusiant, a porcelain-inspired denim brand, rebuilt from scratch on Next.js, Supabase, and Stripe. Its centerpiece is a hand-coded “self-drawing” porcelain floral hero — a custom vector-tracing animation pipeline — plus an automated system that generates the brand’s adaptive favicon and wordmark from source artwork.",
     image: '/images/lusiant.gif',
     imageAlt: 'Lusiant',
-    link: 'https://github.com/GabeBullerman/Lusiant',
-    tags: ['React', 'Node.js', 'Express', 'MySQL', 'TailwindCSS', 'Stripe API'],
+    link: 'https://lusiant.vercel.app',
+    tags: ['Next.js', 'React', 'TypeScript', 'Supabase', 'Stripe', 'Tailwind CSS'],
   },
   {
     title: 'Rainfall Simulation',
