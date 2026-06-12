@@ -149,6 +149,24 @@ export default function Hero() {
               </svg>
               LinkedIn
             </a>
+
+            <a
+              href="https://vercel.com/gabe-bullermans-projects"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
+              style={{
+                border: '1px solid var(--border-strong)',
+                background: 'var(--card)',
+                color: 'var(--accent)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M12 2 22.5 21H1.5L12 2Z"/>
+              </svg>
+              Vercel
+            </a>
           </div>
         </div>
       </div>
