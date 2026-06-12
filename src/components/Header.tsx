@@ -1,10 +1,12 @@
 import { useState } from 'react'
 
+// Ordered to match the vertical section order of the 2D site (TwoDApp):
+// Experience → Skills → Projects → MoreOnMe (About Me) → Contact.
 const navLinks = [
-  { label: 'About Me', href: '#more-on-me' },
   { label: 'Experience', href: '#experience' },
-  { label: 'Projects', href: '#projects' },
   { label: 'Skills', href: '#skills' },
+  { label: 'Projects', href: '#projects' },
+  { label: 'About Me', href: '#more-on-me' },
   { label: 'Contact', href: '#contact' },
 ]
 

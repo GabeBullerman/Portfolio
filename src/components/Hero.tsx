@@ -119,7 +119,7 @@ export default function Hero() {
               href="https://github.com/GabeBullerman"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
               style={{
                 background: 'var(--accent)',
                 color: 'var(--bg)',
@@ -136,7 +136,7 @@ export default function Hero() {
               href="https://www.linkedin.com/in/gabe-bullerman/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
               style={{
                 border: '1px solid var(--border-strong)',
                 background: 'var(--card)',
@@ -154,7 +154,7 @@ export default function Hero() {
               href="https://vercel.com/gabe-bullermans-projects"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 no-underline"
               style={{
                 border: '1px solid var(--border-strong)',
                 background: 'var(--card)',
