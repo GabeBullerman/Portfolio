@@ -99,9 +99,9 @@ export default function LoadingScreen({ progress = 0, fading = false, staticPose
           display: flex;
           align-items: center;
           justify-content: center;
-          filter:
-            drop-shadow(2px 0 0 rgba(255, 40, 70, 0.5))
-            drop-shadow(-2px 0 0 rgba(40, 220, 255, 0.5));
+          /* No filter here: a filter on the animated 3D subtree forces every
+             frame onto the main thread (which is busy building the world),
+             tanking FPS. Transform-only animations stay GPU-composited. */
         }
         .ls-ring {
           position: relative;
@@ -109,6 +109,7 @@ export default function LoadingScreen({ progress = 0, fading = false, staticPose
           height: 0;
           transform-style: preserve-3d;
           transform: rotateX(62deg) rotateZ(0deg);
+          will-change: transform;
           animation: lsSpin 9s linear infinite;
         }
         @keyframes lsSpin {
@@ -124,6 +125,7 @@ export default function LoadingScreen({ progress = 0, fading = false, staticPose
         .ls-box {
           position: absolute;
           transform-style: preserve-3d;
+          will-change: transform;
           animation: lsWave 1.7s ease-in-out infinite;
         }
         @keyframes lsWave {
@@ -135,7 +137,7 @@ export default function LoadingScreen({ progress = 0, fading = false, staticPose
           left: 0;
           top: 0;
           border-radius: 2px;
-          box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.25);
+          backface-visibility: hidden;
         }
         .ls-readout {
           margin-top: 30px;
