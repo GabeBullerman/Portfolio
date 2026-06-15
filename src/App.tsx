@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useRef } from 'react'
+import { useState, lazy, Suspense, useRef, useEffect } from 'react'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import Experience from './components/Experience'
@@ -14,7 +14,15 @@ import LoadingScreen from './components/LoadingScreen'
 import { Analytics } from '@vercel/analytics/react'
 import { useTheme, setTheme, PALETTES } from './hooks/useTheme'
 
-const ThreePortfolio = lazy(() => import('./components/ThreePortfolio'))
+// Single import factory so we can both lazy-render AND prefetch the chunk.
+const importThreePortfolio = () => import('./components/ThreePortfolio')
+const ThreePortfolio = lazy(importThreePortfolio)
+let threePrefetched = false
+const prefetchThree = () => {
+  if (threePrefetched) return
+  threePrefetched = true
+  importThreePortfolio()  // warm the module cache (ThreePortfolio + three.js)
+}
 
 function MobileWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
@@ -101,7 +109,16 @@ export default function App() {
   const [showMobileWarning, setShowMobileWarning] = useState(false)
   const [skipMonitor, setSkipMonitor] = useState(false)
 
+  // Prefetch the 3D bundle while the browser is idle so clicking Explore
+  // doesn't stall on a chunk download — the loading screen shows instantly.
+  useEffect(() => {
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    if (ric) ric(prefetchThree)
+    else setTimeout(prefetchThree, 1500)
+  }, [])
+
   const handleExplore = () => {
+    prefetchThree()
     const isMobile = window.innerWidth < 768
     if (isMobile) {
       setShowMobileWarning(true)

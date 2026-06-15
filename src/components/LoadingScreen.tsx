@@ -169,7 +169,8 @@ export default function LoadingScreen({ progress = 0, fading = false, staticPose
           border-radius: 3px;
           background: var(--accent, #61dafb);
           box-shadow: 0 0 10px var(--accent-glow, rgba(97, 218, 251, 0.6));
-          transition: width 0.3s ease;
+          /* No width transition — the bar must track the numeric % exactly
+             (a transition makes the bar lag behind the number). */
         }
         /* Static fallback: even pose, ring keeps a calm spin (no per-block wave). */
         .ls-static .ls-box { animation: none; transform: rotateY(-18deg); }
