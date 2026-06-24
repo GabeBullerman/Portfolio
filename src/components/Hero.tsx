@@ -67,7 +67,7 @@ export default function Hero() {
           />
 
           <img
-            src="/images/me.jpg"
+            src="/images/Headshot.jpg"
             alt="Gabriel Bullerman"
             className="relative w-64 h-64 md:w-80 md:h-80 xl:w-[23rem] xl:h-[23rem] rounded-full object-cover"
             style={{
