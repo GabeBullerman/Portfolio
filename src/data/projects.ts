@@ -24,7 +24,7 @@ export const projectsData: Project[] = [
     subtitle: 'Full-Stack E-Commerce Platform',
     description:
       "A bespoke storefront and admin panel for Lusiant, a clothing brand, rebuilt from scratch on Next.js, Supabase, and Stripe. Its centerpiece is a hand-coded “self-drawing” floral hero animation — a custom vector-tracing pipeline — alongside an automated system that generates the brand’s adaptive favicon and wordmark from source artwork.",
-    image: '/images/lusiant.gif',
+    image: '/images/LusiantAnimation.gif',
     imageAlt: 'Lusiant',
     link: 'https://lusiant.vercel.app',
     tags: ['Next.js', 'React', 'TypeScript', 'Supabase', 'Stripe', 'Tailwind CSS'],
