@@ -13,6 +13,21 @@ import {
 } from 'react'
 
 import * as THREE from 'three'
+import { useCanvasStrategy } from '../../hooks/useCanvasStrategy'
+
+function MobilePoster({ label }: { label: string }) {
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
+      <span className="text-4xl mb-4 opacity-40" style={{ color: 'var(--accent)' }}>✧</span>
+      <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-subtle)' }}>
+        {label}
+      </p>
+      <p className="mt-2 text-base" style={{ color: 'var(--text-muted)' }}>
+        Best viewed on desktop
+      </p>
+    </div>
+  )
+}
 
 type DragState = {
   object: THREE.Mesh | null
@@ -220,6 +235,7 @@ export default function ScrollMotionPanel() {
     accent2: getCssVar('--accent-2', '#cbd5e1'),
   }))
   const scrollBoxRef = useRef<HTMLDivElement>(null)
+  const { renderCanvas, frameloop, dpr } = useCanvasStrategy(scrollBoxRef)
 
   useEffect(() => {
     const onThemeChange = (e: Event) => {
@@ -309,16 +325,20 @@ export default function ScrollMotionPanel() {
 
         <div
           ref={scrollBoxRef}
-          className="relative h-[520px] overflow-hidden rounded-3xl"
+          className="relative h-[260px] md:h-[520px] overflow-hidden rounded-3xl"
           style={{
             border: '1px solid var(--border)',
             background: 'linear-gradient(180deg, #111, #05070a)',
           }}
         >
-          <Canvas camera={{ position: [0, 0, 6], fov: 35 }} dpr={[1, 1.75]}>
-            <color attach="background" args={['#05070a']} />
-            <ScrollScene progress={progress} sceneColors={sceneColors} />
-          </Canvas>
+          {renderCanvas ? (
+            <Canvas camera={{ position: [0, 0, 6], fov: 35 }} dpr={dpr} frameloop={frameloop}>
+              <color attach="background" args={['#05070a']} />
+              <ScrollScene progress={progress} sceneColors={sceneColors} />
+            </Canvas>
+          ) : (
+            <MobilePoster label="Scroll Animation System" />
+          )}
 
           <div className="absolute left-5 top-5 flex flex-wrap gap-2">
             <div

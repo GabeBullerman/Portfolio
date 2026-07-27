@@ -2,6 +2,21 @@ import { Canvas, ThreeEvent, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { useCanvasStrategy } from '../../hooks/useCanvasStrategy'
+
+function MobilePoster({ label }: { label: string }) {
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
+      <span className="text-4xl mb-4 opacity-40" style={{ color: 'var(--accent)' }}>✦</span>
+      <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-subtle)' }}>
+        {label}
+      </p>
+      <p className="mt-2 text-base" style={{ color: 'var(--text-muted)' }}>
+        Best viewed on desktop
+      </p>
+    </div>
+  )
+}
 
 const galaxyParameters = {
   count: 30000,
@@ -139,6 +154,9 @@ export default function GalaxyPreview() {
     return () => window.removeEventListener('theme-change', onThemeChange)
   }, [])
 
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
+  const { renderCanvas, frameloop, dpr } = useCanvasStrategy(canvasWrapRef)
+
   return (
     <div
       className="group relative overflow-hidden rounded-3xl"
@@ -157,7 +175,7 @@ export default function GalaxyPreview() {
         }}
       />
 
-      <div className="relative p-8 md:p-10 min-h-[620px] flex flex-col">
+      <div className="relative p-8 md:p-10 md:min-h-[620px] flex flex-col">
         <div className="mb-8">
           <p
             className="text-sm uppercase tracking-[0.3em] mb-4 font-semibold"
@@ -190,7 +208,8 @@ export default function GalaxyPreview() {
         </div>
 
         <div
-          className="relative h-[520px] overflow-hidden rounded-3xl cursor-grab active:cursor-grabbing"
+          ref={canvasWrapRef}
+          className="relative h-[260px] md:h-[520px] overflow-hidden rounded-3xl cursor-grab active:cursor-grabbing"
           style={{
             border: '1px solid var(--border)',
             background:
@@ -198,37 +217,42 @@ export default function GalaxyPreview() {
             boxShadow: 'inset 0 0 45px rgba(0,0,0,0.55)',
           }}
         >
-          <Canvas
-            camera={{
-              position: [0, 3.2, 7],
-              fov: 62,
-            }}
-            dpr={[1, 1.75]}
-          >
-            <color attach="background" args={['#020617']} />
+          {renderCanvas ? (
+            <Canvas
+              camera={{
+                position: [0, 3.2, 7],
+                fov: 62,
+              }}
+              dpr={dpr}
+              frameloop={frameloop}
+            >
+              <color attach="background" args={['#020617']} />
 
-            <Stars
-              radius={90}
-              depth={45}
-              count={1000}
-              factor={3}
-              saturation={0}
-              fade
-              speed={0.35}
-            />
+              <Stars
+                radius={90}
+                depth={45}
+                count={1000}
+                factor={3}
+                saturation={0}
+                fade
+                speed={0.35}
+              />
 
-            <GalaxyParticles colors={themeColors} />
+              <GalaxyParticles colors={themeColors} />
 
-            <OrbitControls
-  target={[0, 0, 0]}
-  enableDamping
-  dampingFactor={0.06}
-  rotateSpeed={0.7}
-  zoomSpeed={0.7}
-  minDistance={5}
-  maxDistance={18}
-/>
-          </Canvas>
+              <OrbitControls
+                target={[0, 0, 0]}
+                enableDamping
+                dampingFactor={0.06}
+                rotateSpeed={0.7}
+                zoomSpeed={0.7}
+                minDistance={5}
+                maxDistance={18}
+              />
+            </Canvas>
+          ) : (
+            <MobilePoster label="WebGL Particle Playground" />
+          )}
 
           <div
             className="pointer-events-none absolute left-5 top-5 rounded-full px-4 py-2 text-xs"

@@ -50,13 +50,13 @@ export default function InteractiveShowcase() {
         <div className="page-container">
           <div ref={ref} className="flex flex-col gap-10">
             {ready ? (
-              <Suspense fallback={<div style={{ minHeight: '1300px' }} />}>
+              <Suspense fallback={<div className="min-h-[560px] md:min-h-[1300px]" />}>
                 <ScrollMotionPanel />
                 <GalaxyPreview />
               </Suspense>
             ) : (
               // Placeholder keeps layout stable while canvases are deferred
-              <div style={{ minHeight: '1300px' }} />
+              <div className="min-h-[560px] md:min-h-[1300px]" />
             )}
           </div>
         </div>
