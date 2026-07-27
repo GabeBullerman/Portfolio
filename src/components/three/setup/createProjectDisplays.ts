@@ -68,6 +68,17 @@ const TV_CONFIGS: TVConfig[] = [
     label: 'Rainfall Simulation GitHub',
     url:   'https://github.com/GabeBullerman/Watershed-Simulation',
   },
+  {
+    // Wayfarer Building — SorTrek (interior TV in the purple globe building)
+    // Texture asset name is legacy "WayFarer.png"; project rebranded to SorTrek.
+    screenTex: `${SCREENS_BASE}/textures/WayFarer.png`,
+    pos:   { x: -54.60, y: 1.20, z: -4.00 },
+    rotY:  -Math.PI / 4,
+    scale: 0.030,
+    zone:  { x: -52.5, z: -4.0, r: 2.5 },
+    label: 'SorTrek Site',
+    url:   'https://sortrek.vercel.app',
+  },
 ]
 
 // ── Load and place one TV, swapping the screen texture ────────────────────────

@@ -145,40 +145,9 @@ export function createBuildings(
   }, undefined, err => console.error('[buildings] slant store failed:', err))
 
   // ── Project Blvd west side — south of slant store ────────────────────────────
-  // Building mesh removed (bad normals) — replace with new GLB then re-enable.
-  // Hitboxes and FPV bounds kept in place so layout is ready when the mesh arrives.
-  // ── Wayfarer TV screen ────────────────────────────────────────────────────────
-  new GLTFLoader().load('/assets/outdoor/buildings/Project Screens/scene.gltf', gltf => {
-    const tv = gltf.scene.clone(true)
-    tv.scale.setScalar(0.030)
-    tv.position.set(-54.60, 1.20, -4.00)
-    tv.rotation.set(0, -Math.PI / 4, 0)
-    tv.traverse(c => {
-      if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true }
-    })
-    scene.add(tv)
-    movables.push({ name: '📺 Wayfarer: TV', group: tv, scaleObj: tv })
-
-    new THREE.TextureLoader().load(
-      '/assets/outdoor/buildings/Project Screens/textures/WayFarer.png',
-      tex => {
-        tex.colorSpace = THREE.SRGBColorSpace
-        tv.traverse(c => {
-          const mesh = c as THREE.Mesh
-          if (!mesh.isMesh) return
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-          mats.forEach((m, i) => {
-            if ((m as THREE.MeshBasicMaterial).name === 'screen') {
-              const newMat = (m as THREE.MeshBasicMaterial).clone()
-              newMat.map = tex; newMat.needsUpdate = true
-              if (Array.isArray(mesh.material)) mesh.material[i] = newMat
-              else mesh.material = newMat
-            }
-          })
-        })
-      }
-    )
-  }, undefined, err => console.error('[buildings] wayfarer TV failed:', err))
+  // Wayfarer TV moved into createProjectDisplays.ts (TV_CONFIGS) so it inherits
+  // the same interact-zone / interaction system as the Project Blvd TVs. See
+  // the SorTrek entry there.
 
   const wayHitMat = new THREE.MeshBasicMaterial({
     color: 0xff4422, transparent: true, opacity: 0,
